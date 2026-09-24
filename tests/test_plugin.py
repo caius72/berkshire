@@ -1,0 +1,150 @@
+"""Inspection tests over the plugin files: roles, tool boundaries, execution guardrails."""
+
+import json
+import re
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+ROLES = ("market-analyst", "sentiment-analyst", "news-analyst", "fundamentals-analyst", "bull-researcher",
+         "bear-researcher", "research-manager", "trader", "aggressive-analyst", "conservative-analyst",
+         "neutral-analyst", "portfolio-manager", "reflector")
+NO_WEB = ("bull-researcher", "bear-researcher", "research-manager", "trader", "aggressive-analyst",
+          "conservative-analyst", "neutral-analyst", "portfolio-manager", "reflector")
+
+
+def front(path: Path) -> tuple[dict, str]:
+    text = path.read_text()
+    m = re.match(r"---\n(.*?)\n---\n(.*)", text, re.DOTALL)
+    assert m, f"{path} has no frontmatter"
+    meta = dict(line.split(": ", 1) for line in m.group(1).splitlines() if ": " in line)
+    return meta, m.group(2)
+
+
+def agent(name):
+    return front(ROOT / "agents" / f"{name}.md")
+
+
+def skill(name):
+    return front(ROOT / "skills" / name / "SKILL.md")
+
+
+def tools(name):
+    return {t.strip() for t in agent(name)[0]["tools"].split(",")}
+
+
+def test_all_roles_present():
+    """TST-ROLE-01: One valid subagent per TradingAgents role plus the Reflector [REQ-ROLE-01]"""
+    assert sorted(p.stem for p in (ROOT / "agents").glob("*.md")) == sorted(ROLES)
+    for name in ROLES:
+        meta, body = agent(name)
+        assert meta["name"] == name and meta["description"] and meta["model"] in ("opus", "sonnet", "haiku", "fable")
+        assert "DONE <output file>" in body  # file-based hand-off protocol
+    assert json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())["name"] == "berkshire"
+
+
+def test_analyst_data_access():
+    """TST-ROLE-03: Analysts get their TradingAgents data sources [REQ-ROLE-03]"""
+    assert {"Bash", "Read", "Write"} <= tools("market-analyst") and "WebSearch" not in tools("market-analyst")
+    assert {"Bash", "Read", "Write"} <= tools("fundamentals-analyst")
+    for name in ("news-analyst", "sentiment-analyst"):
+        assert {"Bash", "WebSearch", "WebFetch"} <= tools(name)
+    body = {n: agent(n)[1] for n in ("market-analyst", "fundamentals-analyst", "news-analyst", "sentiment-analyst")}
+    for t in ("stock", "indicators", "snapshot"):
+        assert f"`{t}`" in body["market-analyst"]
+    for t in ("fundamentals", "balance_sheet", "cashflow", "income_statement", "insider"):
+        assert f"`{t}`" in body["fundamentals-analyst"]
+    assert "global_news" in body["news-analyst"] and "FRED" in body["news-analyst"] and "Polymarket" in body["news-analyst"]
+    assert "stocktwits" in body["sentiment-analyst"].lower() and "reddit" in body["sentiment-analyst"].lower()
+
+
+def test_deciders_have_no_external_tools():
+    """TST-ROLE-04: Researchers, debaters, managers and Trader have only Read/Write [REQ-ROLE-04]"""
+    for name in NO_WEB:
+        assert tools(name) <= {"Read", "Write"}, name
+
+
+PERSONA = {
+    "bull-researcher": ["Growth Potential", "Competitive Advantages", "Bear Counterpoints", "open with your own case"],
+    "bear-researcher": ["Risks and Challenges", "Competitive Weaknesses", "Bull Counterpoints"],
+    "research-manager": ["**Buy**", "**Underweight**", "conflict alone is not a reason to Hold",
+                         "regardless of which side spoke first or last", '"recommendation"'],
+    "trader": ["absolute price levels", "never as a percentage or a range", "Overweight is a Buy", '"stop_loss"'],
+    "aggressive-analyst": ["high-reward, high-risk"], "conservative-analyst": ["protect assets, minimize volatility"],
+    "neutral-analyst": ["balanced perspective"],
+    "portfolio-manager": ["**Rating Scale**", "conflict alone is not a reason to Hold", "lessons from prior decisions",
+                          '"price_target"'],
+    "market-analyst": ["source of truth", "flag the discrepancy", "Markdown table"],
+    "fundamentals-analyst": ["red flags", "Markdown table"], "news-analyst": ["Markdown table"],
+    "sentiment-analyst": ["70/30", "Distinguish opinion from event", '"overall_score"'],
+    "reflector": ["2-4 sentences", "too short to judge"],
+}
+
+
+@pytest.mark.parametrize("name", sorted(PERSONA))
+def test_persona_directives(name):
+    """TST-ROLE-05: Each persona keeps the TradingAgents prompt's substantive directives [REQ-ROLE-05]"""
+    body = agent(name)[1]
+    for phrase in PERSONA[name]:
+        assert phrase in body, f"{name}: missing {phrase!r}"
+
+
+def test_market_indicator_catalogue():
+    """TST-ROLE-06: Market Analyst picks up to 8 indicators from the full catalogue [REQ-ROLE-06]"""
+    from berkshire.data import INDICATORS
+    body = agent("market-analyst")[1]
+    assert "up to **8 indicators**" in body
+    for name in INDICATORS:
+        assert f"- {name}:" in body
+
+
+def test_orders_only_via_dedicated_tools():
+    """TST-EXE-01: Opens/closes go through prepare/place tools, never execute-write [REQ-EXE-01]"""
+    _, body = skill("approve")
+    for t in ("prepare-trade", "place-trade", "prepare-close", "place-close"):
+        assert t in body
+    assert "never use\n`execute-write`" in body or "never use `execute-write`" in body
+    for name in ("analyze", "tick", "approve", "backtest"):
+        meta, _ = skill(name)
+        assert not re.search(r"place-(trade|close)|execute-write", meta.get("allowed-tools", "")), name
+
+
+def test_human_approval_gate():
+    """TST-EXE-02: place-* only after a per-order AskUserQuestion; unattended skills never place [REQ-EXE-02]"""
+    _, approve = skill("approve")
+    assert "One approval per order, and one approval per eToro call" in approve
+    assert approve.index("AskUserQuestion") < approve.index("then `place-trade` with the token")
+    _, tick = skill("tick")
+    assert "never places orders" in tick and "Ask the user nothing" in tick
+    assert "place-trade` or `place-close` from this skill" in skill("analyze")[1]
+    assert "Never run `gate`, `enqueue`, or any eToro tool" in skill("backtest")[1]
+
+
+def test_account_shown_in_confirmation():
+    """TST-EXE-08: The approval confirmation names the account (DEMO/REAL) [REQ-EXE-03]"""
+    assert "the account (DEMO or REAL)" in skill("approve")[1]
+
+
+def test_pending_and_unknown_outcomes():
+    """TST-EXE-05: pending is never re-placed; unknown retries once with the same token [REQ-EXE-05]"""
+    body = skill("approve")[1]
+    assert "`pending` → `pending_fill` (do NOT place again)" in body
+    assert "retry `place-trade`\n     once with the **same token**" in body or "once with the **same token**" in body
+
+
+def test_settle_before_run():
+    """TST-MEM-07: analyze and tick settle/reflect before starting new runs [REQ-MEM-07]"""
+    for name in ("analyze", "tick"):
+        body = skill(name)[1]
+        assert body.index("berkshire settle") < body.index("berkshire init"), name
+        assert "berkshire settle --apply" in body
+
+
+def test_pipeline_loop_dispatch():
+    """TST-FLOW-10: The shared loop dispatches due steps in parallel and submits each [REQ-FLOW-02, REQ-FLOW-08]"""
+    body = (ROOT / "skills" / "analyze" / "pipeline-loop.md").read_text()
+    assert "all in the same message" in body and "berkshire submit RUN <id>" in body
+    assert "Never decide the order yourself" in body
+    for name in ("analyze", "tick", "backtest"):
+        assert "pipeline-loop.md" in skill(name)[1]

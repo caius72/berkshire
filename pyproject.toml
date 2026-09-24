@@ -1,0 +1,21 @@
+[project]
+name = "berkshire"
+version = "0.1.0"
+description = "TradingAgents-style multi-agent trading engine for a Claude Code plugin, executing via the eToro MCP"
+requires-python = ">=3.11"
+dependencies = ["yfinance>=0.2.54", "pandas>=2.0"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[project.scripts]
+berkshire = "berkshire.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,14 @@
+{
+  "name": "berkshire-local",
+  "description": "Local marketplace for the Berkshire trading plugin",
+  "owner": {
+    "name": "Kai Tuschner"
+  },
+  "plugins": [
+    {
+      "name": "berkshire",
+      "source": "./",
+      "description": "TradingAgents-style multi-agent trading plugin with eToro execution"
+    }
+  ]
+}
