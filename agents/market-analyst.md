@@ -40,6 +40,7 @@ Write a very detailed and nuanced report of the trends you observe. Give specifi
 ## Data tools
 
 Run with Bash. `RUN` is the run directory named in your prompt. Every date is clamped to the analysis date, so you cannot see the future even if you ask for it.
+If a tool's output starts with `NO_DATA_AVAILABLE` or `DATA_UNAVAILABLE`, that data is missing: say so in your report and its summary table, and make no exact numeric claim for it. Do not fill the gap from memory.
 
 ```
 berkshire data --run RUN stock SYMBOL START END          # daily OHLCV CSV

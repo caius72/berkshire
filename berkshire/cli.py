@@ -144,8 +144,10 @@ def cmd_data(a, cfg):
             out = f"Unknown tool {a.tool!r}. Tools: {', '.join(data.TOOLS)}"
     except IndexError:
         out = f"Missing arguments for {a.tool}. See the tool list in your instructions."
-    except Exception as exc:  # noqa: BLE001 - REQ-DATA-06: readable error, never a traceback
-        out = f"Data tool {a.tool} failed for {x}: {type(exc).__name__}: {exc}"
+    except data.NoData as exc:  # REQ-DATA-06: the source had nothing for this instrument/date
+        out = data.no_data(str(exc))
+    except Exception as exc:  # noqa: BLE001 - REQ-DATA-06: readable, marked, never a traceback
+        out = data.unavailable(f"data tool {a.tool} failed for {' '.join(x)}: {type(exc).__name__}: {exc}.")
     print(out)
 
 

@@ -83,14 +83,22 @@ def test_news_window_and_gap():
 
 
 def test_tool_errors_are_readable(cfg, log, capsys, monkeypatch):
-    """TST-DATA-06: A failing data tool prints a readable error line, not a traceback [REQ-DATA-06]"""
+    """TST-DATA-06: Failures are marked DATA_UNAVAILABLE (keeping the cause), empty sources NO_DATA_AVAILABLE, never a traceback [REQ-DATA-06]"""
     state = new_run(cfg, log)
+    run = ["data", "--run", state["run_dir"]]
     monkeypatch.setattr(data, "_ticker", lambda s: (_ for _ in ()).throw(ConnectionError("yahoo down")))
-    assert main(["data", "--run", state["run_dir"], "snapshot", "NVDA"]) == 0
+    assert main(run + ["snapshot", "NVDA"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("Data tool snapshot failed") and "yahoo down" in out and "Traceback" not in out
-    main(["data", "--run", state["run_dir"], "indicators"])
-    assert "Missing arguments" in capsys.readouterr().out
+    assert out.startswith("DATA_UNAVAILABLE: data tool snapshot failed for NVDA: ConnectionError: yahoo down.")
+    assert data.DIRECTIVE in out and "Traceback" not in out
+    FakeTicker.frames["EMPTY"] = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"], index=pd.DatetimeIndex([]))
+    monkeypatch.setattr(data, "_ticker", FakeTicker)
+    main(run + ["snapshot", "EMPTY"])
+    out = capsys.readouterr().out
+    assert out.startswith("NO_DATA_AVAILABLE: No OHLCV data for EMPTY on or before 2026-09-18.") and data.DIRECTIVE in out
+    main(run + ["indicators"])                                     # usage errors are not data errors
+    out = capsys.readouterr().out
+    assert "Missing arguments" in out and "DATA_UNAVAILABLE" not in out and "NO_DATA_AVAILABLE" not in out
 
 
 def test_current_sources_labelled(cfg, log):
@@ -185,4 +193,31 @@ def test_valuation_annual_fallback_and_edge_cases(monkeypatch):
     assert "pe" not in v and any("different split bases" in n for n in v["notes"]) and v["market_cap"] == 2995.0
     # No close near the date.
     old = data.tool_valuation("ACME", "2020-01-01")
-    assert "No valuation figures available." in old and "valuation unavailable" in old
+    assert old.startswith("NO_DATA_AVAILABLE: No valuation figures for ACME as of 2020-01-01.") and "No close" in old
+
+
+def test_every_empty_source_is_marked(monkeypatch):
+    """TST-DATA-11: Every tool's nothing-to-report answer starts with NO_DATA_AVAILABLE and the do-not-fabricate directive [REQ-DATA-06]"""
+    empty = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"], index=pd.DatetimeIndex([]))
+    FakeTicker.frames["EMPTY"] = empty
+
+    class Bare(FakeTicker):
+        info = {}
+        insider_transactions = pd.DataFrame()
+        quarterly_income_stmt = quarterly_balance_sheet = quarterly_cashflow = pd.DataFrame()
+        income_stmt = balance_sheet = cashflow = pd.DataFrame()
+    monkeypatch.setattr(data, "_ticker", Bare)
+    answers = {
+        "stock": data.tool_stock("EMPTY", "2026-09-01", TD, TD),
+        "fundamentals": data.tool_fundamentals("EMPTY", TD),
+        "statement": data.tool_statement("EMPTY", "cashflow", "quarterly", TD),
+        "insider": data.tool_insider("EMPTY", TD),
+        "valuation": data.tool_valuation("EMPTY", TD),
+    }
+    for tool, out in answers.items():
+        assert out.startswith("NO_DATA_AVAILABLE: ") and out.endswith(data.DIRECTIVE), (tool, out)
+    monkeypatch.setattr(data, "_ticker", FakeTicker)               # filed-by cutoff: nothing filed yet
+    assert data.tool_statement("NVDA", "income_statement", "annual", "2026-02-01").startswith("NO_DATA_AVAILABLE: ")
+    assert data.tool_insider("NVDA", "2026-08-01").startswith("NO_DATA_AVAILABLE: ")
+    with pytest.raises(data.NoData):
+        data.tool_snapshot("EMPTY", TD, TD)

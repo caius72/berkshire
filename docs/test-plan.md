@@ -56,6 +56,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-ROLE-03 | Analysts get their TradingAgents data sources | REQ-ROLE-03 | I | Tool sets per analyst; each analyst persona names its data tools (market: stock/indicators/snapshot; fundamentals: statements+insider; news: global_news/FRED/Polymarket; sentiment: StockTwits/Reddit). |
 | TST-ROLE-04 | Researchers, debaters, managers and Trader have only Read/Write | REQ-ROLE-04 | I | For 9 decision roles: tools ⊆ {Read, Write}. |
 | TST-ROLE-05 | Each persona keeps the TradingAgents prompt's substantive directives | REQ-ROLE-05 | I | Parametrised phrase table per role (focus points, stances, anti-Hold rule, absolute price levels, JSON field names, markdown table). |
+| TST-ROLE-07 | Every analyst treats NO_DATA_AVAILABLE / DATA_UNAVAILABLE output as missing data, not a finding | REQ-DATA-06, REQ-ROLE-05 | I | The four analyst personas name both markers; the three data-tool personas forbid numeric claims and gap-filling. |
 | TST-ROLE-06 | Market Analyst picks up to 8 indicators from the full catalogue | REQ-ROLE-06 | I | Persona lists every name in `data.INDICATORS` and the "up to 8" rule. |
 | TST-FLOW-01 | A full run visits the teams in TradingAgents order | REQ-FLOW-01 | T | Canned run, default config; flattened step trace equals the expected 12-step sequence. |
 | TST-FLOW-02 | Selected analysts are offered as one parallel batch; debate waits for all | REQ-FLOW-02 | T | First `next_steps` = 4 analysts; after 3 submits only the 4th is due. |
@@ -97,7 +98,8 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-DATA-03 | Indicators match hand-computed values; unknown names list the valid ones | REQ-DATA-03 | T | Hand oracles on the linear series; all 12 compute; invalid names. |
 | TST-DATA-04 | Statements need period end + filing lag <= trade date; later insider rows dropped | REQ-DATA-04 | T | Boundary 09-13 vs 09-14 for a 07-31 quarter; annual none filed; insider after date dropped. |
 | TST-DATA-05 | News is trimmed to the window; an unobserved window is flagged, not called empty | REQ-DATA-05 | T | Old/in-window/future items across both yfinance news shapes; gap marker when the feed starts after the window start. |
-| TST-DATA-06 | A failing data tool prints a readable error line, not a traceback | REQ-DATA-06 | T | Vendor raises; missing args. |
+| TST-DATA-06 | Failures are marked DATA_UNAVAILABLE (keeping the cause), empty sources NO_DATA_AVAILABLE, never a traceback | REQ-DATA-06 | T | Vendor raises → DATA_UNAVAILABLE with the exception; empty price history → NO_DATA_AVAILABLE; missing args stay a plain usage error. |
+| TST-DATA-11 | Every tool's nothing-to-report answer starts with NO_DATA_AVAILABLE and the do-not-fabricate directive | REQ-DATA-06 | T | Empty stubs for stock, fundamentals, statements, insider, valuation; filed-by and on-or-before cutoffs; snapshot raises NoData. |
 | TST-DATA-08 | Past-dated fundamentals show identity only; today's run shows the full profile | REQ-DATA-07 | T | A profile stub with valuation, growth and 52-week fields: none appear on a past date, all appear today. |
 | TST-DATA-09 | Valuation uses the close on the date, 4 filed quarters of EPS and the newest filed balance sheet | REQ-DATA-08 | T | Yahoo-shaped statements; an unfiled quarter is excluded from TTM; P/E, market cap and P/B by hand. |
 | TST-DATA-10 | Annual EPS when <4 quarters are filed; losses, negative equity, stale and mismatched inputs are explicit | REQ-DATA-08 | T | Annual fallback label; n/m for losses and negative equity; > 400-day input unavailable; a 10× EPS basis mismatch withholds P/E; no close. |
@@ -274,7 +276,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-ROLE-02 | TST-ROLE-02 |
 | REQ-ROLE-03 | TST-ROLE-03 |
 | REQ-ROLE-04 | TST-ROLE-04 |
-| REQ-ROLE-05 | TST-ROLE-05 |
+| REQ-ROLE-05 | TST-ROLE-05, TST-ROLE-07 |
 | REQ-ROLE-06 | TST-ROLE-06 |
 | REQ-FLOW-01 | TST-FLOW-01 |
 | REQ-FLOW-02 | TST-FLOW-02, TST-FLOW-10 |
@@ -310,7 +312,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-DATA-03 | TST-DATA-03 |
 | REQ-DATA-04 | TST-DATA-04 |
 | REQ-DATA-05 | TST-DATA-05 |
-| REQ-DATA-06 | TST-DATA-06 |
+| REQ-DATA-06 | TST-DATA-06, TST-DATA-11, TST-ROLE-07 |
 | REQ-DATA-07 | TST-DATA-07, TST-DATA-08 |
 | REQ-DATA-08 | TST-DATA-09, TST-DATA-10 |
 | REQ-IF-01 | TST-IF-01 |

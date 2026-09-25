@@ -31,6 +31,26 @@ FILING_LAG = {"quarterly": 45, "annual": 90}  # REQ-DATA-04
 CURRENT_NOTE = "(Source describes the instrument as of today, not necessarily as of {date}.)"
 
 
+# --- no-data sentinels (REQ-DATA-06) ---------------------------------------
+# Every "nothing to report" answer starts with one of these, so the analyst cannot
+# mistake it for a finding or fill the gap from memory (TradingAgents #1408).
+NO_DATA = "NO_DATA_AVAILABLE"        # the source has nothing for this instrument/date
+UNAVAILABLE = "DATA_UNAVAILABLE"     # the call failed (network, vendor error, bug)
+DIRECTIVE = "Report this data as unavailable; do not estimate, recall or fabricate values for it."
+
+
+class NoData(ValueError):
+    """The source answered, with nothing usable for this instrument and date."""
+
+
+def no_data(message: str) -> str:
+    return f"{NO_DATA}: {message} {DIRECTIVE}"
+
+
+def unavailable(message: str) -> str:
+    return f"{UNAVAILABLE}: {message} {DIRECTIVE}"
+
+
 def _ticker(symbol: str):
     import yfinance as yf
     return yf.Ticker(symbol)
@@ -133,7 +153,7 @@ def _history_for(symbol: str, trade_date: str) -> pd.DataFrame:
     start = (_d(trade_date) - timedelta(days=400)).strftime("%Y-%m-%d")
     df = ohlcv(symbol, start, trade_date)
     if df.empty:
-        raise ValueError(f"No OHLCV data available for {symbol} on or before {trade_date}.")
+        raise NoData(f"No OHLCV data for {symbol} on or before {trade_date}.")
     return df
 
 
@@ -141,7 +161,7 @@ def tool_stock(symbol: str, start: str, end: str, trade_date: str) -> str:
     start, end = as_of_window(start, end, trade_date)
     df = ohlcv(symbol, start, end)
     if df.empty:
-        return f"No price data for {symbol} between {start} and {end}."
+        return no_data(f"No price data for {symbol} between {start} and {end}.")
     return f"# {symbol} daily OHLCV {start}..{end} (no rows after {trade_date})\n" + df.round(4).to_csv()
 
 
@@ -229,7 +249,7 @@ def tool_fundamentals(symbol: str, trade_date: str) -> str:
     fields = IDENTITY_FIELDS if past else _FUNDAMENTAL_FIELDS
     rows = [f"| {k} | {info[k]} |" for k in fields if info.get(k) is not None]
     if not rows:
-        return f"No fundamentals available for {symbol}."
+        return no_data(f"No fundamentals for {symbol}.")
     out = f"# {symbol} company fundamentals {CURRENT_NOTE.format(date=trade_date) if past else ''}\n\n"
     out += "| Field | Value |\n|---|---|\n" + "\n".join(rows)
     if past:
@@ -339,7 +359,9 @@ def tool_valuation(symbol: str, trade_date: str) -> str:
     if "pb" in v:
         pb = "n/m (negative equity)" if v["pb"] is None else f"{v['pb']:.2f}"
         rows.append(f"| P/B | {pb} | market cap / equity |")
-    body = ("| Figure | Value | Basis |\n|---|---:|---|\n" + "\n".join(rows)) if rows else "No valuation figures available."
+    if not rows:
+        return no_data(f"No valuation figures for {symbol} as of {trade_date}. " + " ".join(v["notes"]))
+    body = "| Figure | Value | Basis |\n|---|---:|---|\n" + "\n".join(rows)
     notes = "".join(f"\n- {n}" for n in v["notes"])
     return (f"# {symbol} valuation as of {trade_date} (point-in-time)\n\n{body}\n\n"
             f"Inputs are the close on or before {trade_date} and statements filed by then (filing date approximated "
@@ -362,10 +384,10 @@ def tool_statement(symbol: str, kind: str, freq: str, trade_date: str) -> str:
     t = _ticker(symbol)
     df = getattr(t, ("quarterly_" if freq == "quarterly" else "") + attr)
     if df is None or df.empty:
-        return f"No {kind} data for {symbol}."
+        return no_data(f"No {freq} {kind} data for {symbol}.")
     df = filter_filed(df, freq, trade_date)
     if df.empty:
-        return f"No {freq} {kind} for {symbol} had been filed by {trade_date}."
+        return no_data(f"No {freq} {kind} for {symbol} had been filed by {trade_date}.")
     df.columns = [pd.Timestamp(c).strftime("%Y-%m-%d") for c in df.columns]
     return (f"# {symbol} {freq} {kind} (periods filed by {trade_date}; filing date approximated as period end "
             f"+ {FILING_LAG[freq]} days)\n" + df.to_csv())
@@ -374,11 +396,11 @@ def tool_statement(symbol: str, kind: str, freq: str, trade_date: str) -> str:
 def tool_insider(symbol: str, trade_date: str) -> str:
     df = _ticker(symbol).insider_transactions
     if df is None or df.empty:
-        return f"No insider transactions for {symbol}."
+        return no_data(f"The source has no insider transactions for {symbol}.")
     if "Start Date" in df.columns:
         df = df[pd.to_datetime(df["Start Date"]).dt.tz_localize(None) <= pd.Timestamp(trade_date)]
     if df.empty:
-        return f"No insider transactions for {symbol} on or before {trade_date}."
+        return no_data(f"No insider transactions for {symbol} on or before {trade_date}.")
     return f"# {symbol} insider transactions on or before {trade_date}\n" + df.head(30).to_csv(index=False)
 
 
