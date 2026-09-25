@@ -117,7 +117,10 @@ jobs:
       - name: scan the full history
         run: gitleaks git --redact --verbose --exit-code 1 .
 
-  # SAST for the Python engine/server and the React view (REQ-CI-05).
+  # SAST for the Python engine/server and the React view (REQ-CI-05). Code scanning
+  # (the Security tab) needs GitHub Code Security on a private repository, so results
+  # are not uploaded: the SARIF is kept as an artifact and any finding fails the job.
+  # Once code scanning is enabled, set `upload: always` and drop the gate step.
   sast:
     runs-on: ubuntu-latest
     permissions:
@@ -137,3 +140,23 @@ jobs:
       - uses: github/codeql-action/analyze@v3
         with:
           category: /language:${{ matrix.language }}
+          upload: never
+          output: sarif-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codeql-${{ matrix.language }}
+          path: sarif-results
+      - name: fail on findings
+        run: |
+          python3 - <<'PY'
+          import glob, json, sys
+          found = [(r["ruleId"], r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],
+                    r["locations"][0]["physicalLocation"]["region"].get("startLine"))
+                   for f in glob.glob("sarif-results/*.sarif")
+                   for run in json.load(open(f))["runs"] for r in run.get("results", [])]
+          for rule, uri, line in found:
+              print(f"::error file={uri},line={line}::CodeQL {rule}")
+          print(f"{len(found)} CodeQL finding(s)")
+          sys.exit(1 if found else 0)
+          PY

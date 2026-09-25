@@ -71,6 +71,8 @@ def test_codeql_languages():
     assert job["permissions"]["security-events"] == "write" and job["permissions"]["actions"] == "read"
     init = next(s for s in job["steps"] if s.get("uses", "").startswith("github/codeql-action/init@"))
     assert init["with"]["queries"] == "security-extended"
+    # Without code scanning (private repo), findings must still fail the job, not vanish.
+    assert "fail on findings" in [s.get("name") for s in job["steps"]] and "sys.exit(1 if found" in runs("sast")
 
 
 def test_core_job_proves_optional_tui():

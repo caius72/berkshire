@@ -169,7 +169,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-CI-02 | ruff is pinned in CI and the rule set includes bandit security checks | REQ-CI-02 | I | ci.yml env + ruff.toml. |
 | TST-CI-03 | The test job runs every extra under branch coverage with a ratcheting floor and publishes the report | REQ-CI-03 | I | ci.yml + [tool.coverage]. |
 | TST-CI-04 | gitleaks scans the full history on every push and PR | REQ-CI-04 | I | fetch-depth 0, pinned gitleaks binary, `gitleaks git .` with no commit range. |
-| TST-CI-05 | CodeQL analyses Python and JavaScript with security-extended queries | REQ-CI-05 | I | sast matrix and permissions. |
+| TST-CI-05 | CodeQL analyses Python and JavaScript with security-extended queries | REQ-CI-05 | I | sast matrix, permissions, and a gate step that fails on any SARIF result. |
 | TST-CI-06 | The core job installs no extras, asserts textual is absent and checks the tui hint | REQ-CI-06 | I | core job commands; textual only in the extra. |
 | TST-CI-07 | The webui job runs npm ci, the node tests and the vite build | REQ-CI-07 | I | webui job + package.json + lockfile. |
 | TST-CI-08 | Read-only default permissions, versioned actions, locked installs | REQ-CI-08 | I | Every `uses:` ends in `@vN`. |
