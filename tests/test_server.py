@@ -143,6 +143,9 @@ def test_start_job(api, spawned):
         status, err = server.route("POST", "/api/jobs", bad, api)
         assert status == 400 and msg in err["error"]
     assert len(spawned) == 1
+    # No date given: the job uses the engine's clock (the one validation uses), not the system's.
+    from conftest import TODAY
+    assert server.route("POST", "/api/jobs", {"ticker": "AMD"}, api)[1]["date"] == TODAY
     api._procs[job["id"]] = FakeProc(code=1)
     assert api.job(job["id"])["status"] == "failed (1)"
 

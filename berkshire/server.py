@@ -33,7 +33,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from . import backtest, config, pipeline
+from . import backtest, config, data, pipeline
 from .memory import DecisionLog
 from .orders import Queue
 
@@ -134,7 +134,8 @@ class Api:
     # jobs (REQ-UI-06)
     def start_job(self, body: dict) -> dict:
         ticker = config.safe_component(str(body.get("ticker", "")).strip().upper())
-        date = pipeline.validate_date(str(body.get("date") or datetime.now().strftime("%Y-%m-%d")))
+        # data.today() is the one clock the date validation uses too.
+        date = pipeline.validate_date(str(body.get("date") or data.today()))
         args = [ticker, date]
         if body.get("analysts"):
             chosen = pipeline.select_analysts(list(body["analysts"]), pipeline.detect_asset_type(ticker))

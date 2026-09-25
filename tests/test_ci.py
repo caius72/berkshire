@@ -58,14 +58,17 @@ def test_secret_scanning_full_history():
     """TST-CI-04: gitleaks scans the full history on every push and PR [REQ-CI-04]"""
     checkout = steps("secrets")[0]
     assert checkout["uses"].startswith("actions/checkout@") and checkout["with"]["fetch-depth"] == 0
-    assert any(u.startswith("gitleaks/gitleaks-action@") for u in uses("secrets"))
+    assert re.fullmatch(r"\d+\.\d+\.\d+", WF["jobs"]["secrets"]["env"]["GITLEAKS_VERSION"])
+    scan = runs("secrets")
+    # `gitleaks git .` with no --log-opts range scans every commit; a leak fails the job.
+    assert "gitleaks git " in scan and "--log-opts" not in scan and "--exit-code 1" in scan
 
 
 def test_codeql_languages():
     """TST-CI-05: CodeQL analyses Python and JavaScript with security-extended queries [REQ-CI-05]"""
     job = WF["jobs"]["sast"]
     assert set(job["strategy"]["matrix"]["language"]) == {"python", "javascript-typescript"}
-    assert job["permissions"]["security-events"] == "write"
+    assert job["permissions"]["security-events"] == "write" and job["permissions"]["actions"] == "read"
     init = next(s for s in job["steps"] if s.get("uses", "").startswith("github/codeql-action/init@"))
     assert init["with"]["queries"] == "security-extended"
 

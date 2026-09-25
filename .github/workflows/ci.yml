@@ -99,22 +99,30 @@ jobs:
       - run: test -f dist/index.html
 
   # Secret-leak detection over the whole history, not just the diff: a key committed
-  # and then deleted is still leaked (REQ-CI-04).
+  # and then deleted is still leaked (REQ-CI-04). The gitleaks binary runs directly,
+  # not gitleaks-action: the action scans only the pushed range, and on a repository's
+  # first push that range starts at a parent that does not exist, so the scan fails.
   secrets:
     runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: "8.24.3"
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: install gitleaks
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - name: scan the full history
+        run: gitleaks git --redact --verbose --exit-code 1 .
 
   # SAST for the Python engine/server and the React view (REQ-CI-05).
   sast:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read            # private repos: CodeQL reads the workflow run
       security-events: write
     strategy:
       fail-fast: false

@@ -8,8 +8,6 @@ come from the SSE stream. Needs the optional `tui` extra (textual).
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -30,6 +28,8 @@ from textual.widgets import (
     TabbedContent,
     TabPane,
 )
+
+from . import data
 
 STATUS_STYLE = {"done": "[green]✔ done[/]", "in progress": "[yellow]◐ in progress[/]", "pending": "[dim]○ pending[/]"}
 SIGNAL_STYLE = {"Buy": "bold green", "Overweight": "green", "Hold": "yellow", "Underweight": "red",
@@ -53,7 +53,7 @@ class NewAnalysis(ModalScreen):
         with Vertical(id="form"):
             yield Label("New analysis", id="form-title")
             yield Input(placeholder="Ticker, e.g. NVDA, RHM.DE, BTC-USD", id="ticker")
-            yield Input(value=datetime.now().strftime("%Y-%m-%d"), placeholder="YYYY-MM-DD", id="date")
+            yield Input(value=data.today(), placeholder="YYYY-MM-DD", id="date")
             yield Input(value="market,social,news,fundamentals", id="analysts")
             yield Select([("Shallow (1 round)", "shallow"), ("Medium (3)", "medium"), ("Deep (5)", "deep")],
                          value="shallow", allow_blank=False, id="depth")
