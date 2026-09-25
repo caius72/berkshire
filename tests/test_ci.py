@@ -73,6 +73,9 @@ def test_codeql_languages():
     assert init["with"]["queries"] == "security-extended"
     # Without code scanning (private repo), findings must still fail the job, not vanish.
     assert "fail on findings" in [s.get("name") for s in job["steps"]] and "sys.exit(1 if found" in runs("sast")
+    # Every accepted finding is a specific rule in a specific file, with a date and a reason.
+    for r in json.loads((ROOT / ".github" / "codeql-reviewed.json").read_text()):
+        assert set(r) == {"rule", "file", "reviewed", "reason"} and (ROOT / r["file"]).is_file() and len(r["reason"]) > 80
 
 
 def test_core_job_proves_optional_tui():

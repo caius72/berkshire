@@ -119,7 +119,8 @@ jobs:
 
   # SAST for the Python engine/server and the React view (REQ-CI-05). Code scanning
   # (the Security tab) needs GitHub Code Security on a private repository, so results
-  # are not uploaded: the SARIF is kept as an artifact and any finding fails the job.
+  # are not uploaded: the SARIF is kept as an artifact and any finding fails the job,
+  # except rule+file pairs triaged in .github/codeql-reviewed.json, each with its reason.
   # Once code scanning is enabled, set `upload: always` and drop the gate step.
   sast:
     runs-on: ubuntu-latest
@@ -151,12 +152,18 @@ jobs:
         run: |
           python3 - <<'PY'
           import glob, json, sys
-          found = [(r["ruleId"], r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],
-                    r["locations"][0]["physicalLocation"]["region"].get("startLine"))
-                   for f in glob.glob("sarif-results/*.sarif")
-                   for run in json.load(open(f))["runs"] for r in run.get("results", [])]
-          for rule, uri, line in found:
-              print(f"::error file={uri},line={line}::CodeQL {rule}")
-          print(f"{len(found)} CodeQL finding(s)")
+          reviewed = {(r["rule"], r["file"]): r["reason"] for r in json.load(open(".github/codeql-reviewed.json"))}
+          found = []
+          for f in glob.glob("sarif-results/*.sarif"):
+              for run in json.load(open(f))["runs"]:
+                  for r in run.get("results", []):
+                      loc = r["locations"][0]["physicalLocation"]
+                      uri, line = loc["artifactLocation"]["uri"], loc["region"].get("startLine")
+                      if (r["ruleId"], uri) in reviewed:
+                          print(f"::notice file={uri},line={line}::CodeQL {r['ruleId']} (reviewed)")
+                      else:
+                          print(f"::error file={uri},line={line}::CodeQL {r['ruleId']}: {r['message']['text']}")
+                          found.append(r)
+          print(f"{len(found)} unreviewed CodeQL finding(s)")
           sys.exit(1 if found else 0)
           PY

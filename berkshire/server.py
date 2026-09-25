@@ -70,6 +70,16 @@ def static_path(dist: Path, urlpath: str) -> Path:
 
 # --- state access -------------------------------------------------------------
 
+def inside(base: Path, *parts: str) -> Path:
+    """base/parts, refusing anything that resolves outside base. Defense in depth behind
+    safe_component, in the normalise-then-prefix form static analysers recognise."""
+    root = os.path.realpath(base)
+    full = os.path.realpath(os.path.join(root, *parts))
+    if not full.startswith(root + os.sep):
+        raise ValueError(f"path escapes {base}: {'/'.join(parts)!r}")
+    return Path(full)
+
+
 def _read_json(path: Path, default=None):
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -106,7 +116,7 @@ class Api:
         return sorted(out, key=lambda r: (r["date"], r["updated"]), reverse=True)
 
     def run(self, ticker: str, date: str) -> dict | None:
-        rdir = self.runs_dir / config.safe_component(ticker) / config.safe_component(date)
+        rdir = inside(self.runs_dir, config.safe_component(ticker), config.safe_component(date))
         state = _read_json(rdir / "state.json")
         if not state:
             return None
@@ -141,9 +151,11 @@ class Api:
             chosen = pipeline.select_analysts(list(body["analysts"]), pipeline.detect_asset_type(ticker))
             args += ["--analysts", ",".join(chosen)]
         if body.get("depth"):
-            if str(body["depth"]).lower() not in pipeline.DEPTH:
+            # The constant from DEPTH, not the request's string, goes on the command line.
+            depth = next((k for k in pipeline.DEPTH if k == str(body["depth"]).lower()), None)
+            if depth is None:
                 raise ValueError(f"depth must be one of {', '.join(pipeline.DEPTH)}")
-            args += ["--depth", str(body["depth"]).lower()]
+            args += ["--depth", depth]
         job_id = uuid.uuid4().hex[:8]
         log = self.home / "jobs" / f"{job_id}.log"
         log.parent.mkdir(parents=True, exist_ok=True)
@@ -158,7 +170,7 @@ class Api:
         return self.job(job_id)
 
     def job(self, job_id: str) -> dict | None:
-        job = self._jobs.get(job_id) or _read_json(self.home / "jobs" / f"{config.safe_component(job_id)}.json")
+        job = self._jobs.get(job_id) or _read_json(inside(self.home / "jobs", f"{config.safe_component(job_id)}.json"))
         if not job:
             return None
         proc = self._procs.get(job_id)

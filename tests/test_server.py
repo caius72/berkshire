@@ -179,6 +179,10 @@ def test_sse_stream(live, cfg, log):
 
 def test_static_paths(tmp_path):
     """TST-UI-10: Static files resolve inside dist only; traversal falls back to index.html [REQ-UI-02]"""
+    assert server.inside(tmp_path, "a", "b.json") == (tmp_path / "a" / "b.json").resolve()
+    for evil in (("..", "x"), ("a/../../x",), ("/etc/passwd",)):
+        with pytest.raises(ValueError, match="escapes"):
+            server.inside(tmp_path, *evil)
     dist = tmp_path / "dist"
     (dist / "assets").mkdir(parents=True)
     assert server.static_path(dist, "/") == (dist / "index.html").resolve()
