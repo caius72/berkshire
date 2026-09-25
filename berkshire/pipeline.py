@@ -124,12 +124,28 @@ def signature(analysts, cfg, asset_type, portfolio) -> str:
                      f"portfolio={fingerprint(portfolio)}", f"language={cfg['output_language']}"])
 
 
+def resolve_ticker(ticker: str, cfg: dict) -> tuple[str, str | None]:
+    """(Yahoo symbol, eToro alias or None): eToro-only names go through symbol_map (REQ-IF-10)."""
+    t = ticker.strip().upper()
+    mapped = {k.upper(): v for k, v in (cfg.get("symbol_map") or {}).items()}
+    return (mapped[t], t) if t in mapped else (t, None)
+
+
+def require_listed(ticker: str, trade_date: str) -> None:
+    """Refuse an instrument Yahoo has no prices for, before any agent runs (REQ-IF-10).
+    Fail-open when Yahoo is unreachable, like the identity lookup."""
+    if data_mod.check_listed(ticker, trade_date) is False:
+        raise ValueError(f"no price data for {ticker} on Yahoo Finance up to {trade_date}. An eToro-only symbol "
+                         f"needs a Yahoo mapping in symbol_map (~/.berkshire/config.json), e.g. \"EUROOIL\": \"BZ=F\".")
+
+
 def init_run(ticker: str, trade_date: str, cfg: dict, *, results_dir, memory_log: DecisionLog,
              analysts=None, asset_type: str | None = None, portfolio: dict | None = None,
              checkpoint: bool = False, skip_if_complete: bool = False,
              etoro_symbol: str | None = None, instrument_id=None, identity: dict | None = None) -> dict:
     """Create (or resume) a run. Returns a summary dict (REQ-CKPT-02/03)."""
-    ticker = safe_component(ticker.strip().upper())
+    ticker, alias = resolve_ticker(ticker, cfg)
+    ticker, etoro_symbol = safe_component(ticker), etoro_symbol or alias
     trade_date = validate_date(trade_date)
     asset_type = asset_type or detect_asset_type(ticker)
     chosen = select_analysts(analysts, asset_type)
@@ -141,9 +157,12 @@ def init_run(ticker: str, trade_date: str, cfg: dict, *, results_dir, memory_log
         if old.get("complete") and skip_if_complete:
             return {"run_dir": str(rdir), "skipped": True, "signal": old.get("signal"), "resumed": False}
         if not old.get("complete") and checkpoint and old.get("signature") == sig:
+            if old.pop("stopped", None):  # resuming is how a stopped run continues (REQ-UI-13)
+                save_state(old)
             return {"run_dir": str(rdir), "skipped": False, "resumed": True, "completed": old["completed"]}
         shutil.rmtree(rdir)
 
+    require_listed(ticker, trade_date)
     identity = data_mod.profile(ticker) if identity is None else identity
     as_of = trade_date if trade_date < data_mod.today() else None  # REQ-MEM-05
     state = {
@@ -183,7 +202,7 @@ def _step(state: dict, step_id: str, agent: str) -> dict:
 
 
 def next_steps(state: dict) -> list[dict]:
-    if state["complete"]:
+    if state["complete"] or state.get("stopped"):
         return []
     done = set(state["completed"])
     todo = [a for a in state["analysts"] if f"analyst_{a}" not in done]
@@ -285,6 +304,8 @@ def write_prompts(state: dict) -> list[dict]:
 # --- submit (REQ-FLOW-09, REQ-OUT, REQ-CKPT-01) -----------------------------
 
 def submit(state: dict, step_id: str, text: str, memory_log: DecisionLog | None = None) -> dict:
+    if state.get("stopped"):
+        raise ValueError(f"run was stopped ({state['stopped']['reason']}); resume it with berkshire init --checkpoint")
     due = {s["id"] for s in next_steps(state)}
     if step_id not in due:
         raise ValueError(f"step {step_id!r} is not due; due now: {sorted(due) or 'nothing (run complete)'}")
@@ -450,10 +471,20 @@ def progress(state: dict) -> str:
             + (f"\n\nLatest: `{last}`" if last else ""))
 
 
+def stop_run(state: dict, reason: str = "stopped by the user") -> dict:
+    """Mark an unfinished run stopped: nothing more is offered or accepted (REQ-UI-13)."""
+    if state["complete"]:
+        raise ValueError("the analysis is already complete")
+    state["stopped"] = {"at": datetime.now().isoformat(timespec="seconds"), "reason": reason}
+    save_state(state)
+    return state
+
+
 def summary(state: dict) -> dict:
     """One run as the views list it: identity, signal, progress counts (REQ-UI-03)."""
     rows = progress_rows(state)
     return {"ticker": state["company_of_interest"], "date": state["trade_date"], "asset_type": state["asset_type"],
             "complete": state["complete"], "signal": state.get("signal"),
+            "status": "complete" if state["complete"] else ("stopped" if state.get("stopped") else "running"),
             "done": sum(r["status"] == "done" for r in rows), "total": len(rows),
             "current": [s["id"] for s in next_steps(state)], "warnings": len(state.get("warnings", []))}

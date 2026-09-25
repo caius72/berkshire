@@ -54,7 +54,8 @@ main { flex: 1; padding: 20px 24px; }
 .sig-buy { color: var(--buy); } .sig-overweight { color: var(--buy); border-style: dashed; }
 .sig-hold { color: var(--hold); }
 .sig-underweight { color: var(--sell); border-style: dashed; } .sig-sell { color: var(--sell); }
-.sig-review { color: var(--review); } .sig-none { color: var(--ink-soft); border-color: var(--rule); }
+.sig-review { color: var(--review); }
+.sig-stopped { color: var(--ink-soft); border-style: dotted; } .sig-none { color: var(--ink-soft); border-color: var(--rule); }
 
 /* runs layout */
 .runs { display: grid; grid-template-columns: 250px 1fr; gap: 24px; align-items: start; }
@@ -131,7 +132,11 @@ main { flex: 1; padding: 20px 24px; }
 .status-placed, .status-done { color: var(--buy); }
 .status-pending, .status-running, .status-pending_fill { color: var(--hold); }
 .status-failed, .status-rejected { color: var(--sell); }
-.status-expired, .status-superseded, .status-exited { color: var(--ink-soft); }
+.status-expired, .status-superseded, .status-exited, .status-stopped { color: var(--ink-soft); }
+button.stop { background: none; border: 1px solid var(--sell); color: var(--sell); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 13px; font-weight: 600; }
+button.stop.armed { background: var(--sell); color: #fff; }
+.stop-wrap { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.stopped-note { margin: 14px 0 0; padding: 8px 12px; border-left: 3px solid var(--ink-soft); background: var(--panel); color: var(--ink-soft); }
 .log { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 12px; max-height: 320px; overflow: auto; font-size: 12px; white-space: pre-wrap; }
 .empty { max-width: 520px; margin: 60px auto; text-align: left; }
 .empty h2 { margin: 0 0 8px; }

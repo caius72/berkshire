@@ -74,6 +74,32 @@ class NewAnalysis(ModalScreen):
                       "depth": self.query_one("#depth", Select).value})
 
 
+class ConfirmStop(ModalScreen):
+    """Stopping cannot be undone except by running the analysis again, so it asks first."""
+
+    BINDINGS = [Binding("escape", "dismiss(False)", "Cancel")]
+
+    def __init__(self, label: str):
+        super().__init__()
+        self.label = label
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="form"):
+            yield Label(f"Stop the analysis of {self.label}?", id="form-title")
+            yield Static("Its background job ends and no further agents run.")
+            with Horizontal(id="form-buttons"):
+                yield Button("Stop analysis", variant="error", id="confirm-stop")
+                yield Button("Keep running", id="keep")
+
+    @on(Button.Pressed, "#confirm-stop")
+    def yes(self):
+        self.dismiss(True)
+
+    @on(Button.Pressed, "#keep")
+    def no(self):
+        self.dismiss(False)
+
+
 class BerkshireApp(App):
     TITLE = "Berkshire"
     CSS = """
@@ -87,10 +113,10 @@ class BerkshireApp(App):
     #form { width: 64; height: auto; border: thick $primary; background: $surface; padding: 1 2; }
     #form-title { text-style: bold; }
     #form-buttons { height: auto; }
-    NewAnalysis { align: center middle; }
+    NewAnalysis, ConfirmStop { align: center middle; }
     """
-    BINDINGS = [Binding("n", "new", "New analysis"), Binding("r", "refresh", "Refresh"),
-                Binding("q", "quit", "Quit")]
+    BINDINGS = [Binding("n", "new", "New analysis"), Binding("s", "stop", "Stop analysis"),
+                Binding("r", "refresh", "Refresh"), Binding("q", "quit", "Quit")]
 
     def __init__(self, client, url: str = ""):
         super().__init__()
@@ -171,7 +197,8 @@ class BerkshireApp(App):
         gate = (f"Order proposal: {intent['kind']} {intent.get('amount') or ''} stop {intent.get('stop_loss_rate')}"
                 if intent else (f"Gate: {'; '.join(orders.get('reasons', []))}" if orders else "Gate: not run"))
         self.query_one("#summary", Static).update(
-            f"[b]{s['ticker']}[/b] · {s['date']} · {s['asset_type']} · signal {signal_markup(s['signal'])} · "
+            f"[b]{s['ticker']}[/b] · {s['date']} · {s['asset_type']} · "
+            f"{'[dim]stopped[/] · ' if s['status'] == 'stopped' else ''}signal {signal_markup(s['signal'])} · "
             f"{s['done']}/{s['total']} agents · {len(d['warnings'])} warnings\n{gate}")
         prog = self.query_one("#progress", DataTable)
         prog.clear()
@@ -242,6 +269,24 @@ class BerkshireApp(App):
             except Exception as exc:  # noqa: BLE001 - shown to the user
                 self.notify(str(exc), severity="error")
         self.push_screen(NewAnalysis(), started)
+
+    def action_stop(self):
+        run = self.detail and self.detail["summary"]
+        if not run or run["status"] != "running":
+            self.notify("The selected analysis is not running.", severity="warning")
+            return
+
+        def confirmed(yes):
+            if not yes:
+                return
+            try:
+                res = self.client.post(f"/api/runs/{run['ticker']}/{run['date']}/stop", {"reason": "stopped from the terminal view"})
+                jobs = f", job {', '.join(res['jobs_stopped'])} ended" if res["jobs_stopped"] else ""
+                self.notify(f"Stopped {run['ticker']} {run['date']}{jobs}")
+                self.refresh_all()
+            except Exception as exc:  # noqa: BLE001 - shown to the user
+                self.notify(str(exc), severity="error")
+        self.push_screen(ConfirmStop(f"{run['ticker']} {run['date']}"), confirmed)
 
     @work(thread=True, exclusive=True)
     def watch_events(self):

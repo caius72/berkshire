@@ -80,6 +80,10 @@ def inside(base: Path, *parts: str) -> Path:
     return Path(full)
 
 
+class NotFound(Exception):
+    """A route's target does not exist (404), as opposed to a bad request (400)."""
+
+
 def _read_json(path: Path, default=None):
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -91,9 +95,10 @@ class Api:
     """Read model over BERKSHIRE_HOME plus the job runner. `spawn(argv, log_path)`
     is injectable so tests never start Claude."""
 
-    def __init__(self, home: Path | None = None, spawn=None):
+    def __init__(self, home: Path | None = None, spawn=None, kill=None):
         self.home = Path(home or config.home())
         self.spawn = spawn or _spawn_detached
+        self.kill = kill or _kill_job
         self._jobs: dict[str, dict] = {}
         self._procs: dict[str, object] = {}
 
@@ -125,6 +130,7 @@ class Api:
                 "warnings": state.get("warnings", []), "structured": state.get("structured", {}),
                 "instrument_context": state.get("instrument_context", ""), "config": state.get("config", {}),
                 "analysts": state.get("analysts", []), "orders": _read_json(rdir / "orders.json"),
+                "stopped": state.get("stopped"),
                 "report": state.get("report")}
 
     def memory(self) -> list[dict]:
@@ -143,9 +149,14 @@ class Api:
 
     # jobs (REQ-UI-06)
     def start_job(self, body: dict) -> dict:
-        ticker = config.safe_component(str(body.get("ticker", "")).strip().upper())
+        cfg = config.load()
+        # eToro-only names map to Yahoo (EUROOIL -> BZ=F); unknown instruments are refused
+        # here, before a job burns a whole analysis on them (REQ-IF-10).
+        ticker, _alias = pipeline.resolve_ticker(str(body.get("ticker", "")), cfg)
+        ticker = config.safe_component(ticker)
         # data.today() is the one clock the date validation uses too.
         date = pipeline.validate_date(str(body.get("date") or data.today()))
+        pipeline.require_listed(ticker, date)
         args = [ticker, date]
         if body.get("analysts"):
             chosen = pipeline.select_analysts(list(body["analysts"]), pipeline.detect_asset_type(ticker))
@@ -175,8 +186,12 @@ class Api:
             return None
         proc = self._procs.get(job_id)
         code = proc.poll() if proc is not None and hasattr(proc, "poll") else None
-        status = "running" if proc is not None and code is None else ("exited" if proc is None else
-                                                                          ("done" if code == 0 else f"failed ({code})"))
+        if job.get("stopped"):
+            status = "stopped"
+        elif proc is None:  # started by an earlier server process: judge by the pid
+            status = "running" if _job_process_alive(job) else "exited"
+        else:
+            status = "running" if code is None else ("done" if code == 0 else f"failed ({code})")
         try:
             tail = Path(job["log"]).read_text(encoding="utf-8", errors="replace")[-4000:]
         except OSError:
@@ -188,6 +203,27 @@ class Api:
         jdir = self.home / "jobs"
         ids |= {p.stem for p in jdir.glob("*.json")} if jdir.exists() else set()
         return sorted((self.job(i) for i in ids), key=lambda j: j["started"], reverse=True)
+
+    # stopping (REQ-UI-13)
+    def stop_run(self, ticker: str, date: str, reason: str = "stopped from the dashboard") -> dict:
+        """Mark the run stopped and end its background job, if one is running."""
+        rdir = inside(self.runs_dir, config.safe_component(ticker), config.safe_component(date))
+        state = _read_json(rdir / "state.json")
+        if not state:
+            raise NotFound("no such run")
+        if not state.get("stopped"):
+            state = pipeline.stop_run(state, reason)
+        killed = []
+        for job in self.jobs():
+            if job["ticker"] == state["company_of_interest"] and job["date"] == state["trade_date"] \
+                    and job["status"] == "running":
+                self.kill(job)
+                record = {k: v for k, v in job.items() if k not in ("status", "log_tail")}
+                record["stopped"] = datetime.now().isoformat(timespec="seconds")
+                self._jobs[job["id"]] = record
+                config.atomic_write(Path(job["log"]).with_suffix(".json"), json.dumps(record, indent=2))
+                killed.append(job["id"])
+        return {"summary": pipeline.summary(state), "stopped": state["stopped"], "jobs_stopped": killed}
 
     # change detection for SSE (REQ-UI-04)
     def snapshot(self) -> dict[str, float]:
@@ -205,6 +241,24 @@ class Api:
 def changed(prev: dict, cur: dict) -> list[str]:
     """Keys added, removed or modified between two snapshots."""
     return sorted(k for k in prev.keys() | cur.keys() if prev.get(k) != cur.get(k))
+
+
+def _job_process_alive(job: dict) -> bool:
+    """The job's pid is alive AND still runs this job's analyze command (pids get reused)."""
+    try:
+        cmd = subprocess.run(["ps", "-o", "command=", "-p", str(int(job["pid"]))], capture_output=True,
+                             text=True, timeout=5).stdout
+    except (KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError):
+        return False
+    return f"/berkshire:analyze {job['ticker']} {job['date']}" in cmd
+
+
+def _kill_job(job: dict) -> None:
+    """End the job's whole process group: claude and the agents it started (start_new_session)."""
+    try:
+        os.killpg(int(job["pid"]), signal.SIGTERM)
+    except (ProcessLookupError, PermissionError, TypeError, ValueError):
+        pass
 
 
 def _spawn_detached(argv, log_path: Path):
@@ -241,6 +295,10 @@ def route(method: str, path: str, body: dict | None, api: Api) -> tuple[int, obj
                 return (200, job) if job else (404, {"error": "no such job"})
         if method == "POST" and parts == ["jobs"]:
             return 201, api.start_job(body or {})
+        if method == "POST" and len(parts) == 4 and parts[0] == "runs" and parts[3] == "stop":
+            return 200, api.stop_run(parts[1], parts[2], (body or {}).get("reason") or "stopped from the dashboard")
+    except NotFound as exc:
+        return 404, {"error": str(exc)}
     except ValueError as exc:
         return 400, {"error": str(exc)}
     return 404, {"error": f"no route for {method} {path}"}

@@ -110,6 +110,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-IF-06 | M | During a run the user shall see progress by team (pending, in progress, done) plus the current report, like the TradingAgents live panel. | T |
 | REQ-IF-07 | M | At the end of a run the user shall see the signal and the path to the complete report, and a full report on request. | D |
 | REQ-IF-08 | S | The same engine commands shall work outside Claude Code (`berkshire …` CLI) for scripting and tests. | T |
+| REQ-IF-10 | M | A ticker that is an eToro-only name shall be mapped to its Yahoo symbol through `symbol_map` (e.g. EUROOIL → BZ=F, keeping EUROOIL as the eToro symbol), in `/berkshire:analyze` and the dashboard alike. An instrument without Yahoo prices up to the analysis date shall be refused before any agent runs, with the fix named. If Yahoo is unreachable, the run proceeds. | T |
 
 ## 8. Checkpoint and resume (REQ-CKPT)
 
@@ -208,6 +209,7 @@ state, and every view is a client of its HTTP + SSE API. Recorded with the user 
 | REQ-UI-10 | S | Without a built web bundle, the page shall say how to build it and point to `berkshire tui`. | T |
 | REQ-UI-11 | M | `berkshire web` and `berkshire tui` shall start the server in the background when none is running, then print the URL or attach. | T |
 | REQ-UI-12 | S | `/berkshire:dashboard` shall start the server if needed and give the user the web URL and the TUI command. | I |
+| REQ-UI-13 | M | Both views shall let the user stop an unfinished analysis after a confirmation. The run is marked stopped (with time and reason), the engine then offers and accepts no further steps, and the pipeline loop reports it. A running dashboard job for that run has its process group ended. Stopped runs show as Stopped; `--checkpoint` resumes one. | T |
 
 ## 16. Continuous integration (REQ-CI)
 
@@ -223,3 +225,16 @@ Modelled on matlab-tui's `.gitlab-ci.yml`, as GitHub Actions (D9).
 | REQ-CI-06 | M | A job without the optional extras shall assert textual is absent and run the suite, proving REQ-UI-09 rather than assuming it. | I |
 | REQ-CI-07 | M | The web view shall be checked by `npm ci`, the node unit tests and `vite build`. | I |
 | REQ-CI-08 | M | The workflow shall run with read-only default permissions, use versioned actions, and fail on the first broken job. | I |
+
+## 17. Upstream tracking (REQ-UP)
+
+Berkshire follows TradingAgents deliberately: each upstream change or open PR is assessed and the
+verdict recorded, maintained by the `/upstream-scout` skill (`.claude/skills/upstream-scout`).
+
+| ID | Pri | Requirement | Ver |
+|---|---|---|---|
+| REQ-UP-01 | M | `docs/upstream.md` shall record every assessed upstream feature and pull request with a status from a fixed set. `incorporated` and `adapted` rows name existing requirement ids, every other non-final status gives its reason, and the watermark (last reviewed commit and release, last run) is present. | T |
+| REQ-UP-02 | M | Each run shall analyse only open PRs that are new to the ledger or whose head commit moved since their analysis, and shall revisit ledger PRs that are no longer open. | T |
+| REQ-UP-03 | M | `/upstream-scout` shall review upstream commits, releases and changelog since the watermark, and deep-analyse PRs with one agent per PR in parallel. Each agent follows a fixed brief (mechanism, soundness, maturity, value to Berkshire, fit, cost) and gives a verdict of adopt, adapt, watch or decline, with a report file. | I |
+| REQ-UP-04 | M | The skill shall change only the ledger and its reports until the user chooses changes, and shall move the watermark only after the report is written. It has read-only access to the upstream repository. | I |
+| REQ-UP-05 | S | The ledger shall record the v0.5.1 baseline Berkshire was built from, feature by feature. | T |

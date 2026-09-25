@@ -89,7 +89,8 @@ def cmd_init(a, cfg):
 def cmd_next(a, cfg):
     state = pipeline.load_state(a.run_dir)
     steps = pipeline.write_prompts(state)
-    _print({"done": state["complete"], "signal": state.get("signal"), "steps": steps})
+    _print({"done": state["complete"] or bool(state.get("stopped")), "stopped": state.get("stopped"),
+            "signal": state.get("signal"), "steps": steps})
 
 
 def cmd_submit(a, cfg):
@@ -104,6 +105,11 @@ def cmd_submit(a, cfg):
     _print({"completed": a.step, "complete": state["complete"], "signal": state.get("signal"),
             "report": state.get("report"), "warnings": state["warnings"],
             "next": [s["id"] for s in pipeline.next_steps(state)]})
+
+
+def cmd_stop(a, cfg):
+    state = pipeline.stop_run(pipeline.load_state(a.run_dir), a.reason)
+    _print({"stopped": state["stopped"], "run_dir": a.run_dir})
 
 
 def cmd_status(a, cfg):
@@ -316,6 +322,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     for name, fn in (("next", cmd_next), ("status", cmd_status)):
         s = sp.add_parser(name); s.add_argument("run_dir"); s.set_defaults(fn=fn)
+    s = sp.add_parser("stop", help="stop an unfinished run"); s.add_argument("run_dir")
+    s.add_argument("--reason", default="stopped by the user"); s.set_defaults(fn=cmd_stop)
     s = sp.add_parser("submit"); s.add_argument("run_dir"); s.add_argument("step"); s.add_argument("--file")
     s.set_defaults(fn=cmd_submit)
 

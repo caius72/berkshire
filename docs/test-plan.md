@@ -160,7 +160,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-UI-17 | /berkshire:dashboard starts the server, gives the URL and TUI command, and says orders stay in Claude | REQ-UI-12 | I | Skill text and allowed-tools. |
 | TST-UI-18 | Both views say orders are placed only with /berkshire:approve | REQ-UI-07 | I | App.jsx and tui.py text. |
 | TST-UI-19 | Server and client import no order-placing code; views only read the queue | REQ-UI-01, REQ-UI-07 | I | Source scan for queue writes and eToro placement names. |
-| TST-UI-20 | Web and terminal walkthrough during a live analysis | REQ-UI-04, REQ-UI-05, REQ-UI-08 | D | Manual procedure M4. |
+| TST-UI-20 | Web and terminal walkthrough during a live analysis | REQ-UI-04, REQ-UI-05, REQ-UI-08, REQ-UI-13 | D | Manual procedure M4. |
 | TST-WEB-01 | Report markdown parses to blocks the reader renders, tables included | REQ-UI-05 | T | node:test over md.js with a report containing every block type. |
 | TST-WEB-02 | Inline markup becomes runs, never HTML; tags stay literal text | REQ-UI-05, REQ-UI-02 | T | Script/img injection strings stay text. |
 | TST-WEB-03 | The SSE parser handles split chunks, comments and multi-event buffers | REQ-UI-04 | T | Event split across two chunks; keep-alive comment. |
@@ -174,6 +174,18 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-CI-07 | The webui job runs npm ci, the node tests and the vite build | REQ-CI-07 | I | webui job + package.json + lockfile. |
 | TST-CI-08 | Read-only default permissions, versioned actions, locked installs | REQ-CI-08 | I | Every `uses:` ends in `@vN`. |
 | TST-CI-09 | First push to GitHub: every job green, coverage and CodeQL results published | REQ-CI-01, REQ-CI-03, REQ-CI-04, REQ-CI-05 | D | Manual procedure M5. |
+| TST-FLOW-11 | A stopped run offers and accepts no steps; --checkpoint resumes it | REQ-UI-13 | T | Stop after one step; next/submit/CLI `next`; resume clears the flag; a complete run cannot be stopped. |
+| TST-IF-10 | eToro-only names map to Yahoo; an unlisted instrument is refused before any agent runs | REQ-IF-10 | T | EUROOIL → BZ=F with the alias kept; empty Yahoo frame refused with no run dir created; Yahoo unreachable → fail-open. |
+| TST-UI-21 | POST /api/runs/T/D/stop marks the run stopped and ends only its running job | REQ-UI-13 | T | Two jobs, one matching; fake killer records calls; idempotent; 404 unknown, 400 complete. |
+| TST-UI-22 | The start form maps eToro names and refuses unlisted instruments before spawning | REQ-IF-10, REQ-UI-06 | T | EuroOil spawns BZ=F; unlisted → 400 naming symbol_map, nothing spawned. |
+| TST-UI-23 | 's' asks first, then stops the selected running analysis; a finished one is refused | REQ-UI-13, REQ-UI-08 | T | Pilot: cancel keeps it running, confirm stops it via the API, a stopped run gets no dialog. |
+| TST-UI-24 | The pipeline loop stops dispatching when the run was stopped | REQ-UI-13 | I | pipeline-loop.md text. |
+| TST-UP-01 | The ledger is consistent and records the v0.5.1 baseline | REQ-UP-01, REQ-UP-05 | T | `tools/upstream.py check` on the real ledger; ≥ 30 baseline rows across statuses. |
+| TST-UP-02 | The ledger check rejects bad statuses, missing or unknown requirements, duplicates and bad PR rows | REQ-UP-01 | T | Eleven single mutations of the real ledger, each named in the problems. |
+| TST-UP-03 | The worklist splits open PRs into new, head-moved and unchanged, and flags PRs that left the open list | REQ-UP-02 | T | Four ledger rows × three open PRs; a declined PR is not revisited. |
+| TST-UP-04 | The skill reviews commits since the watermark, fans out one agent per PR, and moves the watermark last | REQ-UP-03, REQ-UP-04 | I | Skill and brief text, order of report vs watermark, AskUserQuestion before `planned`. |
+| TST-UP-05 | The skill may read upstream but has no permission to push, merge, comment or edit there | REQ-UP-04 | I | allowed-tools contains only read-only git/gh commands. |
+| TST-UP-06 | A full /upstream-scout run against live upstream | REQ-UP-02, REQ-UP-03, REQ-UP-04 | D | Manual procedure M6. |
 | TST-SAFE-04 | Requirements, test plan and test code are mutually traceable | REQ-SAFE-04 | T | `tests/test_traceability.py`. |
 
 ## 3. Entry and exit criteria
@@ -222,6 +234,8 @@ Load the plugin: `claude --plugin-dir /Users/kai/repos/ai/berkshire`, or
    timeline grows, and the reader opens on the latest report.
 4. Check at 375 px width (the floor wraps to two columns) and with the system in dark mode.
 5. The Orders view and the TUI Orders tab list the queue read-only, and point to `/berkshire:approve`.
+6. Start a second analysis and stop it with **Stop analysis** (web, two clicks) or `s` (TUI). The job ends
+   within seconds, the run shows Stopped with its reason, and no further agents are started.
 
 **M5 — first CI run (TST-CI-09).**
 1. Push to the GitHub `main` branch. All six jobs pass.
@@ -230,12 +244,20 @@ Load the plugin: `claude --plugin-dir /Users/kai/repos/ai/berkshire`, or
    `.github/codeql-reviewed.json`. gitleaks reports no leaks over the full history. (The Security tab needs GitHub
    Code Security on a private repository. After enabling it, switch the analyze step to `upload: always`.)
 
+**M6 — upstream scout (TST-UP-06).**
+1. `/upstream-scout --max 5`. Expect: the commits since the watermark reviewed, the worklist computed,
+   five PR agents launched in one batch, and `docs/upstream-reports/<date>/README.md` plus `pr-N.md` files.
+2. The ledger gains five PR rows and a moved watermark, and `tools/upstream.py check` passes.
+3. Run it again at once. No PR is re-analysed (all unchanged), and the next five of the backlog are taken.
+4. Choose one recommendation. Its row becomes `planned`, and nothing else in the repo changes.
+
 | Procedure | Date | Result | Notes |
 |---|---|---|---|
 | M1 | | not yet run | |
 | M2 | | not yet run | |
 | M3 | | not yet run | |
 | M4 | | not yet run | |
+| M6 | | not yet run | |
 | M5 | 2026-09-25 | pass (run 36119571904) | The first three runs failed and were fixed: a clock mismatch, the Node 22 test glob, gitleaks-action on a first push, and CodeQL upload on a private repo. Coverage 87.7%. |
 
 ## 5. Traceability matrix (REQ → TST)
@@ -295,6 +317,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-IF-06 | TST-IF-06 |
 | REQ-IF-07 | TST-IF-07 |
 | REQ-IF-08 | TST-IF-02 |
+| REQ-IF-10 | TST-IF-10, TST-UI-22 |
 | REQ-CKPT-01 | TST-CKPT-01 |
 | REQ-CKPT-02 | TST-CKPT-02 |
 | REQ-CKPT-03 | TST-CKPT-03 |
@@ -335,13 +358,14 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-UI-03 | TST-UI-05, TST-UI-06, TST-UI-13 |
 | REQ-UI-04 | TST-UI-08, TST-UI-09, TST-UI-14, TST-UI-20, TST-WEB-03 |
 | REQ-UI-05 | TST-UI-05, TST-UI-20, TST-WEB-01, TST-WEB-02 |
-| REQ-UI-06 | TST-UI-07, TST-UI-15 |
+| REQ-UI-06 | TST-UI-07, TST-UI-15, TST-UI-22 |
 | REQ-UI-07 | TST-UI-06, TST-UI-18, TST-UI-19 |
-| REQ-UI-08 | TST-UI-13, TST-UI-14, TST-UI-15, TST-UI-20 |
+| REQ-UI-08 | TST-UI-13, TST-UI-14, TST-UI-15, TST-UI-20, TST-UI-23 |
 | REQ-UI-09 | TST-UI-16 |
 | REQ-UI-10 | TST-UI-11 |
 | REQ-UI-11 | TST-UI-01 |
 | REQ-UI-12 | TST-UI-17 |
+| REQ-UI-13 | TST-FLOW-11, TST-UI-20, TST-UI-21, TST-UI-23, TST-UI-24 |
 | REQ-CI-01 | TST-CI-01, TST-CI-09 |
 | REQ-CI-02 | TST-CI-02 |
 | REQ-CI-03 | TST-CI-03, TST-CI-09 |
@@ -350,4 +374,9 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-CI-06 | TST-CI-06 |
 | REQ-CI-07 | TST-CI-07 |
 | REQ-CI-08 | TST-CI-08 |
+| REQ-UP-01 | TST-UP-01, TST-UP-02 |
+| REQ-UP-02 | TST-UP-03, TST-UP-06 |
+| REQ-UP-03 | TST-UP-04, TST-UP-06 |
+| REQ-UP-04 | TST-UP-04, TST-UP-05, TST-UP-06 |
+| REQ-UP-05 | TST-UP-01 |
 <!-- MATRIX:END -->

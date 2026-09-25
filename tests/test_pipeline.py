@@ -330,3 +330,51 @@ def test_progress_table(cfg, log):
     state = run_all(state, log)
     table = pipeline.progress(state)
     assert "signal Buy" in table and "pending" not in table and "in progress" not in table
+
+
+# --- Stopping and instrument resolution ------------------------------------------
+
+def test_stop_run(cfg, log, capsys):
+    """TST-FLOW-11: A stopped run offers and accepts no steps; --checkpoint resumes it [REQ-UI-13]"""
+    from berkshire.cli import main
+    state = new_run(cfg, log)
+    state = pipeline.submit(state, "analyst_market", CANNED["analyst_market"])
+    state = pipeline.stop_run(state, "wrong instrument")
+    assert pipeline.next_steps(state) == [] and pipeline.summary(state)["status"] == "stopped"
+    with pytest.raises(ValueError, match="stopped \\(wrong instrument\\)"):
+        pipeline.submit(state, "analyst_social", CANNED["analyst_social"])
+    assert main(["next", state["run_dir"]]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["done"] is True and out["stopped"]["reason"] == "wrong instrument" and out["steps"] == []
+    res = pipeline.init_run("NVDA", "2026-09-18", cfg, results_dir=config.home() / "runs", memory_log=log,
+                            identity={}, checkpoint=True)
+    resumed = pipeline.load_state(Path(res["run_dir"]))
+    assert res["resumed"] and "stopped" not in resumed and resumed["completed"] == ["analyst_market"]
+    done = run_all(resumed, log)
+    with pytest.raises(ValueError, match="already complete"):
+        pipeline.stop_run(done)
+
+
+def test_etoro_symbols_and_unlisted(cfg, log):
+    """TST-IF-10: eToro-only names map to Yahoo; an unlisted instrument is refused before any agent runs [REQ-IF-10]"""
+    import pandas as pd
+    from conftest import FakeTicker
+
+    from berkshire import data
+    assert pipeline.resolve_ticker("eurooil", cfg) == ("BZ=F", "EUROOIL")
+    assert pipeline.resolve_ticker("NVDA", cfg) == ("NVDA", None)
+    state = new_run(cfg, log, ticker="EUROOIL")
+    assert state["company_of_interest"] == "BZ=F" and state["etoro_symbol"] == "EUROOIL"
+    FakeTicker.frames["NOPE"] = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"], index=pd.DatetimeIndex([]))
+    with pytest.raises(ValueError, match="no price data for NOPE.*symbol_map"):
+        new_run(cfg, log, ticker="NOPE")
+    assert not (config.home() / "runs" / "NOPE").exists()
+    FakeTicker.frames["OFFLINE"] = None
+    import berkshire.data as d
+    real = d.ohlcv
+    d.ohlcv = lambda *a: (_ for _ in ()).throw(ConnectionError("down"))
+    try:
+        assert data.check_listed("OFFLINE", "2026-09-18") is None
+        assert new_run(cfg, log, ticker="MSFT")["company_of_interest"] == "MSFT"  # fail-open
+    finally:
+        d.ohlcv = real

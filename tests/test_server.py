@@ -27,12 +27,17 @@ def spawned():
 
 
 @pytest.fixture
-def api(spawned):
+def killed():
+    return []
+
+
+@pytest.fixture
+def api(spawned, killed):
     def spawn(argv, log):
         spawned.append(argv)
         Path(log).write_text("analysis started\n")
         return FakeProc()
-    return server.Api(config.home(), spawn=spawn)
+    return server.Api(config.home(), spawn=spawn, kill=lambda job: killed.append(job["id"]))
 
 
 @pytest.fixture
@@ -214,3 +219,34 @@ def test_client_and_discovery(live, cfg, log):
     assert exc.value.status == 400
     server.registry_path().write_text(json.dumps({**info, "pid": 999999}))
     assert discover() is None
+
+
+def test_stop_from_api(cfg, log, api, killed):
+    """TST-UI-21: POST /api/runs/T/D/stop marks the run stopped and ends only its running job [REQ-UI-13]"""
+    state = new_run(cfg, log)
+    _, mine = server.route("POST", "/api/jobs", {"ticker": "NVDA", "date": "2026-09-18"}, api)
+    _, other = server.route("POST", "/api/jobs", {"ticker": "AMD", "date": "2026-09-18"}, api)
+    status, res = server.route("POST", "/api/runs/NVDA/2026-09-18/stop", {"reason": "wrong ticker"}, api)
+    assert status == 200 and res["jobs_stopped"] == [mine["id"]] and killed == [mine["id"]]
+    assert res["summary"]["status"] == "stopped" and res["stopped"]["reason"] == "wrong ticker"
+    assert api.job(mine["id"])["status"] == "stopped" and api.job(other["id"])["status"] == "running"
+    assert json.loads(Path(mine["log"]).with_suffix(".json").read_text())["stopped"]
+    assert server.route("GET", "/api/runs/NVDA/2026-09-18", None, api)[1]["stopped"]["reason"] == "wrong ticker"
+    assert server.route("POST", "/api/runs/NVDA/2026-09-18/stop", {}, api)[0] == 200   # idempotent
+    assert killed == [mine["id"]]
+    assert server.route("POST", "/api/runs/ZZZ/2026-09-18/stop", {}, api)[0] == 404
+    from berkshire import pipeline
+    done = run_all(new_run(cfg, log, ticker="AAPL"), log)
+    assert server.route("POST", f"/api/runs/AAPL/{done['trade_date']}/stop", {}, api)[0] == 400
+    assert not state.get("stopped") and pipeline.load_state(Path(state["run_dir"]))["stopped"]
+
+
+def test_start_job_resolves_and_refuses_unlisted(api, spawned):
+    """TST-UI-22: The start form maps eToro names and refuses unlisted instruments before spawning [REQ-IF-10, REQ-UI-06]"""
+    import pandas as pd
+    from conftest import FakeTicker
+    status, job = server.route("POST", "/api/jobs", {"ticker": "EuroOil", "date": "2026-09-18"}, api)
+    assert status == 201 and job["ticker"] == "BZ=F" and "/berkshire:analyze BZ=F 2026-09-18" in spawned[0][2]
+    FakeTicker.frames["NOPE"] = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"], index=pd.DatetimeIndex([]))
+    status, err = server.route("POST", "/api/jobs", {"ticker": "NOPE", "date": "2026-09-18"}, api)
+    assert status == 400 and "symbol_map" in err["error"] and len(spawned) == 1
