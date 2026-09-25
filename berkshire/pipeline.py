@@ -333,6 +333,9 @@ def submit(state: dict, step_id: str, text: str, memory_log: DecisionLog | None 
         state["risk_debate_state"]["latest_speaker"] = "Judge"
         state["signal"] = parse_rating(decision)  # REQ-OUT-04/05
     state["completed"].append(step_id)
+    # Timeline for the web/terminal views (REQ-UI-05); absent in runs made before it existed.
+    state.setdefault("timeline", []).append({"step": step_id, "at": datetime.now().isoformat(timespec="seconds"),
+                                             "chars": len(text)})
     if step_id == "portfolio_manager":
         finalize(state, memory_log)
     save_state(state)
@@ -341,49 +344,44 @@ def submit(state: dict, step_id: str, text: str, memory_log: DecisionLog | None 
 
 # --- reports (REQ-RPT, REQ-MEM-01) ------------------------------------------
 
+SECTION_TEAMS = {"1_analysts": "I. Analyst Team Reports", "2_research": "II. Research Team Decision",
+                 "3_trading": "III. Trading Team Plan", "4_risk": "IV. Risk Management Team Decision",
+                 "5_portfolio": "V. Portfolio Manager Decision"}
+
+
+def report_sections(state: dict) -> list[dict]:
+    """Non-empty report sections in TradingAgents order; the report tree and the views share it."""
+    inv, risk = state["investment_debate_state"], state["risk_debate_state"]
+    spec = (("1_analysts", "market", "Market Analyst", state.get("market_report")),
+            ("1_analysts", "sentiment", "Sentiment Analyst", state.get("sentiment_report")),
+            ("1_analysts", "news", "News Analyst", state.get("news_report")),
+            ("1_analysts", "fundamentals", "Fundamentals Analyst", state.get("fundamentals_report")),
+            ("2_research", "bull", "Bull Researcher", inv.get("bull_history")),
+            ("2_research", "bear", "Bear Researcher", inv.get("bear_history")),
+            ("2_research", "manager", "Research Manager", inv.get("judge_decision")),
+            ("3_trading", "trader", "Trader", state.get("trader_investment_plan")),
+            ("4_risk", "aggressive", "Aggressive Analyst", risk.get("aggressive_history")),
+            ("4_risk", "conservative", "Conservative Analyst", risk.get("conservative_history")),
+            ("4_risk", "neutral", "Neutral Analyst", risk.get("neutral_history")),
+            ("5_portfolio", "decision", "Portfolio Manager", risk.get("judge_decision")))
+    return [{"dir": d, "key": k, "team": SECTION_TEAMS[d], "agent": a, "text": t.strip()}
+            for d, k, a, t in spec if t and t.strip()]
+
+
 def write_report_tree(state: dict, save_path: Path) -> Path:
     save_path.mkdir(parents=True, exist_ok=True)
-    sections = []
-
-    def put(rel, text):
-        p = save_path / rel
+    blocks, team = [], None
+    for sec in report_sections(state):
+        p = save_path / sec["dir"] / f"{sec['key']}.md"
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(text, encoding="utf-8")
-
-    parts = []
-    for name, key, rel in (("Market Analyst", "market_report", "market"), ("Sentiment Analyst", "sentiment_report", "sentiment"),
-                           ("News Analyst", "news_report", "news"), ("Fundamentals Analyst", "fundamentals_report", "fundamentals")):
-        if state.get(key):
-            put(f"1_analysts/{rel}.md", state[key])
-            parts.append(f"### {name}\n{state[key]}")
-    if parts:
-        sections.append("## I. Analyst Team Reports\n\n" + "\n\n".join(parts))
-    inv, parts = state["investment_debate_state"], []
-    for name, key, rel in (("Bull Researcher", "bull_history", "bull"), ("Bear Researcher", "bear_history", "bear"),
-                           ("Research Manager", "judge_decision", "manager")):
-        if inv.get(key):
-            put(f"2_research/{rel}.md", inv[key])
-            parts.append(f"### {name}\n{inv[key]}")
-    if parts:
-        sections.append("## II. Research Team Decision\n\n" + "\n\n".join(parts))
-    if state.get("trader_investment_plan"):
-        put("3_trading/trader.md", state["trader_investment_plan"])
-        sections.append(f"## III. Trading Team Plan\n\n### Trader\n{state['trader_investment_plan']}")
-    risk, parts = state["risk_debate_state"], []
-    for name, key, rel in (("Aggressive Analyst", "aggressive_history", "aggressive"),
-                           ("Conservative Analyst", "conservative_history", "conservative"),
-                           ("Neutral Analyst", "neutral_history", "neutral")):
-        if risk.get(key):
-            put(f"4_risk/{rel}.md", risk[key])
-            parts.append(f"### {name}\n{risk[key]}")
-    if parts:
-        sections.append("## IV. Risk Management Team Decision\n\n" + "\n\n".join(parts))
-    if risk.get("judge_decision"):
-        put("5_portfolio/decision.md", risk["judge_decision"])
-        sections.append(f"## V. Portfolio Manager Decision\n\n### Portfolio Manager\n{risk['judge_decision']}")
+        p.write_text(sec["text"], encoding="utf-8")
+        if sec["team"] != team:
+            team = sec["team"]
+            blocks.append(f"## {team}")
+        blocks.append(f"### {sec['agent']}\n{sec['text']}")
     header = (f"# Trading Analysis Report: {state['company_of_interest']}\n\nAnalysis date: {state['trade_date']} · "
               f"Generated: {datetime.now():%Y-%m-%d %H:%M:%S} · Signal: **{state.get('signal')}**\n\n{DISCLAIMER}\n\n")
-    put("complete_report.md", header + "\n\n".join(sections))
+    (save_path / "complete_report.md").write_text(header + "\n\n".join(blocks), encoding="utf-8")
     return save_path / "complete_report.md"
 
 
@@ -419,7 +417,8 @@ TEAMS = (("Analyst Team", None), ("Research Team", ("bull", "bear", "research_ma
          ("Portfolio Management", ("portfolio_manager",)))
 
 
-def progress(state: dict) -> str:
+def progress_rows(state: dict) -> list[dict]:
+    """Every agent of the run with pending / in progress / done, grouped by team (REQ-IF-06)."""
     done = state["completed"]
     due = {s["id"] for s in next_steps(state)}
 
@@ -435,13 +434,26 @@ def progress(state: dict) -> str:
             return "done" if len(ids) >= total else ("in progress" if ids else "pending")
         return "done" if ids else "pending"
 
-    rows = []
-    for team, members in TEAMS:
-        for m in members or [f"analyst_{a}" for a in state["analysts"]]:
-            label = m.removeprefix("analyst_").replace("_", " ").title()
-            rows.append(f"| {team} | {label} | {status(m)} |")
+    label = {"analyst_social": "Sentiment"}
+    return [{"team": team, "agent": label.get(m) or m.removeprefix("analyst_").replace("_", " ").title(),
+             "status": status(m)}
+            for team, members in TEAMS for m in members or [f"analyst_{a}" for a in state["analysts"]]]
+
+
+def progress(state: dict) -> str:
+    done = state["completed"]
+    rows = [f"| {r['team']} | {r['agent']} | {r['status']} |" for r in progress_rows(state)]
     last = done[-1] if done else None
     return (f"**{state['company_of_interest']} · {state['trade_date']}** — "
             f"{len(done)} steps done{' · signal ' + state['signal'] if state.get('signal') else ''}\n\n"
             "| Team | Agent | Status |\n|---|---|---|\n" + "\n".join(rows)
             + (f"\n\nLatest: `{last}`" if last else ""))
+
+
+def summary(state: dict) -> dict:
+    """One run as the views list it: identity, signal, progress counts (REQ-UI-03)."""
+    rows = progress_rows(state)
+    return {"ticker": state["company_of_interest"], "date": state["trade_date"], "asset_type": state["asset_type"],
+            "complete": state["complete"], "signal": state.get("signal"),
+            "done": sum(r["status"] == "done" for r in rows), "total": len(rows),
+            "current": [s["id"] for s in next_steps(state)], "warnings": len(state.get("warnings", []))}

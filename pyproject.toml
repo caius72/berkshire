@@ -5,9 +5,17 @@ description = "TradingAgents-style multi-agent trading engine for a Claude Code 
 requires-python = ">=3.11"
 dependencies = ["yfinance>=0.2.54", "pandas>=2.0"]
 
+[project.optional-dependencies]
+# The terminal view. Optional: the engine, server and web view run without it (REQ-UI-09).
+# Pinned: the TUI uses Textual widgets directly; bump deliberately and re-run the TUI tests.
+tui = ["textual==8.2.8"]
+
 [dependency-groups]
 dev = [
     "pytest>=8",
+    "pytest-cov>=5",
+    "pytest-asyncio>=0.24",
+    "pyyaml>=6.0.3",
 ]
 
 [project.scripts]
@@ -19,3 +27,17 @@ build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
+
+# Coverage of the engine, measured in CI (every extra installed) and locally with
+#   uv run --all-extras pytest --cov
+[tool.coverage.run]
+branch = true
+source = ["berkshire"]
+
+[tool.coverage.report]
+# A floor, not a target: raise it when coverage rises, so it only ratchets up.
+fail_under = 87
+show_missing = true
+skip_covered = true

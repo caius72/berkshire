@@ -1,15 +1,12 @@
 """Point-in-time data tools (offline, via the FakeTicker in conftest)."""
 
-import json
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 
-import pandas as pd
 import pytest
+from conftest import FakeTicker, bars, new_run
 
 from berkshire import data
 from berkshire.cli import main
-from conftest import FakeTicker, bars, new_run
 
 TD = "2026-09-10"
 
@@ -32,7 +29,7 @@ def test_snapshot(tmp_path):
     assert f"- Latest trading row used: {TD}" in out
     for name in data.SNAPSHOT_INDICATORS:
         assert f"| {name} |" in out
-    close_rows = [l for l in out.split("### Recent verified closes")[1].splitlines() if l.startswith("| 2026")]
+    close_rows = [ln for ln in out.split("### Recent verified closes")[1].splitlines() if ln.startswith("| 2026")]
     assert len(close_rows) == 30 and close_rows[-1].startswith(f"| {TD} |")
     assert "source of truth" in out
 
@@ -70,7 +67,7 @@ def test_statements_and_insider_point_in_time():
 
 def test_news_window_and_gap():
     """TST-DATA-05: News is trimmed to the window; an unobserved window is flagged, not called empty [REQ-DATA-05]"""
-    ts = lambda s: int(datetime.fromisoformat(s).replace(tzinfo=timezone.utc).timestamp())
+    ts = lambda s: int(datetime.fromisoformat(s).replace(tzinfo=UTC).timestamp())
     FakeTicker.news_items = [
         {"title": "Old", "providerPublishTime": ts("2026-08-20T10:00:00"), "publisher": "Y"},
         {"content": {"title": "In window", "pubDate": "2026-09-05T12:00:00Z", "summary": "s",

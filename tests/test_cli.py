@@ -4,11 +4,11 @@ import json
 from pathlib import Path
 
 import pytest
+from conftest import canned
 
 from berkshire import backtest, config, pipeline
 from berkshire.cli import main
 from berkshire.memory import DecisionLog
-from conftest import CANNED, canned
 
 
 def test_config_precedence(monkeypatch):
@@ -128,3 +128,22 @@ def test_backtest_never_enqueues(capsys, monkeypatch, tmp_path):
     main(["enqueue", str(run), "--tag", "x"])
     out = json.loads(capsys.readouterr().out)
     assert out["queued"] == [] and "backtest runs never create orders" in out["skipped"][0]
+
+
+def test_tui_optional(monkeypatch, capsys):
+    """TST-UI-16: Without textual, `berkshire tui` explains the extra instead of a traceback [REQ-UI-09]"""
+    import builtins
+    import sys
+
+    from berkshire.cli import main
+    real_import = builtins.__import__
+
+    def no_textual(name, *a, **kw):
+        if name.startswith("textual") or name == "berkshire.tui" or (name == "tui" and a and a[2]):
+            raise ImportError("No module named 'textual'")
+        return real_import(name, *a, **kw)
+    monkeypatch.delitem(sys.modules, "berkshire.tui", raising=False)
+    monkeypatch.setattr(builtins, "__import__", no_textual)
+    with pytest.raises(SystemExit) as exc:
+        main(["tui"])
+    assert exc.value.code == 3 and "optional 'tui' extra" in capsys.readouterr().err

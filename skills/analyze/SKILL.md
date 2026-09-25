@@ -63,7 +63,9 @@ Say "Resuming the saved run" or "Starting fresh". Then follow
 
 ## 5. Optional: queue an eToro order
 
-Ask whether to turn the decision into an eToro order proposal. If yes:
+Skip this step in a headless run (`claude -p`, e.g. started from the dashboard). There is nobody to ask.
+
+Otherwise ask whether to turn the decision into an eToro order proposal. If yes:
 1. Call `get-instruments-overview` with the symbol and write the JSON to `RUN/quote.json`.
    With an eToro portfolio file from step 2, pass it as `--portfolio-file`.
 2. `berkshire gate RUN --quote-file RUN/quote.json [--portfolio-file …]` shows the intent or veto with its reasons.

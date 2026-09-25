@@ -2,3 +2,10 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.venv-*/
+webui/node_modules/
+webui/dist/
+.playwright-mcp/
+.coverage
+coverage.xml
+.ruff_cache/

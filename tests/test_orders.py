@@ -4,10 +4,10 @@ import json
 from datetime import datetime, timedelta
 
 import pytest
+from conftest import new_run, run_all
 
 from berkshire import config, orders
 from berkshire.cli import main
-from conftest import new_run, run_all
 
 BOOK = {"equity": 100_000.0, "cash": 60_000.0, "currency": "USD", "positions": [
     {"ticker": "NVDA", "etoro_symbol": "NVDA", "quantity": 20, "value": 4_000.0,

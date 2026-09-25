@@ -2,4 +2,4 @@
 # Plugin bin/ is on PATH while the plugin is enabled. Runs the engine in the
 # plugin's own uv-managed environment (created on first use).
 root="$(cd "$(dirname "$0")/.." && pwd)"
-exec uv run --quiet --project "$root" python -m berkshire "$@"
+exec uv run --quiet --extra tui --project "$root" python -m berkshire "$@"

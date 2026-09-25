@@ -1,0 +1,25 @@
+# Lint rules for CI and local runs:  uvx ruff@0.16.5 check .
+# The rule set is explicit so a ruff upgrade cannot change what CI enforces;
+# the version CI installs is pinned in .github/workflows/ci.yml.
+target-version = "py311"
+line-length = 130
+extend-exclude = ["webui"]
+
+[lint]
+select = [
+    "E4", "E7", "E9",  # pycodestyle errors (not layout: no formatter is enforced)
+    "W",               # pycodestyle warnings
+    "F",               # pyflakes
+    "B",               # bugbear
+    "I",               # import order
+    "UP",              # pyupgrade, for Python 3.11+
+    "S",               # bandit: security smells (subprocess, hardcoded secrets, binding)
+]
+ignore = [
+    "E702",   # one-line `a; b` argparse wiring in cli.build_parser reads as a table
+    "S603",   # subprocess without shell=True is the safe form; argv is built, not interpolated
+    "S607",   # `claude`/`uv` are resolved from PATH on purpose
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["S101", "S105", "S106", "S108", "E731"]  # asserts, fixture tokens, tmp paths, lambda stubs

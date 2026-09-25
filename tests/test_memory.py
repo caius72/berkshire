@@ -2,9 +2,9 @@
 
 import pandas as pd
 import pytest
+from conftest import bars
 
 from berkshire.memory import DecisionLog, compute_returns, reflection_prompt, resolve_benchmark, settle_candidates
-from conftest import bars
 
 
 def outcome(ticker, date, raw=0.05, alpha=0.02, resolved="2026-09-10", text="Lesson."):

@@ -1,9 +1,9 @@
 """Structured output, field coercion and the rating parser."""
 
 import pytest
+from conftest import js
 
 from berkshire import decisions as d
-from conftest import js
 
 
 def test_schemas_render_tradingagents_markdown():

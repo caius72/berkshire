@@ -18,6 +18,8 @@ Covers every requirement in [requirements.md](requirements.md). Test ids are
 | **Component (T)** | The whole graph engine without LLMs: routing, context assembly, structured-output folding, checkpointing, reports | A **canned-agent driver** (`conftest.run_all`) plays each role with fixed outputs and submits them exactly as the plugin does | `tests/test_pipeline.py`, `test_cli.py::test_cli_end_to_end` |
 | **Inspection (I)** | Plugin artefacts: 13 role subagents, persona directives, tool boundaries, execution guardrails in the skills | pytest over the markdown and frontmatter | `tests/test_plugin.py` |
 | **Traceability (T)** | REQ ↔ TST consistency | pytest parses both docs and all test docstrings | `tests/test_traceability.py` |
+| **Views (T)** | The API server (guard, routes, SSE, jobs), the client, the Textual TUI (driven by Textual's pilot against a real server thread), and the web view's pure modules | pytest; `node --test` | `tests/test_server.py`, `test_tui.py`, `webui/test/web.test.js` |
+| **CI config (I)** | The workflow, lint rules and coverage floor | pytest over the parsed YAML/TOML | `tests/test_ci.py` |
 | **Manual (D)** | Behaviour that depends on live LLM agents, the Claude Code UI, or the eToro account | Documented procedures (§4), run against the **eToro demo account** | this document |
 
 ### Test environment
@@ -26,7 +28,7 @@ Covers every requirement in [requirements.md](requirements.md). Test ids are
   `BERKSHIRE_HOME` in a tmp dir, clears `BERKSHIRE_*` env vars, and replaces
   `yfinance.Ticker` with `FakeTicker` (a synthetic linear uptrend of 400 business
   days ending 2026-09-18, fixed statements, insider rows and news). No network, no LLM, no eToro.
-* **Run:** `uv run pytest` (about 1 s). Live smoke run: `bin/berkshire data --run <run> snapshot NVDA`.
+* **Run:** `uv run --all-extras pytest` (about 8 s) and `cd webui && npm test`. Live smoke run: `bin/berkshire data --run <run> snapshot NVDA`.
 
 ### Design techniques used
 
@@ -139,12 +141,45 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-SCHED-05 | /loop tick on the demo account, with one failing instrument | REQ-SCHED-01, REQ-SCHED-05 | D | Manual procedure M3. |
 | TST-SAFE-01 | Suffixes survive; path-escaping tickers and run ids are rejected | REQ-SAFE-01, REQ-IF-04 | T | 9-row table. |
 | TST-SAFE-02 | atomic_write replaces the file via rename, leaving no temp file | REQ-SAFE-02 | T | Two writes, directory listing. |
+| TST-UI-01 | `berkshire web` starts a real server when none runs, and reuses it next time | REQ-UI-11, REQ-UI-01 | T | Subprocess with an isolated home: two calls return the same URL/pid; SIGTERM removes the registry. |
+| TST-UI-02 | API needs loopback Host, X-WebUI and the token; no CORS | REQ-UI-02 | T | Truth table for `host_ok` / `authorized` (IPv4, IPv6, foreign host, missing/stale token, empty server token). |
+| TST-UI-03 | Unauthenticated, cross-origin and rebinding requests get 403; page is ungated | REQ-UI-02 | T | Real socket: no headers, stale token, foreign Host, OPTIONS preflight, POST without guard; no Access-Control headers anywhere. |
+| TST-UI-04 | The registry holds port, token and pid with 0600 permissions | REQ-UI-01, REQ-UI-02 | T | Stat the registry file; URL format. |
+| TST-UI-05 | Runs list with progress summary; run detail with floor, sections, timeline, orders | REQ-UI-03, REQ-UI-05 | T | One complete + one partial run; detail payload; 404 and path-traversal inputs. |
+| TST-UI-06 | Decision log, order queue and backtest summaries are exposed read-only | REQ-UI-03, REQ-UI-07 | T | Seed log/queue/backtest dir; every order-writing POST path is 404. |
+| TST-UI-07 | POST /api/jobs validates input and spawns a headless /berkshire:analyze | REQ-UI-06 | T | Fake spawner records argv; four invalid inputs rejected before any spawn; exit code → status. |
+| TST-UI-08 | Snapshots detect new runs, submitted steps, log and queue changes | REQ-UI-04 | T | Pure `changed()` over snapshots before/after init, submit (mtime bumped), removal. |
+| TST-UI-09 | /api/events sends hello, then a change event when a run appears | REQ-UI-04 | T | Real SSE stream via the client, 50 ms poll. |
+| TST-UI-10 | Static files resolve inside dist only; traversal falls back to index.html | REQ-UI-02 | T | Plain, encoded and nested `..` paths. |
+| TST-UI-11 | Without a built bundle the page explains how to build it or use the TUI | REQ-UI-10 | T | Server with a missing dist. |
+| TST-UI-12 | The client finds the server via the registry and reads/writes through the API | REQ-UI-01 | T | discover() on live and dead-pid registries; ApiError carries the status. |
+| TST-UI-13 | TUI lists runs and shows team progress, signal and the latest report | REQ-UI-08, REQ-UI-03 | T | Textual pilot against a real server thread; 12 progress rows; `r` refresh. |
+| TST-UI-14 | A run created while the TUI is open appears through the SSE stream | REQ-UI-04, REQ-UI-08 | T | Start empty, create a run, wait for the SSE-driven refresh. |
+| TST-UI-15 | 'n' opens the form and submitting starts a job through the API | REQ-UI-06, REQ-UI-08 | T | Pilot presses `n`, fills the ticker, clicks Start; spawner saw the analyze command. |
+| TST-UI-16 | Without textual, `berkshire tui` explains the extra instead of a traceback | REQ-UI-09 | T | Import of textual forced to fail (and genuinely absent in the CI core job); exit code 3. |
+| TST-UI-17 | /berkshire:dashboard starts the server, gives the URL and TUI command, and says orders stay in Claude | REQ-UI-12 | I | Skill text and allowed-tools. |
+| TST-UI-18 | Both views say orders are placed only with /berkshire:approve | REQ-UI-07 | I | App.jsx and tui.py text. |
+| TST-UI-19 | Server and client import no order-placing code; views only read the queue | REQ-UI-01, REQ-UI-07 | I | Source scan for queue writes and eToro placement names. |
+| TST-UI-20 | Web and terminal walkthrough during a live analysis | REQ-UI-04, REQ-UI-05, REQ-UI-08 | D | Manual procedure M4. |
+| TST-WEB-01 | Report markdown parses to blocks the reader renders, tables included | REQ-UI-05 | T | node:test over md.js with a report containing every block type. |
+| TST-WEB-02 | Inline markup becomes runs, never HTML; tags stay literal text | REQ-UI-05, REQ-UI-02 | T | Script/img injection strings stay text. |
+| TST-WEB-03 | The SSE parser handles split chunks, comments and multi-event buffers | REQ-UI-04 | T | Event split across two chunks; keep-alive comment. |
+| TST-WEB-04 | The ?t= token moves to sessionStorage and leaves the address bar | REQ-UI-02 | T | Fake location/storage/history. |
+| TST-CI-01 | CI runs on push and PR to main with test, core, lint, webui, secrets and sast jobs | REQ-CI-01 | I | Parse ci.yml. |
+| TST-CI-02 | ruff is pinned in CI and the rule set includes bandit security checks | REQ-CI-02 | I | ci.yml env + ruff.toml. |
+| TST-CI-03 | The test job runs every extra under branch coverage with a ratcheting floor and publishes the report | REQ-CI-03 | I | ci.yml + [tool.coverage]. |
+| TST-CI-04 | gitleaks scans the full history on every push and PR | REQ-CI-04 | I | fetch-depth 0 + gitleaks action. |
+| TST-CI-05 | CodeQL analyses Python and JavaScript with security-extended queries | REQ-CI-05 | I | sast matrix and permissions. |
+| TST-CI-06 | The core job installs no extras, asserts textual is absent and checks the tui hint | REQ-CI-06 | I | core job commands; textual only in the extra. |
+| TST-CI-07 | The webui job runs npm ci, the node tests and the vite build | REQ-CI-07 | I | webui job + package.json + lockfile. |
+| TST-CI-08 | Read-only default permissions, versioned actions, locked installs | REQ-CI-08 | I | Every `uses:` ends in `@vN`. |
+| TST-CI-09 | First push to GitHub: every job green, coverage and CodeQL results published | REQ-CI-01, REQ-CI-03, REQ-CI-04, REQ-CI-05 | D | Manual procedure M5. |
 | TST-SAFE-04 | Requirements, test plan and test code are mutually traceable | REQ-SAFE-04 | T | `tests/test_traceability.py`. |
 
 ## 3. Entry and exit criteria
 
 * **Entry:** `uv sync` succeeds and `claude plugin validate .` passes.
-* **Exit (automated):** `uv run pytest` is green, with 0 skipped and 0 xfail.
+* **Exit (automated):** every CI job is green. The test job has 0 skipped and 0 xfail; the core job skips only `tests/test_tui.py`, by design.
 * **Exit (release):** M1–M3 executed on the demo account and their results recorded in the table in §4.
 
 ## 4. Manual procedures
@@ -180,11 +215,26 @@ Load the plugin: `claude --plugin-dir /Users/kai/repos/ai/berkshire`, or
    and no new queue items appear.
 4. `/loop 24h /berkshire:tick` is accepted and scheduled.
 
+**M4 — web and terminal views (TST-UI-20).**
+1. `/berkshire:dashboard` and open the URL. Then `berkshire tui` in a terminal.
+2. Start an analysis from the web form. The Jobs view shows it running with a log tail.
+3. While it runs, both views update without a reload. The floor's seats fill team by team, the
+   timeline grows, and the reader opens on the latest report.
+4. Check at 375 px width (the floor wraps to two columns) and with the system in dark mode.
+5. The Orders view and the TUI Orders tab list the queue read-only, and point to `/berkshire:approve`.
+
+**M5 — first CI run (TST-CI-09).**
+1. Push to the GitHub `main` branch. All six jobs pass.
+2. The test job's summary shows the coverage table, and the `coverage` artifact has `coverage.xml`.
+3. The Security tab lists CodeQL results for Python and JavaScript. gitleaks reports no leaks.
+
 | Procedure | Date | Result | Notes |
 |---|---|---|---|
 | M1 | | not yet run | |
 | M2 | | not yet run | |
 | M3 | | not yet run | |
+| M4 | | not yet run | |
+| M5 | | not yet run | |
 
 ## 5. Traceability matrix (REQ → TST)
 
@@ -278,4 +328,24 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-SAFE-02 | TST-CKPT-01, TST-SAFE-02 |
 | REQ-SAFE-03 | TST-RPT-01 |
 | REQ-SAFE-04 | TST-SAFE-04 |
+| REQ-UI-01 | TST-UI-01, TST-UI-04, TST-UI-12, TST-UI-19 |
+| REQ-UI-02 | TST-UI-02, TST-UI-03, TST-UI-04, TST-UI-10, TST-WEB-02, TST-WEB-04 |
+| REQ-UI-03 | TST-UI-05, TST-UI-06, TST-UI-13 |
+| REQ-UI-04 | TST-UI-08, TST-UI-09, TST-UI-14, TST-UI-20, TST-WEB-03 |
+| REQ-UI-05 | TST-UI-05, TST-UI-20, TST-WEB-01, TST-WEB-02 |
+| REQ-UI-06 | TST-UI-07, TST-UI-15 |
+| REQ-UI-07 | TST-UI-06, TST-UI-18, TST-UI-19 |
+| REQ-UI-08 | TST-UI-13, TST-UI-14, TST-UI-15, TST-UI-20 |
+| REQ-UI-09 | TST-UI-16 |
+| REQ-UI-10 | TST-UI-11 |
+| REQ-UI-11 | TST-UI-01 |
+| REQ-UI-12 | TST-UI-17 |
+| REQ-CI-01 | TST-CI-01, TST-CI-09 |
+| REQ-CI-02 | TST-CI-02 |
+| REQ-CI-03 | TST-CI-03, TST-CI-09 |
+| REQ-CI-04 | TST-CI-04, TST-CI-09 |
+| REQ-CI-05 | TST-CI-05, TST-CI-09 |
+| REQ-CI-06 | TST-CI-06 |
+| REQ-CI-07 | TST-CI-07 |
+| REQ-CI-08 | TST-CI-08 |
 <!-- MATRIX:END -->

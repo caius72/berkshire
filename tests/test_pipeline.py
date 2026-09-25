@@ -4,10 +4,9 @@ import json
 from pathlib import Path
 
 import pytest
-
-from berkshire import config, pipeline
 from conftest import CANNED, canned, new_run, run_all
 
+from berkshire import config, pipeline
 
 # --- Flow -------------------------------------------------------------------
 

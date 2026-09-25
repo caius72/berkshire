@@ -7,7 +7,7 @@ readable string, never a traceback (REQ-DATA-06). yfinance access goes through
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pandas as pd
 
@@ -257,14 +257,14 @@ def _news_item(raw: dict) -> dict:
     c = raw.get("content") or raw
     pub = c.get("pubDate") or c.get("providerPublishTime")
     if isinstance(pub, (int, float)):
-        dt = datetime.fromtimestamp(pub, tz=timezone.utc)
+        dt = datetime.fromtimestamp(pub, tz=UTC)
     else:
         try:
             dt = datetime.fromisoformat(str(pub).replace("Z", "+00:00"))
         except ValueError:
             dt = None
     if dt is not None and dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     provider = c.get("provider")
     return {"title": c.get("title") or "", "summary": c.get("summary") or "",
             "publisher": (provider or {}).get("displayName") if isinstance(provider, dict) else c.get("publisher"),
@@ -274,14 +274,14 @@ def _news_item(raw: dict) -> dict:
 def in_window(dt: datetime | None, start: str, end: str) -> bool:
     if dt is None:  # undated: only trusted for a live window
         return _d(end).date() >= datetime.now().date() - timedelta(days=1)
-    dt = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-    lo = _d(start).replace(tzinfo=timezone.utc)
-    return lo <= dt < _d(end).replace(tzinfo=timezone.utc) + timedelta(days=1)
+    dt = dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+    lo = _d(start).replace(tzinfo=UTC)
+    return lo <= dt < _d(end).replace(tzinfo=UTC) + timedelta(days=1)
 
 
 def coverage_gap(dates: list, start: str, end: str, source: str) -> str | None:
     """Marker when the feed could not observe the whole window."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     oldest = min((d for d in dates if d is not None), default=now)
     if oldest.date() > _d(start).date():
         return (f"<{source} unavailable for {start}..{end}: it only serves recent items, "
@@ -318,7 +318,7 @@ def tool_global_news(curr_date: str | None, trade_date: str, cfg: dict, look_bac
                 if item["title"] not in seen:
                     seen.add(item["title"])
                     items.append(item)
-        except Exception:  # noqa: BLE001 - one query failing is not the tool failing
+        except Exception:  # noqa: S112 - one query failing is not the tool failing
             continue
     return f"## Global news {start}..{end}\n\n" + format_news(items, start, end, "Yahoo global news",
                                                               cfg["global_news_article_limit"])

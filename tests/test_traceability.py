@@ -26,10 +26,15 @@ def plan_rows() -> dict[str, dict]:
     return rows
 
 
+TEST_FILES = ("tests/test_*.py", "webui/test/*.test.js")
+# Python docstrings ("""TST-…) and node:test titles (test('TST-…).
+TEST_ID = re.compile(r"""(?:\"\"\"|test\(')(TST-[A-Z]+-\d+): [^\n]*?\[([^\]]+)\]""")
+
+
 def code_tests() -> dict[str, set]:
     found = {}
-    for f in sorted((ROOT / "tests").glob("test_*.py")):
-        for m in re.finditer(r'"""(TST-[A-Z]+-\d+): [^\n]*?\[([^\]]+)\]', f.read_text()):
+    for f in sorted(p for pattern in TEST_FILES for p in ROOT.glob(pattern)):
+        for m in TEST_ID.finditer(f.read_text()):
             assert m.group(1) not in found, f"duplicate test id {m.group(1)}"
             found[m.group(1)] = {r.strip() for r in m.group(2).split(",")}
     return found

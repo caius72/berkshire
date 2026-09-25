@@ -158,7 +158,7 @@ def cmd_settle(a, cfg):
         return
     tickers = None if a.all else [t.upper() for t in a.tickers]
     cands = settle_candidates(log, cfg, tickers, data.closes)
-    for i, c in enumerate(cands):
+    for c in cands:
         c["id"] = f"{c['ticker']}_{c['trade_date']}"
         c["prompt_file"] = str(p["settle"] / f"{c['id']}.prompt.md")
         c["output_file"] = str(p["settle"] / f"{c['id']}.reflection.md")
@@ -274,6 +274,32 @@ def cmd_config(a, cfg):
     _print(cfg)
 
 
+def cmd_serve(a, cfg):
+    from .server import run_forever
+    run_forever(a.port)
+
+
+def cmd_web(a, cfg):
+    """Print (and optionally open) the web view's URL, starting the server if needed."""
+    from .client import ensure_server
+    info = ensure_server()
+    if a.open:
+        import webbrowser
+        webbrowser.open(info["url"])
+    _print({"url": info["url"], "pid": info["pid"]})
+
+
+def cmd_tui(a, cfg):
+    try:
+        from .tui import main as tui_main
+    except ImportError:  # REQ-UI-09: optional extra, explain instead of a traceback
+        print("The terminal view needs the optional 'tui' extra: uv sync --extra tui "
+              "(or pip install 'berkshire[tui]'). The web view works without it: berkshire web --open",
+              file=sys.stderr)
+        raise SystemExit(3) from None
+    tui_main()
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="berkshire", description="Berkshire multi-agent trading engine")
     sp = ap.add_subparsers(dest="cmd", required=True)
@@ -328,6 +354,11 @@ def build_parser() -> argparse.ArgumentParser:
     s = sp.add_parser("prefs"); s.add_argument("action", choices=["get", "set"]); s.add_argument("value", nargs="?")
     s.set_defaults(fn=cmd_prefs)
     sp.add_parser("config").set_defaults(fn=cmd_config)
+    s = sp.add_parser("serve", help="run the local API + web view server")
+    s.add_argument("--port", type=int, default=8787); s.set_defaults(fn=cmd_serve)
+    s = sp.add_parser("web", help="start the server if needed and print the web view URL")
+    s.add_argument("--open", action="store_true"); s.set_defaults(fn=cmd_web)
+    sp.add_parser("tui", help="terminal view (needs the tui extra)").set_defaults(fn=cmd_tui)
     return ap
 
 
