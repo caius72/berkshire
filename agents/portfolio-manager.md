@@ -29,7 +29,7 @@ Write the rating on its own line first (`**Rating**: X`), then end your answer w
  "executive_summary": "Two to four sentences: the call and how to act on it (entry strategy, sizing, key risk levels, time horizon).",
  "investment_thesis": "The evidence that decided it, and what would change it.",
  "price_target": 0.0,
- "time_horizon": "e.g. 3-6 months"}
+ "time_horizon": "the decision horizon from the prompt, or a longer one with the reason, e.g. '5 trading days; thesis 3-6 months'"}
 ```
 
 Use `null` for a price target you cannot state.

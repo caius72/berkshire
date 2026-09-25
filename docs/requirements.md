@@ -32,7 +32,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 |---|---|---|---|
 | REQ-ROLE-01 | M | The plugin shall provide one subagent per TradingAgents role: Market Analyst, Sentiment Analyst, News Analyst, Fundamentals Analyst, Bull Researcher, Bear Researcher, Research Manager, Trader, Aggressive Risk Analyst, Conservative Risk Analyst, Neutral Risk Analyst, Portfolio Manager, and Reflector. | I |
 | REQ-ROLE-02 | M | The Research Manager and Portfolio Manager shall run on the deep model (default `opus`). All other roles shall run on the quick model (default `sonnet`). Both are configurable (`deep_think_llm`, `quick_think_llm`). | T |
-| REQ-ROLE-03 | M | Each analyst shall have the data access of its TradingAgents counterpart. Market: OHLCV, indicators, verified snapshot. Fundamentals: profile, balance sheet, cash flow, income statement, insider transactions. News: ticker news, global news, and web search for macro data and prediction markets. Sentiment: news plus web search of StockTwits and Reddit. | I |
+| REQ-ROLE-03 | M | Each analyst shall have the data access of its TradingAgents counterpart. Market: OHLCV, indicators, verified snapshot. Fundamentals: profile, point-in-time valuation, earnings calendar, balance sheet, cash flow, income statement, insider transactions. News: ticker news, global news, and web search for macro data and prediction markets. Sentiment: news plus web search of StockTwits and Reddit. | I |
 | REQ-ROLE-04 | M | Researchers, debaters, managers and the Trader shall decide only on the evidence in their prompt. They are not given web or data tools. | I |
 | REQ-ROLE-05 | M | Each role's persona shall keep the substantive directives of the TradingAgents prompt: the bull/bear focus points, the risk stances, the Trader's absolute price levels, the judges' rating scales and anti-Hold guidance, and the end-of-report markdown table for analysts. | I |
 | REQ-ROLE-06 | S | The Market Analyst shall pick up to 8 complementary indicators from the TradingAgents indicator catalogue. | I |
@@ -62,6 +62,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-CTX-05 | M | The Trader shall receive the technical market report, when there is one, with the instruction to ground its entry and stop in it. | T |
 | REQ-CTX-06 | M | Only the Portfolio Manager shall receive past-decision lessons. | T |
 | REQ-CTX-07 | S | When `output_language` is not English, every report-producing prompt shall carry the instruction "Write your entire response in <lang>." | T |
+| REQ-CTX-08 | M | Every report-producing prompt shall state the decision horizon: the `holding_period_days` window over which the decision's return and alpha are scored. It asks the agent to separate within-window drivers from longer-horizon ones, and to say so when its call rests on a longer horizon. The horizon is part of the run signature. | T |
 
 ## 4. Decisions and structured output (REQ-OUT)
 
@@ -80,7 +81,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 |---|---|---|---|
 | REQ-MEM-01 | M | Every completed run shall append `[date \| ticker \| rating \| pending]` + `DECISION:` to the markdown decision log, in the TradingAgents format. | T |
 | REQ-MEM-02 | M | Storing a second decision for the same ticker and date shall be a no-op. | T |
-| REQ-MEM-03 | M | Settlement shall compute raw return and alpha over `holding_period_days` trading days against the benchmark. The benchmark is chosen by explicit override, then by exchange suffix, then SPY. An entry whose window has not fully traded stays pending. | T |
+| REQ-MEM-03 | M | Settlement shall compute raw return and alpha over `holding_period_days` trading days against the benchmark. The benchmark is chosen by explicit override, then by exchange suffix, then SPY. An entry whose window has not fully traded stays pending. The same `holding_period_days` is the horizon the agents are told (REQ-CTX-08). | T |
 | REQ-MEM-04 | M | A settled entry shall get a 2–4 sentence Reflector reflection and the resolved tag `[date \| ticker \| rating \| raw \| alpha \| Nd \| resolved:YYYY-MM-DD]`, written atomically. | T |
 | REQ-MEM-05 | M | Past context shall contain up to 5 same-ticker entries (full) and 3 cross-ticker reflections, most recent first. For a historical run only lessons resolved on or before the trade date are included. | T |
 | REQ-MEM-06 | S | When `memory_log_max_entries` is set, the oldest resolved entries shall be rotated out. Pending entries are never pruned. | T |
@@ -95,8 +96,10 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-DATA-03 | M | Indicators shall cover close_50_sma, close_200_sma, close_10_ema, macd, macds, macdh, rsi, boll, boll_ub, boll_lb, atr and vwma. Unknown names return an error text listing the valid ones. | T |
 | REQ-DATA-04 | M | Financial statements shall omit periods not yet filed by the trade date (conservative filing lag: 45 days quarterly, 90 days annual). Insider transactions after the trade date shall be omitted. | T |
 | REQ-DATA-05 | M | News shall be trimmed to the requested window. A window the feed could not observe shall produce an explicit "unavailable, not an absence" marker. | T |
-| REQ-DATA-06 | M | Data tool failures shall return a readable error string to the agent, never a traceback. | T |
-| REQ-DATA-07 | S | Non-point-in-time sources (company profile, web search) shall be labelled as current in tool output and in the analyst prompts. | T |
+| REQ-DATA-06 | M | Data tool failures shall return a readable string, never a traceback. It starts with `DATA_UNAVAILABLE:` and keeps the cause for failures, or `NO_DATA_AVAILABLE:` when the source has nothing for the instrument and date. Either way it ends with a do-not-fabricate directive, and every analyst persona treats such output as missing data. Usage errors (unknown tool, missing arguments) are reported plainly. | T |
+| REQ-DATA-07 | M | Non-point-in-time sources shall not leak into past-dated runs. The company profile's price- and period-derived figures (valuation, margins, growth, balance sheet, beta, 52-week range) are withheld on past dates, leaving identity only. Web search and social sources are labelled as current in tool output and in the analyst prompts. | T |
+| REQ-DATA-08 | M | A `valuation` tool shall give market cap, P/E and P/B as of the trade date: the close on or before the date, diluted EPS from four filed quarters (TTM) or else the latest filed fiscal year (never a single quarter), and shares and equity from the newest filed balance sheet. Every input must be ≤ 400 days old and on one split basis (checked via net income ÷ EPS ≈ shares). Losses and negative equity are reported as n/m, and each figure shows its basis and date. | T |
+| REQ-DATA-09 | M | An `earnings` tool shall give earnings context keyed on announcement dates. History is only announcements strictly before the trade date, with the estimate and reported EPS. The next announcement shows about how many trading days away it is and whether it falls inside the decision horizon (`holding_period_days`). Its consensus appears only on a same-day run, and a later event's result is never shown. Instruments without a calendar get `NO_DATA_AVAILABLE`. | T |
 
 ## 7. Interface parity (REQ-IF)
 

@@ -31,8 +31,33 @@ FILING_LAG = {"quarterly": 45, "annual": 90}  # REQ-DATA-04
 CURRENT_NOTE = "(Source describes the instrument as of today, not necessarily as of {date}.)"
 
 
+# --- no-data sentinels (REQ-DATA-06) ---------------------------------------
+# Every "nothing to report" answer starts with one of these, so the analyst cannot
+# mistake it for a finding or fill the gap from memory (TradingAgents #1408).
+NO_DATA = "NO_DATA_AVAILABLE"        # the source has nothing for this instrument/date
+UNAVAILABLE = "DATA_UNAVAILABLE"     # the call failed (network, vendor error, bug)
+DIRECTIVE = "Report this data as unavailable; do not estimate, recall or fabricate values for it."
+
+
+class NoData(ValueError):
+    """The source answered, with nothing usable for this instrument and date."""
+
+
+def no_data(message: str) -> str:
+    return f"{NO_DATA}: {message} {DIRECTIVE}"
+
+
+def unavailable(message: str) -> str:
+    return f"{UNAVAILABLE}: {message} {DIRECTIVE}"
+
+
 def _ticker(symbol: str):
+    import logging
+
     import yfinance as yf
+    # yfinance logs its own "no data / possibly delisted" errors; the tools report those
+    # through the NO_DATA / DATA_UNAVAILABLE markers instead, so agents see one clear line.
+    logging.getLogger("yfinance").setLevel(logging.CRITICAL)
     return yf.Ticker(symbol)
 
 
@@ -133,7 +158,7 @@ def _history_for(symbol: str, trade_date: str) -> pd.DataFrame:
     start = (_d(trade_date) - timedelta(days=400)).strftime("%Y-%m-%d")
     df = ohlcv(symbol, start, trade_date)
     if df.empty:
-        raise ValueError(f"No OHLCV data available for {symbol} on or before {trade_date}.")
+        raise NoData(f"No OHLCV data for {symbol} on or before {trade_date}.")
     return df
 
 
@@ -141,7 +166,7 @@ def tool_stock(symbol: str, start: str, end: str, trade_date: str) -> str:
     start, end = as_of_window(start, end, trade_date)
     df = ohlcv(symbol, start, end)
     if df.empty:
-        return f"No price data for {symbol} between {start} and {end}."
+        return no_data(f"No price data for {symbol} between {start} and {end}.")
     return f"# {symbol} daily OHLCV {start}..{end} (no rows after {trade_date})\n" + df.round(4).to_csv()
 
 
@@ -217,13 +242,138 @@ _FUNDAMENTAL_FIELDS = ("longName", "sector", "industry", "marketCap", "trailingP
                        "totalDebt", "totalCash", "freeCashflow", "fiftyTwoWeekHigh", "fiftyTwoWeekLow")
 
 
+IDENTITY_FIELDS = ("longName", "sector", "industry")
+
+
 def tool_fundamentals(symbol: str, trade_date: str) -> str:
+    """Company fundamentals. On a past date only identity is shown: Yahoo reports valuation,
+    margins, growth, balance and 52-week figures as of today, which would leak what happened
+    after the trade date (REQ-DATA-07)."""
     info = _ticker(symbol).info or {}
-    rows = [f"| {k} | {info[k]} |" for k in _FUNDAMENTAL_FIELDS if info.get(k) is not None]
+    past = trade_date < today()
+    fields = IDENTITY_FIELDS if past else _FUNDAMENTAL_FIELDS
+    rows = [f"| {k} | {info[k]} |" for k in fields if info.get(k) is not None]
     if not rows:
-        return f"No fundamentals available for {symbol}."
-    note = CURRENT_NOTE.format(date=trade_date) if trade_date < today() else ""
-    return f"# {symbol} company fundamentals {note}\n\n| Field | Value |\n|---|---|\n" + "\n".join(rows)
+        return no_data(f"No fundamentals for {symbol}.")
+    out = f"# {symbol} company fundamentals {CURRENT_NOTE.format(date=trade_date) if past else ''}\n\n"
+    out += "| Field | Value |\n|---|---|\n" + "\n".join(rows)
+    if past:
+        out += (f"\n\nValuation, margins, growth, balance-sheet and 52-week figures are withheld: the source "
+                f"reports them as of today, which would leak information from after {trade_date}. Use `valuation` "
+                f"for market cap, P/E and P/B as of {trade_date}, and the filed statements for everything else.")
+    return out
+
+
+# --- point-in-time valuation (REQ-DATA-08) ----------------------------------
+
+VALUATION_MAX_AGE_DAYS = 400   # oldest statement period accepted as an input
+BASIS_TOLERANCE = 0.25         # net income / EPS must be within 25% of the share count
+
+
+def _filed_values(t, attr: str, row: str, freq: str, trade_date: str) -> list[tuple[pd.Timestamp, float]]:
+    """(period end, value) for one statement row, filed by the trade date, newest first, NaNs dropped."""
+    df = getattr(t, ("quarterly_" if freq == "quarterly" else "") + attr, None)
+    if df is None or df.empty or row not in df.index:
+        return []
+    df = filter_filed(df, freq, trade_date)
+    vals = [(pd.Timestamp(c).tz_localize(None), float(df.loc[row, c])) for c in df.columns]
+    return sorted(((d, v) for d, v in vals if not pd.isna(v)), key=lambda x: x[0], reverse=True)
+
+
+def _basis_ok(t, attr_freq: str, period: pd.Timestamp, eps: float, trade_date: str) -> bool:
+    """Net income / EPS ≈ diluted shares for the same period, i.e. EPS and shares share a split basis."""
+    income = dict(_filed_values(t, "income_stmt", "Net Income", attr_freq, trade_date))
+    shares = dict(_filed_values(t, "income_stmt", "Diluted Average Shares", attr_freq, trade_date))
+    if period not in income or period not in shares or not eps or not shares[period]:
+        return True  # nothing to check against; the EPS is used as reported
+    return abs(income[period] / eps / shares[period] - 1) <= BASIS_TOLERANCE
+
+
+def valuation(symbol: str, trade_date: str) -> dict:
+    """Market cap, P/E and P/B as of trade_date from the close and statements filed by then.
+
+    Yahoo restates prices, EPS and share counts to today's split basis, so every input is on one
+    basis and the ratios are consistent across splits; a net-income/EPS/share-count check guards
+    against an input that is not. Returns a dict of figures and the notes explaining each.
+    """
+    t = _ticker(symbol)
+    limit = pd.Timestamp(trade_date) - timedelta(days=VALUATION_MAX_AGE_DAYS)
+    out: dict = {"symbol": symbol, "trade_date": trade_date, "notes": []}
+
+    bars = ohlcv(symbol, (_d(trade_date) - timedelta(days=10)).strftime("%Y-%m-%d"), trade_date)
+    if bars.empty:
+        out["notes"].append(f"No close on or within 10 days before {trade_date}: valuation unavailable.")
+        return out
+    out["close"], out["close_date"] = float(bars["Close"].iloc[-1]), bars.index[-1].strftime("%Y-%m-%d")
+
+    # EPS: four filed quarters summed (TTM), else the latest filed fiscal year. Never one quarter.
+    quarters = [(d, v) for d, v in _filed_values(t, "income_stmt", "Diluted EPS", "quarterly", trade_date) if d >= limit]
+    annual = [(d, v) for d, v in _filed_values(t, "income_stmt", "Diluted EPS", "annual", trade_date) if d >= limit]
+    if len(quarters) >= 4 and (quarters[0][0] - quarters[3][0]).days < 380:
+        eps, eps_basis, freq, period = sum(v for _, v in quarters[:4]), \
+            f"TTM, 4 filed quarters ending {quarters[0][0]:%Y-%m-%d}", "quarterly", None
+    elif annual:
+        (period, eps), freq = annual[0], "annual"
+        eps_basis = f"fiscal year ending {period:%Y-%m-%d}"
+    else:
+        eps = None
+        out["notes"].append(f"No diluted EPS filed within {VALUATION_MAX_AGE_DAYS} days before {trade_date}.")
+    if eps is not None:
+        checks = [(d, v) for d, v in quarters[:4]] if period is None else [(period, eps)]
+        if all(_basis_ok(t, freq, d, v, trade_date) for d, v in checks):
+            out["eps"], out["eps_basis"] = eps, eps_basis
+        else:
+            out["notes"].append("EPS and share count are on different split bases in the source: P/E unavailable.")
+
+    # Shares and equity: the newest filed balance sheet, quarterly or annual.
+    for key, row in (("shares", "Ordinary Shares Number"), ("equity", "Stockholders Equity")):
+        cands = _filed_values(t, "balance_sheet", row, "quarterly", trade_date) + \
+            _filed_values(t, "balance_sheet", row, "annual", trade_date)
+        cands = [c for c in cands if c[0] >= limit]
+        if cands:
+            d, v = max(cands, key=lambda c: c[0])
+            out[key], out[f"{key}_date"] = v, d.strftime("%Y-%m-%d")
+        else:
+            out["notes"].append(f"No {row.lower()} filed within {VALUATION_MAX_AGE_DAYS} days before {trade_date}.")
+
+    if out.get("shares"):
+        out["market_cap"] = out["close"] * out["shares"]
+    if out.get("eps") is not None:
+        out["pe"] = out["close"] / out["eps"] if out["eps"] > 0 else None  # n/m for losses
+    if out.get("market_cap") and out.get("equity") is not None:
+        out["pb"] = out["market_cap"] / out["equity"] if out["equity"] > 0 else None
+    return out
+
+
+def tool_valuation(symbol: str, trade_date: str) -> str:
+    v = valuation(symbol, trade_date)
+    money = lambda x: f"{x:,.0f}"  # noqa: E731
+    rows = []
+    if "close" in v:
+        rows.append(f"| Close | {v['close']:.2f} | {v['close_date']} |")
+    if "shares" in v:
+        rows.append(f"| Shares outstanding | {money(v['shares'])} | balance sheet {v['shares_date']} |")
+    if "market_cap" in v:
+        rows.append(f"| Market cap | {money(v['market_cap'])} | close × shares |")
+    if "eps" in v:
+        rows.append(f"| Diluted EPS | {v['eps']:.2f} | {v['eps_basis']} |")
+        pe = "n/m (negative earnings)" if v["pe"] is None else f"{v['pe']:.1f}"
+        rows.append(f"| P/E | {pe} | close / EPS |")
+    if "equity" in v:
+        rows.append(f"| Stockholders' equity | {money(v['equity'])} | balance sheet {v['equity_date']} |")
+    if "pb" in v:
+        pb = "n/m (negative equity)" if v["pb"] is None else f"{v['pb']:.2f}"
+        rows.append(f"| P/B | {pb} | market cap / equity |")
+    if not rows:
+        return no_data(f"No valuation figures for {symbol} as of {trade_date}. " + " ".join(v["notes"]))
+    body = "| Figure | Value | Basis |\n|---|---:|---|\n" + "\n".join(rows)
+    notes = "".join(f"\n- {n}" for n in v["notes"])
+    return (f"# {symbol} valuation as of {trade_date} (point-in-time)\n\n{body}\n\n"
+            f"Inputs are the close on or before {trade_date} and statements filed by then (filing date approximated "
+            f"as period end + {FILING_LAG['quarterly']}/{FILING_LAG['annual']} days). Prices and per-share figures "
+            f"are on today's split basis (the source restates history for later splits), so they can differ from "
+            f"as-traded prices quoted in old news. No enterprise value: net debt is not point-in-time here."
+            + (f"\n\nNotes:{notes}" if notes else ""))
 
 
 def filter_filed(df: pd.DataFrame, freq: str, trade_date: str) -> pd.DataFrame:
@@ -239,10 +389,10 @@ def tool_statement(symbol: str, kind: str, freq: str, trade_date: str) -> str:
     t = _ticker(symbol)
     df = getattr(t, ("quarterly_" if freq == "quarterly" else "") + attr)
     if df is None or df.empty:
-        return f"No {kind} data for {symbol}."
+        return no_data(f"No {freq} {kind} data for {symbol}.")
     df = filter_filed(df, freq, trade_date)
     if df.empty:
-        return f"No {freq} {kind} for {symbol} had been filed by {trade_date}."
+        return no_data(f"No {freq} {kind} for {symbol} had been filed by {trade_date}.")
     df.columns = [pd.Timestamp(c).strftime("%Y-%m-%d") for c in df.columns]
     return (f"# {symbol} {freq} {kind} (periods filed by {trade_date}; filing date approximated as period end "
             f"+ {FILING_LAG[freq]} days)\n" + df.to_csv())
@@ -251,12 +401,88 @@ def tool_statement(symbol: str, kind: str, freq: str, trade_date: str) -> str:
 def tool_insider(symbol: str, trade_date: str) -> str:
     df = _ticker(symbol).insider_transactions
     if df is None or df.empty:
-        return f"No insider transactions for {symbol}."
+        return no_data(f"The source has no insider transactions for {symbol}.")
     if "Start Date" in df.columns:
         df = df[pd.to_datetime(df["Start Date"]).dt.tz_localize(None) <= pd.Timestamp(trade_date)]
     if df.empty:
-        return f"No insider transactions for {symbol} on or before {trade_date}."
+        return no_data(f"No insider transactions for {symbol} on or before {trade_date}.")
     return f"# {symbol} insider transactions on or before {trade_date}\n" + df.head(30).to_csv(index=False)
+
+
+# --- earnings calendar (REQ-DATA-09) ----------------------------------------
+
+def earnings(symbol: str, trade_date: str, horizon_days: int = 5, history: int = 4) -> dict:
+    """Earnings context as of trade_date, keyed on announcement dates.
+
+    Past: the last `history` announcements strictly before the trade date, with the estimate
+    that stood before each and the reported EPS (all known by then). Next: the first
+    announcement on or after the trade date, with about how many trading days away it is and
+    whether it falls inside the decision horizon. Its consensus is shown only for a same-day
+    run: today's estimate has been revised since a past date, and any reported result of a
+    later event is never shown. Raises NoData when the source has no calendar (funds, crypto).
+    """
+    td = pd.Timestamp(trade_date)
+    quarters_since = max(0, (pd.Timestamp(today()) - td).days // 91)
+    df = _ticker(symbol).get_earnings_dates(limit=min(100, 12 + quarters_since + history))
+    if df is None or df.empty:
+        raise NoData(f"No earnings calendar for {symbol} (funds, indices, FX and crypto do not report earnings).")
+    df = df.copy()
+    df.index = pd.to_datetime(df.index)
+    days = df.index.tz_localize(None).normalize() if df.index.tz is not None else df.index.normalize()
+    df["day"] = days
+    past = df[df["day"] < td].sort_values("day", ascending=False).head(history)
+    upcoming = df[df["day"] >= td].sort_values("day")
+    out = {"symbol": symbol, "trade_date": trade_date, "horizon_days": horizon_days, "past": [], "next": None,
+           "same_day": trade_date == today()}
+    for when, row in past.iterrows():
+        out["past"].append({"date": row["day"].strftime("%Y-%m-%d"), "time": when.strftime("%H:%M"),
+                            "estimate": _num(row.get("EPS Estimate")), "reported": _num(row.get("Reported EPS")),
+                            "surprise_pct": _num(row.get("Surprise(%)"))})
+    if not upcoming.empty:
+        when, row = upcoming.index[0], upcoming.iloc[0]
+        away = max(0, len(pd.bdate_range(td, row["day"])) - 1)   # weekdays; exchange holidays not excluded
+        out["next"] = {"date": row["day"].strftime("%Y-%m-%d"), "time": when.strftime("%H:%M"),
+                       "trading_days_away": away, "inside_horizon": away <= horizon_days,
+                       "estimate": _num(row.get("EPS Estimate")) if out["same_day"] else None}
+    return out
+
+
+def _num(v):
+    try:
+        return None if v is None or pd.isna(v) else float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def tool_earnings(symbol: str, trade_date: str, horizon_days: int = 5) -> str:
+    e = earnings(symbol, trade_date, horizon_days)
+    lines = [f"# {symbol} earnings context as of {trade_date}", ""]
+    nxt = e["next"]
+    if nxt:
+        flag = (f"INSIDE the {horizon_days}-trading-day decision horizon: expect an earnings-driven move within the "
+                f"scored window." if nxt["inside_horizon"] else
+                f"outside the {horizon_days}-trading-day decision horizon.")
+        lines.append(f"- Next announcement: {nxt['date']} {nxt['time']} local, about {nxt['trading_days_away']} "
+                     f"trading days after {trade_date}, {flag}")
+        if e["same_day"]:
+            est = f"{nxt['estimate']:.2f}" if nxt["estimate"] is not None else "not available"
+            lines.append(f"- Consensus EPS estimate for it (today): {est}")
+        else:
+            lines.append(f"- The date is from today's calendar and may not have been announced by {trade_date}; its "
+                         f"consensus as of {trade_date} is not available, and its result is withheld.")
+    else:
+        lines.append(f"- No announcement on or after {trade_date} in the source calendar.")
+    if e["past"]:
+        lines += ["", f"## Last {len(e['past'])} announcements before {trade_date}", "",
+                  "| Date | Time | EPS estimate | Reported EPS | Surprise |", "|---|---|---:|---:|---:|"]
+        f = lambda v, fmt: "n/a" if v is None else format(v, fmt)  # noqa: E731
+        lines += [f"| {p['date']} | {p['time']} | {f(p['estimate'], '.2f')} | {f(p['reported'], '.2f')} | "
+                  f"{f(p['surprise_pct'], '+.1f')}% |".replace("n/a%", "n/a") for p in e["past"]]
+    else:
+        lines += ["", f"No announcements before {trade_date} in the source calendar."]
+    lines += ["", "Announcement dates are exchange-local; the surprise history uses only results published before "
+              "the analysis date."]
+    return "\n".join(lines)
 
 
 # --- news (REQ-DATA-05) ----------------------------------------------------
@@ -332,5 +558,5 @@ def tool_global_news(curr_date: str | None, trade_date: str, cfg: dict, look_bac
                                                               cfg["global_news_article_limit"])
 
 
-TOOLS = ("stock", "indicators", "snapshot", "fundamentals", "balance_sheet", "cashflow",
+TOOLS = ("stock", "indicators", "snapshot", "fundamentals", "valuation", "earnings", "balance_sheet", "cashflow",
          "income_statement", "insider", "news", "global_news")

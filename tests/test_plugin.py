@@ -53,7 +53,7 @@ def test_analyst_data_access():
     body = {n: agent(n)[1] for n in ("market-analyst", "fundamentals-analyst", "news-analyst", "sentiment-analyst")}
     for t in ("stock", "indicators", "snapshot"):
         assert f"`{t}`" in body["market-analyst"]
-    for t in ("fundamentals", "balance_sheet", "cashflow", "income_statement", "insider"):
+    for t in ("fundamentals", "valuation", "earnings", "balance_sheet", "cashflow", "income_statement", "insider"):
         assert f"`{t}`" in body["fundamentals-analyst"]
     assert "global_news" in body["news-analyst"] and "FRED" in body["news-analyst"] and "Polymarket" in body["news-analyst"]
     assert "stocktwits" in body["sentiment-analyst"].lower() and "reddit" in body["sentiment-analyst"].lower()
@@ -154,3 +154,12 @@ def test_pipeline_loop_honours_stop():
     """TST-UI-24: The pipeline loop stops dispatching when the run was stopped [REQ-UI-13]"""
     body = (ROOT / "skills" / "analyze" / "pipeline-loop.md").read_text()
     assert "`stopped` says the user stopped it" in body and "the run was stopped" in body
+
+
+def test_analysts_honour_no_data_markers():
+    """TST-ROLE-07: Every analyst treats NO_DATA_AVAILABLE / DATA_UNAVAILABLE output as missing data, not a finding [REQ-DATA-06, REQ-ROLE-05]"""
+    for name in ("market-analyst", "fundamentals-analyst", "news-analyst", "sentiment-analyst"):
+        body = agent(name)[1]
+        assert "NO_DATA_AVAILABLE" in body and "DATA_UNAVAILABLE" in body, name
+    for name in ("market-analyst", "fundamentals-analyst", "news-analyst"):
+        assert "make no exact numeric claim" in agent(name)[1] and "Do not fill the gap from memory" in agent(name)[1]

@@ -104,6 +104,15 @@ def language_instruction(lang: str) -> str:
     return "" if (lang or "English").strip().lower() == "english" else f" Write your entire response in {lang}."
 
 
+def horizon_instruction(days: int, trade_date: str) -> str:
+    """The window this decision is scored on (REQ-CTX-08, TradingAgents #673 adapted): the same
+    holding_period_days that settlement measures, so what agents are told cannot drift from it."""
+    return (f"\n\nDecision horizon: this decision is scored on its return and alpha versus the benchmark over the "
+            f"{days} trading days after {trade_date}. Separate what can move the price within that window from what "
+            f"matters only over a longer horizon, and name the catalysts that fall inside it. If your call rests on "
+            f"a longer horizon, say so explicitly.")
+
+
 # --- state ------------------------------------------------------------------
 
 def run_dir(results_dir: str | Path, ticker: str, trade_date: str) -> Path:
@@ -121,7 +130,8 @@ def save_state(state: dict) -> None:
 def signature(analysts, cfg, asset_type, portfolio) -> str:
     return "|".join([f"analysts={','.join(analysts)}", f"debate={cfg['max_debate_rounds']}",
                      f"risk={cfg['max_risk_discuss_rounds']}", f"asset={asset_type}",
-                     f"portfolio={fingerprint(portfolio)}", f"language={cfg['output_language']}"])
+                     f"portfolio={fingerprint(portfolio)}", f"language={cfg['output_language']}",
+                     f"horizon={cfg['holding_period_days']}"])
 
 
 def resolve_ticker(ticker: str, cfg: dict) -> tuple[str, str | None]:
@@ -170,7 +180,7 @@ def init_run(ticker: str, trade_date: str, cfg: dict, *, results_dir, memory_log
         "asset_type": asset_type, "etoro_symbol": etoro_symbol, "instrument_id": instrument_id,
         "analysts": chosen, "signature": sig, "config": {k: cfg[k] for k in (
             "max_debate_rounds", "max_risk_discuss_rounds", "output_language",
-            "deep_think_llm", "quick_think_llm")},
+            "deep_think_llm", "quick_think_llm", "holding_period_days")},
         "instrument_context": instrument_context(ticker, asset_type, identity, trade_date),
         "past_context": memory_log.past_context(ticker, as_of=as_of),
         "portfolio": portfolio,
@@ -231,7 +241,9 @@ def _reports(state: dict) -> dict:
 
 def build_prompt(state: dict, step: dict) -> str:
     sid, rdir, date = step["id"], state["run_dir"], state["trade_date"]
-    lang = language_instruction(state["config"]["output_language"])
+    # Runs created before the horizon existed fall back to the default window.
+    lang = horizon_instruction(state["config"].get("holding_period_days", 5), date) + \
+        language_instruction(state["config"]["output_language"])
     ic = state["instrument_context"]
     out = f"\n\nWrite your complete answer to this file with the Write tool: `{step['output_file']}`"
     historical = date < data_mod.today()

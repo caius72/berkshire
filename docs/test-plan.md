@@ -56,6 +56,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-ROLE-03 | Analysts get their TradingAgents data sources | REQ-ROLE-03 | I | Tool sets per analyst; each analyst persona names its data tools (market: stock/indicators/snapshot; fundamentals: statements+insider; news: global_news/FRED/Polymarket; sentiment: StockTwits/Reddit). |
 | TST-ROLE-04 | Researchers, debaters, managers and Trader have only Read/Write | REQ-ROLE-04 | I | For 9 decision roles: tools ⊆ {Read, Write}. |
 | TST-ROLE-05 | Each persona keeps the TradingAgents prompt's substantive directives | REQ-ROLE-05 | I | Parametrised phrase table per role (focus points, stances, anti-Hold rule, absolute price levels, JSON field names, markdown table). |
+| TST-ROLE-07 | Every analyst treats NO_DATA_AVAILABLE / DATA_UNAVAILABLE output as missing data, not a finding | REQ-DATA-06, REQ-ROLE-05 | I | The four analyst personas name both markers; the three data-tool personas forbid numeric claims and gap-filling. |
 | TST-ROLE-06 | Market Analyst picks up to 8 indicators from the full catalogue | REQ-ROLE-06 | I | Persona lists every name in `data.INDICATORS` and the "up to 8" rule. |
 | TST-FLOW-01 | A full run visits the teams in TradingAgents order | REQ-FLOW-01 | T | Canned run, default config; flattened step trace equals the expected 12-step sequence. |
 | TST-FLOW-02 | Selected analysts are offered as one parallel batch; debate waits for all | REQ-FLOW-02 | T | First `next_steps` = 4 analysts; after 3 submits only the 4th is due. |
@@ -76,6 +77,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-CTX-07 | Non-English output language reaches every report-producing prompt | REQ-CTX-07 | T | German run; every prompt carries the instruction; English adds nothing. |
 | TST-CTX-08 | An identity lookup error does not fail the run | REQ-CTX-01 | T | yfinance raises; init succeeds with ticker-only context. |
 | TST-CTX-09 | A historical run only sees lessons resolved by its trade date; a live run sees all | REQ-MEM-05, REQ-CTX-06 | T | One lesson resolved before and one after the trade date; historical vs live init. |
+| TST-CTX-10 | Every prompt states the scoring horizon from holding_period_days; the horizon is part of the run signature | REQ-CTX-08, REQ-MEM-03 | T | A 7-day horizon reaches all 12 prompts with the date; the signature changes with the horizon; a pre-horizon state falls back to 5 days. |
 | TST-OUT-01 | Each schema validates its JSON and renders the TradingAgents headers | REQ-OUT-01 | T | Research plan, trader proposal (absent fields "not provided", FINAL TRANSACTION PROPOSAL line), PM decision. |
 | TST-OUT-02 | With several JSON blocks the last one is used | REQ-OUT-01 | T | Draft + final block. |
 | TST-OUT-03 | Missing, malformed or invalid JSON falls back to free text with an error | REQ-OUT-02 | T | Three negative inputs (none, broken JSON, enum violation). |
@@ -97,7 +99,14 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-DATA-03 | Indicators match hand-computed values; unknown names list the valid ones | REQ-DATA-03 | T | Hand oracles on the linear series; all 12 compute; invalid names. |
 | TST-DATA-04 | Statements need period end + filing lag <= trade date; later insider rows dropped | REQ-DATA-04 | T | Boundary 09-13 vs 09-14 for a 07-31 quarter; annual none filed; insider after date dropped. |
 | TST-DATA-05 | News is trimmed to the window; an unobserved window is flagged, not called empty | REQ-DATA-05 | T | Old/in-window/future items across both yfinance news shapes; gap marker when the feed starts after the window start. |
-| TST-DATA-06 | A failing data tool prints a readable error line, not a traceback | REQ-DATA-06 | T | Vendor raises; missing args. |
+| TST-DATA-06 | Failures are marked DATA_UNAVAILABLE (keeping the cause), empty sources NO_DATA_AVAILABLE, never a traceback | REQ-DATA-06 | T | Vendor raises → DATA_UNAVAILABLE with the exception; empty price history → NO_DATA_AVAILABLE; missing args stay a plain usage error. |
+| TST-DATA-11 | Every tool's nothing-to-report answer starts with NO_DATA_AVAILABLE and the do-not-fabricate directive | REQ-DATA-06 | T | Empty stubs for stock, fundamentals, statements, insider, valuation; filed-by and on-or-before cutoffs; snapshot raises NoData. |
+| TST-DATA-08 | Past-dated fundamentals show identity only; today's run shows the full profile | REQ-DATA-07 | T | A profile stub with valuation, growth and 52-week fields: none appear on a past date, all appear today. |
+| TST-DATA-09 | Valuation uses the close on the date, 4 filed quarters of EPS and the newest filed balance sheet | REQ-DATA-08 | T | Yahoo-shaped statements; an unfiled quarter is excluded from TTM; P/E, market cap and P/B by hand. |
+| TST-DATA-10 | Annual EPS when <4 quarters are filed; losses, negative equity, stale and mismatched inputs are explicit | REQ-DATA-08 | T | Annual fallback label; n/m for losses and negative equity; > 400-day input unavailable; a 10× EPS basis mismatch withholds P/E; 3 filed quarters use the annual EPS (no partial TTM); 4 stale quarters give no EPS; no close. |
+| TST-DATA-12 | Earnings history uses announcements before the date only; a later result and today's consensus never leak into a past run | REQ-DATA-09 | T | Calendar stub with an event 2 trading days after the date whose result exists now; history cut, horizon flag, limit covers back-dates. |
+| TST-DATA-13 | Same-day runs show consensus; the horizon flag follows holding_period_days; no calendar is NO_DATA_AVAILABLE | REQ-DATA-09, REQ-DATA-06 | T | Same-day consensus; 38 trading days counted by hand; horizon 1 vs 5; a same-day announcement is the next event; empty calendar raises NoData. |
+| TST-DATA-14 | The CLI passes the run's holding_period_days to the earnings tool and marks a missing calendar | REQ-DATA-09, REQ-CTX-08 | T | Run with a 1-day horizon; `berkshire data earnings` output; empty calendar through the CLI. |
 | TST-DATA-07 | Profile data and analyst prompts are labelled non-point-in-time for past dates | REQ-DATA-07 | T | Fundamentals note past vs today; analyst prompt point-in-time rule. |
 | TST-IF-01 | Interactive analyze walks the TradingAgents steps with previous answers as defaults | REQ-IF-01 | D | Manual procedure M1. |
 | TST-IF-02 | init/next/submit/status drive a whole run from the CLI with TradingAgents flags | REQ-IF-02, REQ-IF-08 | T | Subprocess-free CLI calls through `main()`, writing canned outputs to the files named by `next`. |
@@ -271,7 +280,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-ROLE-02 | TST-ROLE-02 |
 | REQ-ROLE-03 | TST-ROLE-03 |
 | REQ-ROLE-04 | TST-ROLE-04 |
-| REQ-ROLE-05 | TST-ROLE-05 |
+| REQ-ROLE-05 | TST-ROLE-05, TST-ROLE-07 |
 | REQ-ROLE-06 | TST-ROLE-06 |
 | REQ-FLOW-01 | TST-FLOW-01 |
 | REQ-FLOW-02 | TST-FLOW-02, TST-FLOW-10 |
@@ -289,6 +298,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-CTX-05 | TST-CTX-05 |
 | REQ-CTX-06 | TST-CTX-06, TST-CTX-09 |
 | REQ-CTX-07 | TST-CTX-07 |
+| REQ-CTX-08 | TST-CTX-10, TST-DATA-14 |
 | REQ-OUT-01 | TST-OUT-01, TST-OUT-02, TST-OUT-07 |
 | REQ-OUT-02 | TST-OUT-03, TST-OUT-08 |
 | REQ-OUT-03 | TST-OUT-04 |
@@ -297,7 +307,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-OUT-06 | TST-OUT-06 |
 | REQ-MEM-01 | TST-MEM-01 |
 | REQ-MEM-02 | TST-MEM-02 |
-| REQ-MEM-03 | TST-MEM-03, TST-MEM-04, TST-MEM-08 |
+| REQ-MEM-03 | TST-CTX-10, TST-MEM-03, TST-MEM-04, TST-MEM-08 |
 | REQ-MEM-04 | TST-MEM-04 |
 | REQ-MEM-05 | TST-CTX-09, TST-MEM-05 |
 | REQ-MEM-06 | TST-MEM-06 |
@@ -307,8 +317,10 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-DATA-03 | TST-DATA-03 |
 | REQ-DATA-04 | TST-DATA-04 |
 | REQ-DATA-05 | TST-DATA-05 |
-| REQ-DATA-06 | TST-DATA-06 |
-| REQ-DATA-07 | TST-DATA-07 |
+| REQ-DATA-06 | TST-DATA-06, TST-DATA-11, TST-DATA-13, TST-ROLE-07 |
+| REQ-DATA-07 | TST-DATA-07, TST-DATA-08 |
+| REQ-DATA-08 | TST-DATA-09, TST-DATA-10 |
+| REQ-DATA-09 | TST-DATA-12, TST-DATA-13, TST-DATA-14 |
 | REQ-IF-01 | TST-IF-01 |
 | REQ-IF-02 | TST-IF-02 |
 | REQ-IF-03 | TST-IF-03 |

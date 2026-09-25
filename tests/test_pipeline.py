@@ -378,3 +378,24 @@ def test_etoro_symbols_and_unlisted(cfg, log):
         assert new_run(cfg, log, ticker="MSFT")["company_of_interest"] == "MSFT"  # fail-open
     finally:
         d.ohlcv = real
+
+
+def test_horizon_in_every_prompt(cfg, log):
+    """TST-CTX-10: Every prompt states the scoring horizon from holding_period_days; the horizon is part of the run signature [REQ-CTX-08, REQ-MEM-03]"""
+    state = new_run({**cfg, "holding_period_days": 7}, log)
+    assert state["config"]["holding_period_days"] == 7 and "horizon=7" in state["signature"]
+    seen = 0
+    while steps := pipeline.next_steps(state):
+        for s in steps:
+            prompt = pipeline.build_prompt(state, s)
+            assert "Decision horizon: this decision is scored on its return and alpha versus the benchmark over the " \
+                   "7 trading days after 2026-09-18." in prompt, s["id"]
+            assert "If your call rests on a longer horizon, say so explicitly." in prompt
+            seen += 1
+            state = pipeline.submit(state, s["id"], canned(s["id"]), log)
+    assert seen == 12
+    other = pipeline.signature(state["analysts"], {**cfg, "holding_period_days": 5}, "stock", None)
+    assert other != state["signature"]                      # a resumed run cannot mix horizons
+    legacy = {**new_run(cfg, log, ticker="AMD"), "config": {k: v for k, v in state["config"].items()
+                                                              if k != "holding_period_days"}}
+    assert "over the 5 trading days after" in pipeline.build_prompt(legacy, pipeline.next_steps(legacy)[0])
