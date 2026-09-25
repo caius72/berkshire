@@ -226,7 +226,9 @@ Load the plugin: `claude --plugin-dir /Users/kai/repos/ai/berkshire`, or
 **M5 — first CI run (TST-CI-09).**
 1. Push to the GitHub `main` branch. All six jobs pass.
 2. The test job's summary shows the coverage table, and the `coverage` artifact has `coverage.xml`.
-3. The Security tab lists CodeQL results for Python and JavaScript. gitleaks reports no leaks.
+3. The sast jobs publish CodeQL SARIF artifacts, and report 0 unreviewed findings. Reviewed ones are listed with reasons in
+   `.github/codeql-reviewed.json`. gitleaks reports no leaks over the full history. (The Security tab needs GitHub
+   Code Security on a private repository. After enabling it, switch the analyze step to `upload: always`.)
 
 | Procedure | Date | Result | Notes |
 |---|---|---|---|
@@ -234,7 +236,7 @@ Load the plugin: `claude --plugin-dir /Users/kai/repos/ai/berkshire`, or
 | M2 | | not yet run | |
 | M3 | | not yet run | |
 | M4 | | not yet run | |
-| M5 | | not yet run | |
+| M5 | 2026-09-25 | pass (run 36119571904) | The first three runs failed and were fixed: a clock mismatch, the Node 22 test glob, gitleaks-action on a first push, and CodeQL upload on a private repo. Coverage 87.7%. |
 
 ## 5. Traceability matrix (REQ → TST)
 
