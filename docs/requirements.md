@@ -225,3 +225,16 @@ Modelled on matlab-tui's `.gitlab-ci.yml`, as GitHub Actions (D9).
 | REQ-CI-06 | M | A job without the optional extras shall assert textual is absent and run the suite, proving REQ-UI-09 rather than assuming it. | I |
 | REQ-CI-07 | M | The web view shall be checked by `npm ci`, the node unit tests and `vite build`. | I |
 | REQ-CI-08 | M | The workflow shall run with read-only default permissions, use versioned actions, and fail on the first broken job. | I |
+
+## 17. Upstream tracking (REQ-UP)
+
+Berkshire follows TradingAgents deliberately: each upstream change or open PR is assessed and the
+verdict recorded, maintained by the `/upstream-scout` skill (`.claude/skills/upstream-scout`).
+
+| ID | Pri | Requirement | Ver |
+|---|---|---|---|
+| REQ-UP-01 | M | `docs/upstream.md` shall record every assessed upstream feature and pull request with a status from a fixed set. `incorporated` and `adapted` rows name existing requirement ids, every other non-final status gives its reason, and the watermark (last reviewed commit and release, last run) is present. | T |
+| REQ-UP-02 | M | Each run shall analyse only open PRs that are new to the ledger or whose head commit moved since their analysis, and shall revisit ledger PRs that are no longer open. | T |
+| REQ-UP-03 | M | `/upstream-scout` shall review upstream commits, releases and changelog since the watermark, and deep-analyse PRs with one agent per PR in parallel. Each agent follows a fixed brief (mechanism, soundness, maturity, value to Berkshire, fit, cost) and gives a verdict of adopt, adapt, watch or decline, with a report file. | I |
+| REQ-UP-04 | M | The skill shall change only the ledger and its reports until the user chooses changes, and shall move the watermark only after the report is written. It has read-only access to the upstream repository. | I |
+| REQ-UP-05 | S | The ledger shall record the v0.5.1 baseline Berkshire was built from, feature by feature. | T |

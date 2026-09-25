@@ -180,6 +180,12 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-UI-22 | The start form maps eToro names and refuses unlisted instruments before spawning | REQ-IF-10, REQ-UI-06 | T | EuroOil spawns BZ=F; unlisted → 400 naming symbol_map, nothing spawned. |
 | TST-UI-23 | 's' asks first, then stops the selected running analysis; a finished one is refused | REQ-UI-13, REQ-UI-08 | T | Pilot: cancel keeps it running, confirm stops it via the API, a stopped run gets no dialog. |
 | TST-UI-24 | The pipeline loop stops dispatching when the run was stopped | REQ-UI-13 | I | pipeline-loop.md text. |
+| TST-UP-01 | The ledger is consistent and records the v0.5.1 baseline | REQ-UP-01, REQ-UP-05 | T | `tools/upstream.py check` on the real ledger; ≥ 30 baseline rows across statuses. |
+| TST-UP-02 | The ledger check rejects bad statuses, missing or unknown requirements, duplicates and bad PR rows | REQ-UP-01 | T | Eleven single mutations of the real ledger, each named in the problems. |
+| TST-UP-03 | The worklist splits open PRs into new, head-moved and unchanged, and flags PRs that left the open list | REQ-UP-02 | T | Four ledger rows × three open PRs; a declined PR is not revisited. |
+| TST-UP-04 | The skill reviews commits since the watermark, fans out one agent per PR, and moves the watermark last | REQ-UP-03, REQ-UP-04 | I | Skill and brief text, order of report vs watermark, AskUserQuestion before `planned`. |
+| TST-UP-05 | The skill may read upstream but has no permission to push, merge, comment or edit there | REQ-UP-04 | I | allowed-tools contains only read-only git/gh commands. |
+| TST-UP-06 | A full /upstream-scout run against live upstream | REQ-UP-02, REQ-UP-03, REQ-UP-04 | D | Manual procedure M6. |
 | TST-SAFE-04 | Requirements, test plan and test code are mutually traceable | REQ-SAFE-04 | T | `tests/test_traceability.py`. |
 
 ## 3. Entry and exit criteria
@@ -238,12 +244,20 @@ Load the plugin: `claude --plugin-dir /Users/kai/repos/ai/berkshire`, or
    `.github/codeql-reviewed.json`. gitleaks reports no leaks over the full history. (The Security tab needs GitHub
    Code Security on a private repository. After enabling it, switch the analyze step to `upload: always`.)
 
+**M6 — upstream scout (TST-UP-06).**
+1. `/upstream-scout --max 5`. Expect: the commits since the watermark reviewed, the worklist computed,
+   five PR agents launched in one batch, and `docs/upstream-reports/<date>/README.md` plus `pr-N.md` files.
+2. The ledger gains five PR rows and a moved watermark, and `tools/upstream.py check` passes.
+3. Run it again at once. No PR is re-analysed (all unchanged), and the next five of the backlog are taken.
+4. Choose one recommendation. Its row becomes `planned`, and nothing else in the repo changes.
+
 | Procedure | Date | Result | Notes |
 |---|---|---|---|
 | M1 | | not yet run | |
 | M2 | | not yet run | |
 | M3 | | not yet run | |
 | M4 | | not yet run | |
+| M6 | | not yet run | |
 | M5 | 2026-09-25 | pass (run 36119571904) | The first three runs failed and were fixed: a clock mismatch, the Node 22 test glob, gitleaks-action on a first push, and CodeQL upload on a private repo. Coverage 87.7%. |
 
 ## 5. Traceability matrix (REQ → TST)
@@ -360,4 +374,9 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-CI-06 | TST-CI-06 |
 | REQ-CI-07 | TST-CI-07 |
 | REQ-CI-08 | TST-CI-08 |
+| REQ-UP-01 | TST-UP-01, TST-UP-02 |
+| REQ-UP-02 | TST-UP-03, TST-UP-06 |
+| REQ-UP-03 | TST-UP-04, TST-UP-06 |
+| REQ-UP-04 | TST-UP-04, TST-UP-05, TST-UP-06 |
+| REQ-UP-05 | TST-UP-01 |
 <!-- MATRIX:END -->
