@@ -10,7 +10,7 @@ from conftest import new_run, run_all  # noqa: E402
 
 from berkshire import config, server  # noqa: E402
 from berkshire.client import Client  # noqa: E402
-from berkshire.tui import BerkshireApp, NewAnalysis  # noqa: E402
+from berkshire.tui import BerkshireApp, ConfirmStop, NewAnalysis  # noqa: E402
 
 
 @pytest.fixture
@@ -81,3 +81,27 @@ async def test_tui_new_analysis(served):
         await pilot.pause()
         assert spawned and "/berkshire:analyze MSFT" in spawned[0][2]
         assert app.query_one("#jobs").row_count == 1
+
+
+async def test_tui_stop(served, cfg, log):
+    """TST-UI-23: 's' asks first, then stops the selected running analysis; a finished one is refused [REQ-UI-13, REQ-UI-08]"""
+    client, _ = served
+    new_run(cfg, log, ticker="AMD")
+    app = BerkshireApp(client)
+    async with app.run_test(size=(160, 50)) as pilot:
+        await pilot.pause()
+        await pilot.press("s")
+        await pilot.pause()
+        assert isinstance(app.screen, ConfirmStop)
+        await pilot.click("#keep")
+        await pilot.pause()
+        assert app.detail["summary"]["status"] == "running"
+        await pilot.press("s")
+        await pilot.pause()
+        await pilot.click("#confirm-stop")
+        await pilot.pause(0.3)
+        assert client.get("/api/runs/AMD/2026-09-18")["summary"]["status"] == "stopped"
+        app.load_detail()
+        await pilot.press("s")
+        await pilot.pause()
+        assert not isinstance(app.screen, ConfirmStop)

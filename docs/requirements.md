@@ -110,6 +110,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-IF-06 | M | During a run the user shall see progress by team (pending, in progress, done) plus the current report, like the TradingAgents live panel. | T |
 | REQ-IF-07 | M | At the end of a run the user shall see the signal and the path to the complete report, and a full report on request. | D |
 | REQ-IF-08 | S | The same engine commands shall work outside Claude Code (`berkshire …` CLI) for scripting and tests. | T |
+| REQ-IF-10 | M | A ticker that is an eToro-only name shall be mapped to its Yahoo symbol through `symbol_map` (e.g. EUROOIL → BZ=F, keeping EUROOIL as the eToro symbol), in `/berkshire:analyze` and the dashboard alike. An instrument without Yahoo prices up to the analysis date shall be refused before any agent runs, with the fix named. If Yahoo is unreachable, the run proceeds. | T |
 
 ## 8. Checkpoint and resume (REQ-CKPT)
 
@@ -208,6 +209,7 @@ state, and every view is a client of its HTTP + SSE API. Recorded with the user 
 | REQ-UI-10 | S | Without a built web bundle, the page shall say how to build it and point to `berkshire tui`. | T |
 | REQ-UI-11 | M | `berkshire web` and `berkshire tui` shall start the server in the background when none is running, then print the URL or attach. | T |
 | REQ-UI-12 | S | `/berkshire:dashboard` shall start the server if needed and give the user the web URL and the TUI command. | I |
+| REQ-UI-13 | M | Both views shall let the user stop an unfinished analysis after a confirmation. The run is marked stopped (with time and reason), the engine then offers and accepts no further steps, and the pipeline loop reports it. A running dashboard job for that run has its process group ended. Stopped runs show as Stopped; `--checkpoint` resumes one. | T |
 
 ## 16. Continuous integration (REQ-CI)
 

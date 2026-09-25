@@ -39,6 +39,7 @@ export const api = {
   backtests: () => get('/api/backtests'),
   jobs: () => get('/api/jobs'),
   startJob: (form) => post('/api/jobs', form),
+  stopRun: (ticker, date) => post(`/api/runs/${encodeURIComponent(ticker)}/${encodeURIComponent(date)}/stop`, {}),
 }
 
 // Incremental SSE parser, pure so it tests under node. Feed text chunks; returns

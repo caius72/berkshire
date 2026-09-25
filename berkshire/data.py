@@ -76,6 +76,14 @@ def ohlcv(symbol: str, start: str, end: str) -> pd.DataFrame:
     return df[df.index <= pd.Timestamp(end)][["Open", "High", "Low", "Close", "Volume"]]
 
 
+def check_listed(symbol: str, trade_date: str) -> bool | None:
+    """True if Yahoo has daily bars in the 30 days up to trade_date, False if none, None if unreachable."""
+    try:
+        return not ohlcv(symbol, (_d(trade_date) - timedelta(days=30)).strftime("%Y-%m-%d"), trade_date).empty
+    except Exception:  # noqa: BLE001 - network trouble is not "not listed"
+        return None
+
+
 def closes(symbol: str, start: str, end: str) -> pd.Series:
     return ohlcv(symbol, start, end)["Close"]
 

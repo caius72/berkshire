@@ -148,3 +148,9 @@ def test_pipeline_loop_dispatch():
     assert "Never decide the order yourself" in body
     for name in ("analyze", "tick", "backtest"):
         assert "pipeline-loop.md" in skill(name)[1]
+
+
+def test_pipeline_loop_honours_stop():
+    """TST-UI-24: The pipeline loop stops dispatching when the run was stopped [REQ-UI-13]"""
+    body = (ROOT / "skills" / "analyze" / "pipeline-loop.md").read_text()
+    assert "`stopped` says the user stopped it" in body and "the run was stopped" in body

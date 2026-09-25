@@ -160,7 +160,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-UI-17 | /berkshire:dashboard starts the server, gives the URL and TUI command, and says orders stay in Claude | REQ-UI-12 | I | Skill text and allowed-tools. |
 | TST-UI-18 | Both views say orders are placed only with /berkshire:approve | REQ-UI-07 | I | App.jsx and tui.py text. |
 | TST-UI-19 | Server and client import no order-placing code; views only read the queue | REQ-UI-01, REQ-UI-07 | I | Source scan for queue writes and eToro placement names. |
-| TST-UI-20 | Web and terminal walkthrough during a live analysis | REQ-UI-04, REQ-UI-05, REQ-UI-08 | D | Manual procedure M4. |
+| TST-UI-20 | Web and terminal walkthrough during a live analysis | REQ-UI-04, REQ-UI-05, REQ-UI-08, REQ-UI-13 | D | Manual procedure M4. |
 | TST-WEB-01 | Report markdown parses to blocks the reader renders, tables included | REQ-UI-05 | T | node:test over md.js with a report containing every block type. |
 | TST-WEB-02 | Inline markup becomes runs, never HTML; tags stay literal text | REQ-UI-05, REQ-UI-02 | T | Script/img injection strings stay text. |
 | TST-WEB-03 | The SSE parser handles split chunks, comments and multi-event buffers | REQ-UI-04 | T | Event split across two chunks; keep-alive comment. |
@@ -174,6 +174,12 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-CI-07 | The webui job runs npm ci, the node tests and the vite build | REQ-CI-07 | I | webui job + package.json + lockfile. |
 | TST-CI-08 | Read-only default permissions, versioned actions, locked installs | REQ-CI-08 | I | Every `uses:` ends in `@vN`. |
 | TST-CI-09 | First push to GitHub: every job green, coverage and CodeQL results published | REQ-CI-01, REQ-CI-03, REQ-CI-04, REQ-CI-05 | D | Manual procedure M5. |
+| TST-FLOW-11 | A stopped run offers and accepts no steps; --checkpoint resumes it | REQ-UI-13 | T | Stop after one step; next/submit/CLI `next`; resume clears the flag; a complete run cannot be stopped. |
+| TST-IF-10 | eToro-only names map to Yahoo; an unlisted instrument is refused before any agent runs | REQ-IF-10 | T | EUROOIL → BZ=F with the alias kept; empty Yahoo frame refused with no run dir created; Yahoo unreachable → fail-open. |
+| TST-UI-21 | POST /api/runs/T/D/stop marks the run stopped and ends only its running job | REQ-UI-13 | T | Two jobs, one matching; fake killer records calls; idempotent; 404 unknown, 400 complete. |
+| TST-UI-22 | The start form maps eToro names and refuses unlisted instruments before spawning | REQ-IF-10, REQ-UI-06 | T | EuroOil spawns BZ=F; unlisted → 400 naming symbol_map, nothing spawned. |
+| TST-UI-23 | 's' asks first, then stops the selected running analysis; a finished one is refused | REQ-UI-13, REQ-UI-08 | T | Pilot: cancel keeps it running, confirm stops it via the API, a stopped run gets no dialog. |
+| TST-UI-24 | The pipeline loop stops dispatching when the run was stopped | REQ-UI-13 | I | pipeline-loop.md text. |
 | TST-SAFE-04 | Requirements, test plan and test code are mutually traceable | REQ-SAFE-04 | T | `tests/test_traceability.py`. |
 
 ## 3. Entry and exit criteria
@@ -222,6 +228,8 @@ Load the plugin: `claude --plugin-dir /Users/kai/repos/ai/berkshire`, or
    timeline grows, and the reader opens on the latest report.
 4. Check at 375 px width (the floor wraps to two columns) and with the system in dark mode.
 5. The Orders view and the TUI Orders tab list the queue read-only, and point to `/berkshire:approve`.
+6. Start a second analysis and stop it with **Stop analysis** (web, two clicks) or `s` (TUI). The job ends
+   within seconds, the run shows Stopped with its reason, and no further agents are started.
 
 **M5 — first CI run (TST-CI-09).**
 1. Push to the GitHub `main` branch. All six jobs pass.
@@ -295,6 +303,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-IF-06 | TST-IF-06 |
 | REQ-IF-07 | TST-IF-07 |
 | REQ-IF-08 | TST-IF-02 |
+| REQ-IF-10 | TST-IF-10, TST-UI-22 |
 | REQ-CKPT-01 | TST-CKPT-01 |
 | REQ-CKPT-02 | TST-CKPT-02 |
 | REQ-CKPT-03 | TST-CKPT-03 |
@@ -335,13 +344,14 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-UI-03 | TST-UI-05, TST-UI-06, TST-UI-13 |
 | REQ-UI-04 | TST-UI-08, TST-UI-09, TST-UI-14, TST-UI-20, TST-WEB-03 |
 | REQ-UI-05 | TST-UI-05, TST-UI-20, TST-WEB-01, TST-WEB-02 |
-| REQ-UI-06 | TST-UI-07, TST-UI-15 |
+| REQ-UI-06 | TST-UI-07, TST-UI-15, TST-UI-22 |
 | REQ-UI-07 | TST-UI-06, TST-UI-18, TST-UI-19 |
-| REQ-UI-08 | TST-UI-13, TST-UI-14, TST-UI-15, TST-UI-20 |
+| REQ-UI-08 | TST-UI-13, TST-UI-14, TST-UI-15, TST-UI-20, TST-UI-23 |
 | REQ-UI-09 | TST-UI-16 |
 | REQ-UI-10 | TST-UI-11 |
 | REQ-UI-11 | TST-UI-01 |
 | REQ-UI-12 | TST-UI-17 |
+| REQ-UI-13 | TST-FLOW-11, TST-UI-20, TST-UI-21, TST-UI-23, TST-UI-24 |
 | REQ-CI-01 | TST-CI-01, TST-CI-09 |
 | REQ-CI-02 | TST-CI-02 |
 | REQ-CI-03 | TST-CI-03, TST-CI-09 |

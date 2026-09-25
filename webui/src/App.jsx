@@ -8,7 +8,27 @@ const TEAM_SHORT = { 'Analyst Team': 'Analysts', 'Research Team': 'Research', 'T
   'Risk Management': 'Risk committee', 'Portfolio Management': 'Portfolio manager' }
 
 const signalClass = (s) => `sig sig-${(s || 'none').toLowerCase()}`
-const Signal = ({ value }) => <span className={signalClass(value)}>{value || 'In progress'}</span>
+const Signal = ({ value, status }) =>
+  status === 'stopped' && !value ? <span className="sig sig-stopped">Stopped</span>
+    : <span className={signalClass(value)}>{value || 'In progress'}</span>
+
+// Stopping ends the analysis and its background job. Two clicks, because it can't be undone
+// except by starting the analysis again.
+function StopButton({ ticker, date, onStopped, label = 'Stop analysis' }) {
+  const [armed, setArmed] = useState(false)
+  const [err, setErr] = useState(null)
+  useEffect(() => { if (!armed) return undefined; const t = setTimeout(() => setArmed(false), 4000); return () => clearTimeout(t) }, [armed])
+  const stop = async () => {
+    if (!armed) return setArmed(true)
+    try { await api.stopRun(ticker, date); onStopped?.() } catch (x) { setErr(x.message) } finally { setArmed(false) }
+  }
+  return (
+    <span className="stop-wrap">
+      <button className={`stop ${armed ? 'armed' : ''}`} onClick={stop}>{armed ? 'Click again to stop' : label}</button>
+      {err && <span className="error small">{err}</span>}
+    </span>
+  )
+}
 
 function useAsync(fn, deps) {
   const [state, set] = useState({ data: null, error: null })
@@ -81,10 +101,12 @@ function RunDetail({ run, tick }) {
           <p className="company">{company || s.asset_type} <span className="muted">analysed for {s.date}</span></p>
         </div>
         <div className="verdict">
-          <Signal value={s.signal} />
+          <Signal value={s.signal} status={s.status} />
           <span className="muted small">{s.done} of {s.total} agents finished</span>
+          {s.status === 'running' && <StopButton ticker={s.ticker} date={s.date} onStopped={reload} />}
         </div>
       </header>
+      {data.stopped && <p className="stopped-note">Stopped {data.stopped.at.slice(11, 16)}: {data.stopped.reason}. Run it again to start over, or resume it with <code>/berkshire:analyze {s.ticker} {s.date} --checkpoint</code>.</p>}
       <Floor progress={data.progress} />
       <div className="run-body">
         <section className="reader" aria-label="Reports">
@@ -133,7 +155,7 @@ function Runs({ tick, onNew }) {
         {runs.map((r) => (
           <button key={r.ticker + r.date} className={r === current ? 'on' : ''} onClick={() => setSel(r)}>
             <span className="rl-ticker">{r.ticker}</span>
-            <Signal value={r.signal} />
+            <Signal value={r.signal} status={r.status} />
             <span className="rl-date">{r.date}</span>
             <span className="rl-bar" style={{ '--p': r.done / r.total }} aria-label={`${r.done} of ${r.total}`} />
           </button>
@@ -209,8 +231,10 @@ function Jobs({ tick }) {
   return (
     <section className="page-section"><h2>Jobs</h2>
       <p className="lede">Analyses started from this page run headless in Claude Code. Their output log is below.</p>
-      <Table cols={['Started', 'Instrument', 'Date', 'Status']} empty="No jobs started from here yet."
-        rows={data?.map((j) => [j.started.replace('T', ' ').slice(0, 16), j.ticker, j.date, <span className={`status status-${j.status.split(' ')[0]}`}>{j.status}</span>])} />
+      <Table cols={['Started', 'Instrument', 'Date', 'Status', '']} empty="No jobs started from here yet."
+        rows={data?.map((j) => [j.started.replace('T', ' ').slice(0, 16), j.ticker, j.date,
+          <span className={`status status-${j.status.split(' ')[0]}`}>{j.status}</span>,
+          j.status === 'running' ? <StopButton ticker={j.ticker} date={j.date} label="Stop" onStopped={reload} /> : null])} />
       {data?.[0]?.log_tail && <pre className="log">{data[0].log_tail}</pre>}
     </section>
   )
