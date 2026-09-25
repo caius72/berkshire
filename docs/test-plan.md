@@ -98,6 +98,9 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-DATA-04 | Statements need period end + filing lag <= trade date; later insider rows dropped | REQ-DATA-04 | T | Boundary 09-13 vs 09-14 for a 07-31 quarter; annual none filed; insider after date dropped. |
 | TST-DATA-05 | News is trimmed to the window; an unobserved window is flagged, not called empty | REQ-DATA-05 | T | Old/in-window/future items across both yfinance news shapes; gap marker when the feed starts after the window start. |
 | TST-DATA-06 | A failing data tool prints a readable error line, not a traceback | REQ-DATA-06 | T | Vendor raises; missing args. |
+| TST-DATA-08 | Past-dated fundamentals show identity only; today's run shows the full profile | REQ-DATA-07 | T | A profile stub with valuation, growth and 52-week fields: none appear on a past date, all appear today. |
+| TST-DATA-09 | Valuation uses the close on the date, 4 filed quarters of EPS and the newest filed balance sheet | REQ-DATA-08 | T | Yahoo-shaped statements; an unfiled quarter is excluded from TTM; P/E, market cap and P/B by hand. |
+| TST-DATA-10 | Annual EPS when <4 quarters are filed; losses, negative equity, stale and mismatched inputs are explicit | REQ-DATA-08 | T | Annual fallback label; n/m for losses and negative equity; > 400-day input unavailable; a 10× EPS basis mismatch withholds P/E; no close. |
 | TST-DATA-07 | Profile data and analyst prompts are labelled non-point-in-time for past dates | REQ-DATA-07 | T | Fundamentals note past vs today; analyst prompt point-in-time rule. |
 | TST-IF-01 | Interactive analyze walks the TradingAgents steps with previous answers as defaults | REQ-IF-01 | D | Manual procedure M1. |
 | TST-IF-02 | init/next/submit/status drive a whole run from the CLI with TradingAgents flags | REQ-IF-02, REQ-IF-08 | T | Subprocess-free CLI calls through `main()`, writing canned outputs to the files named by `next`. |
@@ -308,7 +311,8 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-DATA-04 | TST-DATA-04 |
 | REQ-DATA-05 | TST-DATA-05 |
 | REQ-DATA-06 | TST-DATA-06 |
-| REQ-DATA-07 | TST-DATA-07 |
+| REQ-DATA-07 | TST-DATA-07, TST-DATA-08 |
+| REQ-DATA-08 | TST-DATA-09, TST-DATA-10 |
 | REQ-IF-01 | TST-IF-01 |
 | REQ-IF-02 | TST-IF-02 |
 | REQ-IF-03 | TST-IF-03 |

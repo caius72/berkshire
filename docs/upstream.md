@@ -76,7 +76,7 @@ PR is re-analysed only when it changes. Reports: [upstream-reports/](upstream-re
 
 | PR | Title | Head | Reviewed | Verdict | Status | Berkshire | Rationale |
 |---|---|---|---|---|---|---|---|
-| #1406 | Point-in-time valuation snapshot with split adjustment | e48812009514 | 2026-09-25 | adapt | planned | REQ-DATA-07, REQ-ROLE-03 | Planned: withhold price-derived fields on past dates (amend REQ-DATA-07), then a PIT valuation tool with split reconciliation (REQ-DATA-08). Report A1. |
+| #1406 | Point-in-time valuation snapshot with split adjustment | e48812009514 | 2026-09-25 | adapt | adapted | REQ-DATA-07, REQ-DATA-08 | Adapted on yfinance: past-dated fundamentals withhold live figures; new valuation tool (TTM or FY EPS, filed-by cutoff, one split basis checked). NVDA 2024-09-15 P/E 100, not the PR's ~11. |
 | #835 | Earnings-context tool for catalyst awareness | 148b2b62f517 | 2026-09-25 | adapt | planned | REQ-ROLE-03, REQ-DATA-07 | Planned: earnings tool on get_earnings_dates keyed on announcement date, consensus only for same-day runs (REQ-DATA-09). Gate rule deferred. Report A2. |
 | #819 | ETF analysis with holdings, drill-down and risk guidance | 0d6c16e20c89 | 2026-09-25 | adapt | candidate | REQ-FLOW-06, REQ-IF-04, REQ-ROLE-03, REQ-CTX-01, REQ-DATA-07 | Watchlist ETFs are analysed as companies. Add etf mode (quoteType / eToro type 6) and a current-only etf_profile; skip drill-down and Alpha Vantage. |
 | #673 | investment_horizon configuration parameter | b45c97e2ae0b | 2026-09-25 | adapt | planned | REQ-MEM-03 | Planned: horizon_instruction(holding_period_days) in every prompt and the run signature (REQ-CTX-08, amend REQ-MEM-03). Report B1. |

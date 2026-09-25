@@ -24,7 +24,8 @@ Run with Bash. `RUN` is the run directory named in your prompt. Every date is cl
 berkshire data --run RUN stock SYMBOL START END          # daily OHLCV CSV
 berkshire data --run RUN indicators SYMBOL NAME[,NAME] [CURR_DATE] [--look-back N]
 berkshire data --run RUN snapshot SYMBOL [CURR_DATE]      # verified snapshot (source of truth)
-berkshire data --run RUN fundamentals SYMBOL
+berkshire data --run RUN fundamentals SYMBOL            # identity only on past dates
+berkshire data --run RUN valuation SYMBOL               # market cap, P/E, P/B as of the date
 berkshire data --run RUN balance_sheet|cashflow|income_statement SYMBOL [--freq annual|quarterly]
 berkshire data --run RUN insider SYMBOL
 berkshire data --run RUN news SYMBOL START END

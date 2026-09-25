@@ -53,7 +53,7 @@ def test_analyst_data_access():
     body = {n: agent(n)[1] for n in ("market-analyst", "fundamentals-analyst", "news-analyst", "sentiment-analyst")}
     for t in ("stock", "indicators", "snapshot"):
         assert f"`{t}`" in body["market-analyst"]
-    for t in ("fundamentals", "balance_sheet", "cashflow", "income_statement", "insider"):
+    for t in ("fundamentals", "valuation", "balance_sheet", "cashflow", "income_statement", "insider"):
         assert f"`{t}`" in body["fundamentals-analyst"]
     assert "global_news" in body["news-analyst"] and "FRED" in body["news-analyst"] and "Polymarket" in body["news-analyst"]
     assert "stocktwits" in body["sentiment-analyst"].lower() and "reddit" in body["sentiment-analyst"].lower()

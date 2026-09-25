@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 
+import pandas as pd
 import pytest
 from conftest import FakeTicker, bars, new_run
 
@@ -100,3 +101,88 @@ def test_current_sources_labelled(cfg, log):
     state = new_run(cfg, log)
     prompt = pipeline.build_prompt(state, pipeline.next_steps(state)[0])
     assert "Point-in-time rule" in prompt and "label any such evidence as current" in prompt
+
+
+# --- point-in-time valuation (REQ-DATA-07, REQ-DATA-08) -------------------------
+
+class StatementTicker:
+    """Yahoo-shaped statements: rows × period-end columns, on today's split basis."""
+
+    def __init__(self, quarterly_income=None, annual_income=None, quarterly_bs=None, annual_bs=None, info=None):
+        empty = pd.DataFrame()
+        self.quarterly_income_stmt = quarterly_income if quarterly_income is not None else empty
+        self.income_stmt = annual_income if annual_income is not None else empty
+        self.quarterly_balance_sheet = quarterly_bs if quarterly_bs is not None else empty
+        self.balance_sheet = annual_bs if annual_bs is not None else empty
+        self.info = info or {}
+
+    def history(self, start, end, auto_adjust=False):
+        df = bars(end="2026-09-18")                      # close 299.5 on 2026-09-18
+        return df[(df.index >= pd.Timestamp(start)) & (df.index < pd.Timestamp(end))]
+
+
+def frame(rows: dict, periods: list[str]) -> pd.DataFrame:
+    return pd.DataFrame(rows, index=[pd.Timestamp(p) for p in periods]).T
+
+
+Q = ["2026-06-30", "2026-03-31", "2025-12-31", "2025-09-30", "2025-06-30"]   # 06-30 filed on 08-14
+
+
+def stub(monkeypatch, **kw):
+    monkeypatch.setattr(data, "_ticker", lambda s: StatementTicker(**kw))
+
+
+def test_fundamentals_withheld_on_past_dates(monkeypatch):
+    """TST-DATA-08: Past-dated fundamentals show identity only; today's run shows the full profile [REQ-DATA-07]"""
+    info = {"longName": "Acme", "sector": "Tech", "industry": "Chips", "marketCap": 9e12, "trailingPE": 99.0,
+            "revenueGrowth": 0.5, "fiftyTwoWeekHigh": 400.0}
+    stub(monkeypatch, info=info)
+    past = data.tool_fundamentals("ACME", "2026-09-18")
+    assert "Acme" in past and "Chips" in past
+    for leak in ("marketCap", "trailingPE", "revenueGrowth", "fiftyTwoWeekHigh", "9000000000000.0", "99.0"):
+        assert leak not in past, leak
+    assert "withheld" in past and "`valuation`" in past
+    live = data.tool_fundamentals("ACME", "2026-09-24")
+    assert "marketCap" in live and "withheld" not in live
+
+
+def test_valuation_ttm(monkeypatch):
+    """TST-DATA-09: Valuation uses the close on the date, 4 filed quarters of EPS and the newest filed balance sheet [REQ-DATA-08]"""
+    stub(monkeypatch,
+         quarterly_income=frame({"Diluted EPS": [9.0, 1.0, 1.5, 2.0, 0.5], "Net Income": [90, 10, 15, 20, 5],
+                                 "Diluted Average Shares": [10, 10, 10, 10, 10]}, ["2026-09-30"] + Q[:4]),
+         quarterly_bs=frame({"Ordinary Shares Number": [10.0, 11.0], "Stockholders Equity": [500.0, 450.0]},
+                            ["2026-06-30", "2026-03-31"]))
+    v = data.valuation("ACME", "2026-09-18")
+    assert (v["close"], v["close_date"]) == (299.5, "2026-09-18")
+    assert v["eps"] == 1.0 + 1.5 + 2.0 + 0.5 and "TTM, 4 filed quarters ending 2026-06-30" in v["eps_basis"]
+    assert v["pe"] == pytest.approx(299.5 / 5.0)                   # the unfiled 2026-09-30 quarter is ignored
+    assert (v["shares"], v["shares_date"]) == (10.0, "2026-06-30")
+    assert v["market_cap"] == pytest.approx(2995.0) and v["pb"] == pytest.approx(2995.0 / 500.0)
+    out = data.tool_valuation("ACME", "2026-09-18")
+    assert "| P/E | 59.9 | close / EPS |" in out and "today's split basis" in out and "No enterprise value" in out
+
+
+def test_valuation_annual_fallback_and_edge_cases(monkeypatch):
+    """TST-DATA-10: Annual EPS when <4 quarters are filed; losses, negative equity, stale and mismatched inputs are explicit [REQ-DATA-08]"""
+    annual_is = frame({"Diluted EPS": [-2.0], "Net Income": [-20], "Diluted Average Shares": [10]}, ["2025-12-31"])
+    stub(monkeypatch, annual_income=annual_is,
+         annual_bs=frame({"Ordinary Shares Number": [10.0], "Stockholders Equity": [-50.0]}, ["2025-12-31"]))
+    v = data.valuation("ACME", "2026-09-18")
+    assert v["eps_basis"] == "fiscal year ending 2025-12-31" and v["pe"] is None and v["pb"] is None
+    out = data.tool_valuation("ACME", "2026-09-18")
+    assert "n/m (negative earnings)" in out and "n/m (negative equity)" in out
+    # Stale: the newest filing is older than the age limit.
+    stub(monkeypatch, annual_income=frame({"Diluted EPS": [3.0]}, ["2024-12-31"]),
+         annual_bs=frame({"Ordinary Shares Number": [10.0], "Stockholders Equity": [1.0]}, ["2024-12-31"]))
+    v = data.valuation("ACME", "2026-09-18")
+    assert "eps" not in v and "market_cap" not in v and any("No diluted EPS filed" in n for n in v["notes"])
+    # Basis mismatch: EPS still on a pre-split basis (10x) against a post-split share count.
+    stub(monkeypatch, annual_income=frame({"Diluted EPS": [30.0], "Net Income": [30.0], "Diluted Average Shares": [10.0]},
+                                          ["2025-12-31"]),
+         annual_bs=frame({"Ordinary Shares Number": [10.0], "Stockholders Equity": [5.0]}, ["2025-12-31"]))
+    v = data.valuation("ACME", "2026-09-18")
+    assert "pe" not in v and any("different split bases" in n for n in v["notes"]) and v["market_cap"] == 2995.0
+    # No close near the date.
+    old = data.tool_valuation("ACME", "2020-01-01")
+    assert "No valuation figures available." in old and "valuation unavailable" in old

@@ -217,13 +217,136 @@ _FUNDAMENTAL_FIELDS = ("longName", "sector", "industry", "marketCap", "trailingP
                        "totalDebt", "totalCash", "freeCashflow", "fiftyTwoWeekHigh", "fiftyTwoWeekLow")
 
 
+IDENTITY_FIELDS = ("longName", "sector", "industry")
+
+
 def tool_fundamentals(symbol: str, trade_date: str) -> str:
+    """Company fundamentals. On a past date only identity is shown: Yahoo reports valuation,
+    margins, growth, balance and 52-week figures as of today, which would leak what happened
+    after the trade date (REQ-DATA-07)."""
     info = _ticker(symbol).info or {}
-    rows = [f"| {k} | {info[k]} |" for k in _FUNDAMENTAL_FIELDS if info.get(k) is not None]
+    past = trade_date < today()
+    fields = IDENTITY_FIELDS if past else _FUNDAMENTAL_FIELDS
+    rows = [f"| {k} | {info[k]} |" for k in fields if info.get(k) is not None]
     if not rows:
         return f"No fundamentals available for {symbol}."
-    note = CURRENT_NOTE.format(date=trade_date) if trade_date < today() else ""
-    return f"# {symbol} company fundamentals {note}\n\n| Field | Value |\n|---|---|\n" + "\n".join(rows)
+    out = f"# {symbol} company fundamentals {CURRENT_NOTE.format(date=trade_date) if past else ''}\n\n"
+    out += "| Field | Value |\n|---|---|\n" + "\n".join(rows)
+    if past:
+        out += (f"\n\nValuation, margins, growth, balance-sheet and 52-week figures are withheld: the source "
+                f"reports them as of today, which would leak information from after {trade_date}. Use `valuation` "
+                f"for market cap, P/E and P/B as of {trade_date}, and the filed statements for everything else.")
+    return out
+
+
+# --- point-in-time valuation (REQ-DATA-08) ----------------------------------
+
+VALUATION_MAX_AGE_DAYS = 400   # oldest statement period accepted as an input
+BASIS_TOLERANCE = 0.25         # net income / EPS must be within 25% of the share count
+
+
+def _filed_values(t, attr: str, row: str, freq: str, trade_date: str) -> list[tuple[pd.Timestamp, float]]:
+    """(period end, value) for one statement row, filed by the trade date, newest first, NaNs dropped."""
+    df = getattr(t, ("quarterly_" if freq == "quarterly" else "") + attr, None)
+    if df is None or df.empty or row not in df.index:
+        return []
+    df = filter_filed(df, freq, trade_date)
+    vals = [(pd.Timestamp(c).tz_localize(None), float(df.loc[row, c])) for c in df.columns]
+    return sorted(((d, v) for d, v in vals if not pd.isna(v)), key=lambda x: x[0], reverse=True)
+
+
+def _basis_ok(t, attr_freq: str, period: pd.Timestamp, eps: float, trade_date: str) -> bool:
+    """Net income / EPS ≈ diluted shares for the same period, i.e. EPS and shares share a split basis."""
+    income = dict(_filed_values(t, "income_stmt", "Net Income", attr_freq, trade_date))
+    shares = dict(_filed_values(t, "income_stmt", "Diluted Average Shares", attr_freq, trade_date))
+    if period not in income or period not in shares or not eps or not shares[period]:
+        return True  # nothing to check against; the EPS is used as reported
+    return abs(income[period] / eps / shares[period] - 1) <= BASIS_TOLERANCE
+
+
+def valuation(symbol: str, trade_date: str) -> dict:
+    """Market cap, P/E and P/B as of trade_date from the close and statements filed by then.
+
+    Yahoo restates prices, EPS and share counts to today's split basis, so every input is on one
+    basis and the ratios are consistent across splits; a net-income/EPS/share-count check guards
+    against an input that is not. Returns a dict of figures and the notes explaining each.
+    """
+    t = _ticker(symbol)
+    limit = pd.Timestamp(trade_date) - timedelta(days=VALUATION_MAX_AGE_DAYS)
+    out: dict = {"symbol": symbol, "trade_date": trade_date, "notes": []}
+
+    bars = ohlcv(symbol, (_d(trade_date) - timedelta(days=10)).strftime("%Y-%m-%d"), trade_date)
+    if bars.empty:
+        out["notes"].append(f"No close on or within 10 days before {trade_date}: valuation unavailable.")
+        return out
+    out["close"], out["close_date"] = float(bars["Close"].iloc[-1]), bars.index[-1].strftime("%Y-%m-%d")
+
+    # EPS: four filed quarters summed (TTM), else the latest filed fiscal year. Never one quarter.
+    quarters = [(d, v) for d, v in _filed_values(t, "income_stmt", "Diluted EPS", "quarterly", trade_date) if d >= limit]
+    annual = [(d, v) for d, v in _filed_values(t, "income_stmt", "Diluted EPS", "annual", trade_date) if d >= limit]
+    if len(quarters) >= 4 and (quarters[0][0] - quarters[3][0]).days < 380:
+        eps, eps_basis, freq, period = sum(v for _, v in quarters[:4]), \
+            f"TTM, 4 filed quarters ending {quarters[0][0]:%Y-%m-%d}", "quarterly", None
+    elif annual:
+        (period, eps), freq = annual[0], "annual"
+        eps_basis = f"fiscal year ending {period:%Y-%m-%d}"
+    else:
+        eps = None
+        out["notes"].append(f"No diluted EPS filed within {VALUATION_MAX_AGE_DAYS} days before {trade_date}.")
+    if eps is not None:
+        checks = [(d, v) for d, v in quarters[:4]] if period is None else [(period, eps)]
+        if all(_basis_ok(t, freq, d, v, trade_date) for d, v in checks):
+            out["eps"], out["eps_basis"] = eps, eps_basis
+        else:
+            out["notes"].append("EPS and share count are on different split bases in the source: P/E unavailable.")
+
+    # Shares and equity: the newest filed balance sheet, quarterly or annual.
+    for key, row in (("shares", "Ordinary Shares Number"), ("equity", "Stockholders Equity")):
+        cands = _filed_values(t, "balance_sheet", row, "quarterly", trade_date) + \
+            _filed_values(t, "balance_sheet", row, "annual", trade_date)
+        cands = [c for c in cands if c[0] >= limit]
+        if cands:
+            d, v = max(cands, key=lambda c: c[0])
+            out[key], out[f"{key}_date"] = v, d.strftime("%Y-%m-%d")
+        else:
+            out["notes"].append(f"No {row.lower()} filed within {VALUATION_MAX_AGE_DAYS} days before {trade_date}.")
+
+    if out.get("shares"):
+        out["market_cap"] = out["close"] * out["shares"]
+    if out.get("eps") is not None:
+        out["pe"] = out["close"] / out["eps"] if out["eps"] > 0 else None  # n/m for losses
+    if out.get("market_cap") and out.get("equity") is not None:
+        out["pb"] = out["market_cap"] / out["equity"] if out["equity"] > 0 else None
+    return out
+
+
+def tool_valuation(symbol: str, trade_date: str) -> str:
+    v = valuation(symbol, trade_date)
+    money = lambda x: f"{x:,.0f}"  # noqa: E731
+    rows = []
+    if "close" in v:
+        rows.append(f"| Close | {v['close']:.2f} | {v['close_date']} |")
+    if "shares" in v:
+        rows.append(f"| Shares outstanding | {money(v['shares'])} | balance sheet {v['shares_date']} |")
+    if "market_cap" in v:
+        rows.append(f"| Market cap | {money(v['market_cap'])} | close × shares |")
+    if "eps" in v:
+        rows.append(f"| Diluted EPS | {v['eps']:.2f} | {v['eps_basis']} |")
+        pe = "n/m (negative earnings)" if v["pe"] is None else f"{v['pe']:.1f}"
+        rows.append(f"| P/E | {pe} | close / EPS |")
+    if "equity" in v:
+        rows.append(f"| Stockholders' equity | {money(v['equity'])} | balance sheet {v['equity_date']} |")
+    if "pb" in v:
+        pb = "n/m (negative equity)" if v["pb"] is None else f"{v['pb']:.2f}"
+        rows.append(f"| P/B | {pb} | market cap / equity |")
+    body = ("| Figure | Value | Basis |\n|---|---:|---|\n" + "\n".join(rows)) if rows else "No valuation figures available."
+    notes = "".join(f"\n- {n}" for n in v["notes"])
+    return (f"# {symbol} valuation as of {trade_date} (point-in-time)\n\n{body}\n\n"
+            f"Inputs are the close on or before {trade_date} and statements filed by then (filing date approximated "
+            f"as period end + {FILING_LAG['quarterly']}/{FILING_LAG['annual']} days). Prices and per-share figures "
+            f"are on today's split basis (the source restates history for later splits), so they can differ from "
+            f"as-traded prices quoted in old news. No enterprise value: net debt is not point-in-time here."
+            + (f"\n\nNotes:{notes}" if notes else ""))
 
 
 def filter_filed(df: pd.DataFrame, freq: str, trade_date: str) -> pd.DataFrame:
@@ -332,5 +455,5 @@ def tool_global_news(curr_date: str | None, trade_date: str, cfg: dict, look_bac
                                                               cfg["global_news_article_limit"])
 
 
-TOOLS = ("stock", "indicators", "snapshot", "fundamentals", "balance_sheet", "cashflow",
+TOOLS = ("stock", "indicators", "snapshot", "fundamentals", "valuation", "balance_sheet", "cashflow",
          "income_statement", "insider", "news", "global_news")

@@ -129,6 +129,8 @@ def cmd_data(a, cfg):
             out = data.tool_snapshot(x[0], x[1] if len(x) > 1 else td, td, a.look_back or 30)
         elif a.tool == "fundamentals":
             out = data.tool_fundamentals(x[0], td)
+        elif a.tool == "valuation":
+            out = data.tool_valuation(x[0], td)
         elif a.tool in ("balance_sheet", "cashflow", "income_statement"):
             out = data.tool_statement(x[0], a.tool, a.freq, td)
         elif a.tool == "insider":
