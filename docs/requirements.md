@@ -62,6 +62,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-CTX-05 | M | The Trader shall receive the technical market report, when there is one, with the instruction to ground its entry and stop in it. | T |
 | REQ-CTX-06 | M | Only the Portfolio Manager shall receive past-decision lessons. | T |
 | REQ-CTX-07 | S | When `output_language` is not English, every report-producing prompt shall carry the instruction "Write your entire response in <lang>." | T |
+| REQ-CTX-08 | M | Every report-producing prompt shall state the decision horizon: the `holding_period_days` window over which the decision's return and alpha are scored. It asks the agent to separate within-window drivers from longer-horizon ones, and to say so when its call rests on a longer horizon. The horizon is part of the run signature. | T |
 
 ## 4. Decisions and structured output (REQ-OUT)
 
@@ -80,7 +81,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 |---|---|---|---|
 | REQ-MEM-01 | M | Every completed run shall append `[date \| ticker \| rating \| pending]` + `DECISION:` to the markdown decision log, in the TradingAgents format. | T |
 | REQ-MEM-02 | M | Storing a second decision for the same ticker and date shall be a no-op. | T |
-| REQ-MEM-03 | M | Settlement shall compute raw return and alpha over `holding_period_days` trading days against the benchmark. The benchmark is chosen by explicit override, then by exchange suffix, then SPY. An entry whose window has not fully traded stays pending. | T |
+| REQ-MEM-03 | M | Settlement shall compute raw return and alpha over `holding_period_days` trading days against the benchmark. The benchmark is chosen by explicit override, then by exchange suffix, then SPY. An entry whose window has not fully traded stays pending. The same `holding_period_days` is the horizon the agents are told (REQ-CTX-08). | T |
 | REQ-MEM-04 | M | A settled entry shall get a 2–4 sentence Reflector reflection and the resolved tag `[date \| ticker \| rating \| raw \| alpha \| Nd \| resolved:YYYY-MM-DD]`, written atomically. | T |
 | REQ-MEM-05 | M | Past context shall contain up to 5 same-ticker entries (full) and 3 cross-ticker reflections, most recent first. For a historical run only lessons resolved on or before the trade date are included. | T |
 | REQ-MEM-06 | S | When `memory_log_max_entries` is set, the oldest resolved entries shall be rotated out. Pending entries are never pruned. | T |

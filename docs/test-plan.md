@@ -77,6 +77,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-CTX-07 | Non-English output language reaches every report-producing prompt | REQ-CTX-07 | T | German run; every prompt carries the instruction; English adds nothing. |
 | TST-CTX-08 | An identity lookup error does not fail the run | REQ-CTX-01 | T | yfinance raises; init succeeds with ticker-only context. |
 | TST-CTX-09 | A historical run only sees lessons resolved by its trade date; a live run sees all | REQ-MEM-05, REQ-CTX-06 | T | One lesson resolved before and one after the trade date; historical vs live init. |
+| TST-CTX-10 | Every prompt states the scoring horizon from holding_period_days; the horizon is part of the run signature | REQ-CTX-08, REQ-MEM-03 | T | A 7-day horizon reaches all 12 prompts with the date; the signature changes with the horizon; a pre-horizon state falls back to 5 days. |
 | TST-OUT-01 | Each schema validates its JSON and renders the TradingAgents headers | REQ-OUT-01 | T | Research plan, trader proposal (absent fields "not provided", FINAL TRANSACTION PROPOSAL line), PM decision. |
 | TST-OUT-02 | With several JSON blocks the last one is used | REQ-OUT-01 | T | Draft + final block. |
 | TST-OUT-03 | Missing, malformed or invalid JSON falls back to free text with an error | REQ-OUT-02 | T | Three negative inputs (none, broken JSON, enum violation). |
@@ -294,6 +295,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-CTX-05 | TST-CTX-05 |
 | REQ-CTX-06 | TST-CTX-06, TST-CTX-09 |
 | REQ-CTX-07 | TST-CTX-07 |
+| REQ-CTX-08 | TST-CTX-10 |
 | REQ-OUT-01 | TST-OUT-01, TST-OUT-02, TST-OUT-07 |
 | REQ-OUT-02 | TST-OUT-03, TST-OUT-08 |
 | REQ-OUT-03 | TST-OUT-04 |
@@ -302,7 +304,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-OUT-06 | TST-OUT-06 |
 | REQ-MEM-01 | TST-MEM-01 |
 | REQ-MEM-02 | TST-MEM-02 |
-| REQ-MEM-03 | TST-MEM-03, TST-MEM-04, TST-MEM-08 |
+| REQ-MEM-03 | TST-CTX-10, TST-MEM-03, TST-MEM-04, TST-MEM-08 |
 | REQ-MEM-04 | TST-MEM-04 |
 | REQ-MEM-05 | TST-CTX-09, TST-MEM-05 |
 | REQ-MEM-06 | TST-MEM-06 |
