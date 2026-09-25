@@ -103,7 +103,10 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-DATA-11 | Every tool's nothing-to-report answer starts with NO_DATA_AVAILABLE and the do-not-fabricate directive | REQ-DATA-06 | T | Empty stubs for stock, fundamentals, statements, insider, valuation; filed-by and on-or-before cutoffs; snapshot raises NoData. |
 | TST-DATA-08 | Past-dated fundamentals show identity only; today's run shows the full profile | REQ-DATA-07 | T | A profile stub with valuation, growth and 52-week fields: none appear on a past date, all appear today. |
 | TST-DATA-09 | Valuation uses the close on the date, 4 filed quarters of EPS and the newest filed balance sheet | REQ-DATA-08 | T | Yahoo-shaped statements; an unfiled quarter is excluded from TTM; P/E, market cap and P/B by hand. |
-| TST-DATA-10 | Annual EPS when <4 quarters are filed; losses, negative equity, stale and mismatched inputs are explicit | REQ-DATA-08 | T | Annual fallback label; n/m for losses and negative equity; > 400-day input unavailable; a 10× EPS basis mismatch withholds P/E; no close. |
+| TST-DATA-10 | Annual EPS when <4 quarters are filed; losses, negative equity, stale and mismatched inputs are explicit | REQ-DATA-08 | T | Annual fallback label; n/m for losses and negative equity; > 400-day input unavailable; a 10× EPS basis mismatch withholds P/E; 3 filed quarters use the annual EPS (no partial TTM); 4 stale quarters give no EPS; no close. |
+| TST-DATA-12 | Earnings history uses announcements before the date only; a later result and today's consensus never leak into a past run | REQ-DATA-09 | T | Calendar stub with an event 2 trading days after the date whose result exists now; history cut, horizon flag, limit covers back-dates. |
+| TST-DATA-13 | Same-day runs show consensus; the horizon flag follows holding_period_days; no calendar is NO_DATA_AVAILABLE | REQ-DATA-09, REQ-DATA-06 | T | Same-day consensus; 38 trading days counted by hand; horizon 1 vs 5; a same-day announcement is the next event; empty calendar raises NoData. |
+| TST-DATA-14 | The CLI passes the run's holding_period_days to the earnings tool and marks a missing calendar | REQ-DATA-09, REQ-CTX-08 | T | Run with a 1-day horizon; `berkshire data earnings` output; empty calendar through the CLI. |
 | TST-DATA-07 | Profile data and analyst prompts are labelled non-point-in-time for past dates | REQ-DATA-07 | T | Fundamentals note past vs today; analyst prompt point-in-time rule. |
 | TST-IF-01 | Interactive analyze walks the TradingAgents steps with previous answers as defaults | REQ-IF-01 | D | Manual procedure M1. |
 | TST-IF-02 | init/next/submit/status drive a whole run from the CLI with TradingAgents flags | REQ-IF-02, REQ-IF-08 | T | Subprocess-free CLI calls through `main()`, writing canned outputs to the files named by `next`. |
@@ -295,7 +298,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-CTX-05 | TST-CTX-05 |
 | REQ-CTX-06 | TST-CTX-06, TST-CTX-09 |
 | REQ-CTX-07 | TST-CTX-07 |
-| REQ-CTX-08 | TST-CTX-10 |
+| REQ-CTX-08 | TST-CTX-10, TST-DATA-14 |
 | REQ-OUT-01 | TST-OUT-01, TST-OUT-02, TST-OUT-07 |
 | REQ-OUT-02 | TST-OUT-03, TST-OUT-08 |
 | REQ-OUT-03 | TST-OUT-04 |
@@ -314,9 +317,10 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-DATA-03 | TST-DATA-03 |
 | REQ-DATA-04 | TST-DATA-04 |
 | REQ-DATA-05 | TST-DATA-05 |
-| REQ-DATA-06 | TST-DATA-06, TST-DATA-11, TST-ROLE-07 |
+| REQ-DATA-06 | TST-DATA-06, TST-DATA-11, TST-DATA-13, TST-ROLE-07 |
 | REQ-DATA-07 | TST-DATA-07, TST-DATA-08 |
 | REQ-DATA-08 | TST-DATA-09, TST-DATA-10 |
+| REQ-DATA-09 | TST-DATA-12, TST-DATA-13, TST-DATA-14 |
 | REQ-IF-01 | TST-IF-01 |
 | REQ-IF-02 | TST-IF-02 |
 | REQ-IF-03 | TST-IF-03 |

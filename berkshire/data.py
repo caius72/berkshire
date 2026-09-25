@@ -52,7 +52,12 @@ def unavailable(message: str) -> str:
 
 
 def _ticker(symbol: str):
+    import logging
+
     import yfinance as yf
+    # yfinance logs its own "no data / possibly delisted" errors; the tools report those
+    # through the NO_DATA / DATA_UNAVAILABLE markers instead, so agents see one clear line.
+    logging.getLogger("yfinance").setLevel(logging.CRITICAL)
     return yf.Ticker(symbol)
 
 
@@ -404,6 +409,82 @@ def tool_insider(symbol: str, trade_date: str) -> str:
     return f"# {symbol} insider transactions on or before {trade_date}\n" + df.head(30).to_csv(index=False)
 
 
+# --- earnings calendar (REQ-DATA-09) ----------------------------------------
+
+def earnings(symbol: str, trade_date: str, horizon_days: int = 5, history: int = 4) -> dict:
+    """Earnings context as of trade_date, keyed on announcement dates.
+
+    Past: the last `history` announcements strictly before the trade date, with the estimate
+    that stood before each and the reported EPS (all known by then). Next: the first
+    announcement on or after the trade date, with about how many trading days away it is and
+    whether it falls inside the decision horizon. Its consensus is shown only for a same-day
+    run: today's estimate has been revised since a past date, and any reported result of a
+    later event is never shown. Raises NoData when the source has no calendar (funds, crypto).
+    """
+    td = pd.Timestamp(trade_date)
+    quarters_since = max(0, (pd.Timestamp(today()) - td).days // 91)
+    df = _ticker(symbol).get_earnings_dates(limit=min(100, 12 + quarters_since + history))
+    if df is None or df.empty:
+        raise NoData(f"No earnings calendar for {symbol} (funds, indices, FX and crypto do not report earnings).")
+    df = df.copy()
+    df.index = pd.to_datetime(df.index)
+    days = df.index.tz_localize(None).normalize() if df.index.tz is not None else df.index.normalize()
+    df["day"] = days
+    past = df[df["day"] < td].sort_values("day", ascending=False).head(history)
+    upcoming = df[df["day"] >= td].sort_values("day")
+    out = {"symbol": symbol, "trade_date": trade_date, "horizon_days": horizon_days, "past": [], "next": None,
+           "same_day": trade_date == today()}
+    for when, row in past.iterrows():
+        out["past"].append({"date": row["day"].strftime("%Y-%m-%d"), "time": when.strftime("%H:%M"),
+                            "estimate": _num(row.get("EPS Estimate")), "reported": _num(row.get("Reported EPS")),
+                            "surprise_pct": _num(row.get("Surprise(%)"))})
+    if not upcoming.empty:
+        when, row = upcoming.index[0], upcoming.iloc[0]
+        away = max(0, len(pd.bdate_range(td, row["day"])) - 1)   # weekdays; exchange holidays not excluded
+        out["next"] = {"date": row["day"].strftime("%Y-%m-%d"), "time": when.strftime("%H:%M"),
+                       "trading_days_away": away, "inside_horizon": away <= horizon_days,
+                       "estimate": _num(row.get("EPS Estimate")) if out["same_day"] else None}
+    return out
+
+
+def _num(v):
+    try:
+        return None if v is None or pd.isna(v) else float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def tool_earnings(symbol: str, trade_date: str, horizon_days: int = 5) -> str:
+    e = earnings(symbol, trade_date, horizon_days)
+    lines = [f"# {symbol} earnings context as of {trade_date}", ""]
+    nxt = e["next"]
+    if nxt:
+        flag = (f"INSIDE the {horizon_days}-trading-day decision horizon: expect an earnings-driven move within the "
+                f"scored window." if nxt["inside_horizon"] else
+                f"outside the {horizon_days}-trading-day decision horizon.")
+        lines.append(f"- Next announcement: {nxt['date']} {nxt['time']} local, about {nxt['trading_days_away']} "
+                     f"trading days after {trade_date}, {flag}")
+        if e["same_day"]:
+            est = f"{nxt['estimate']:.2f}" if nxt["estimate"] is not None else "not available"
+            lines.append(f"- Consensus EPS estimate for it (today): {est}")
+        else:
+            lines.append(f"- The date is from today's calendar and may not have been announced by {trade_date}; its "
+                         f"consensus as of {trade_date} is not available, and its result is withheld.")
+    else:
+        lines.append(f"- No announcement on or after {trade_date} in the source calendar.")
+    if e["past"]:
+        lines += ["", f"## Last {len(e['past'])} announcements before {trade_date}", "",
+                  "| Date | Time | EPS estimate | Reported EPS | Surprise |", "|---|---|---:|---:|---:|"]
+        f = lambda v, fmt: "n/a" if v is None else format(v, fmt)  # noqa: E731
+        lines += [f"| {p['date']} | {p['time']} | {f(p['estimate'], '.2f')} | {f(p['reported'], '.2f')} | "
+                  f"{f(p['surprise_pct'], '+.1f')}% |".replace("n/a%", "n/a") for p in e["past"]]
+    else:
+        lines += ["", f"No announcements before {trade_date} in the source calendar."]
+    lines += ["", "Announcement dates are exchange-local; the surprise history uses only results published before "
+              "the analysis date."]
+    return "\n".join(lines)
+
+
 # --- news (REQ-DATA-05) ----------------------------------------------------
 
 def _news_item(raw: dict) -> dict:
@@ -477,5 +558,5 @@ def tool_global_news(curr_date: str | None, trade_date: str, cfg: dict, look_bac
                                                               cfg["global_news_article_limit"])
 
 
-TOOLS = ("stock", "indicators", "snapshot", "fundamentals", "valuation", "balance_sheet", "cashflow",
+TOOLS = ("stock", "indicators", "snapshot", "fundamentals", "valuation", "earnings", "balance_sheet", "cashflow",
          "income_statement", "insider", "news", "global_news")

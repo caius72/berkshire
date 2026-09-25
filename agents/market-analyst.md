@@ -48,6 +48,7 @@ berkshire data --run RUN indicators SYMBOL NAME[,NAME] [CURR_DATE] [--look-back 
 berkshire data --run RUN snapshot SYMBOL [CURR_DATE]      # verified snapshot (source of truth)
 berkshire data --run RUN fundamentals SYMBOL            # identity only on past dates
 berkshire data --run RUN valuation SYMBOL               # market cap, P/E, P/B as of the date
+berkshire data --run RUN earnings SYMBOL                # next announcement, past surprises
 berkshire data --run RUN balance_sheet|cashflow|income_statement SYMBOL [--freq annual|quarterly]
 berkshire data --run RUN insider SYMBOL
 berkshire data --run RUN news SYMBOL START END

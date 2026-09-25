@@ -191,6 +191,18 @@ def test_valuation_annual_fallback_and_edge_cases(monkeypatch):
          annual_bs=frame({"Ordinary Shares Number": [10.0], "Stockholders Equity": [5.0]}, ["2025-12-31"]))
     v = data.valuation("ACME", "2026-09-18")
     assert "pe" not in v and any("different split bases" in n for n in v["notes"]) and v["market_cap"] == 2995.0
+    # Only 3 filed quarters: never a partial "TTM" -- the annual EPS is used instead.
+    stub(monkeypatch, quarterly_income=frame({"Diluted EPS": [1.0, 1.0, 1.0]}, Q[:3]),
+         annual_income=frame({"Diluted EPS": [3.5]}, ["2025-12-31"]),
+         annual_bs=frame({"Ordinary Shares Number": [10.0], "Stockholders Equity": [5.0]}, ["2025-12-31"]))
+    v = data.valuation("ACME", "2026-09-18")
+    assert v["eps"] == 3.5 and v["eps_basis"] == "fiscal year ending 2025-12-31"
+    # Four quarters, all older than the age limit: no EPS rather than a stale TTM.
+    stub(monkeypatch, quarterly_income=frame({"Diluted EPS": [1.0, 1.0, 1.0, 1.0]},
+                                             ["2025-03-31", "2024-12-31", "2024-09-30", "2024-06-30"]),
+         annual_bs=frame({"Ordinary Shares Number": [10.0], "Stockholders Equity": [5.0]}, ["2025-12-31"]))
+    v = data.valuation("ACME", "2026-09-18")
+    assert "eps" not in v and "pe" not in v and any("No diluted EPS filed within 400 days" in n for n in v["notes"])
     # No close near the date.
     old = data.tool_valuation("ACME", "2020-01-01")
     assert old.startswith("NO_DATA_AVAILABLE: No valuation figures for ACME as of 2020-01-01.") and "No close" in old
@@ -221,3 +233,75 @@ def test_every_empty_source_is_marked(monkeypatch):
     assert data.tool_insider("NVDA", "2026-08-01").startswith("NO_DATA_AVAILABLE: ")
     with pytest.raises(data.NoData):
         data.tool_snapshot("EMPTY", TD, TD)
+
+
+# --- earnings calendar (REQ-DATA-09) -----------------------------------------
+
+class EarningsTicker(FakeTicker):
+    calendar = None
+    requested_limit = None
+
+    def get_earnings_dates(self, limit=12):
+        EarningsTicker.requested_limit = limit
+        return EarningsTicker.calendar
+
+
+def earnings_frame(rows):
+    idx = pd.DatetimeIndex([pd.Timestamp(d) for d, *_ in rows]).tz_localize("America/New_York")
+    return pd.DataFrame([r[1:] for r in rows], index=idx, columns=["EPS Estimate", "Reported EPS", "Surprise(%)"])
+
+
+CAL = earnings_frame([
+    ("2026-11-17 16:00", 2.47, None, None),
+    ("2026-09-22 16:00", 2.30, 2.40, 4.3),     # after a 2026-09-18 trade date: its result must stay hidden
+    ("2026-08-26 16:00", 2.09, 2.22, 6.16),
+    ("2026-05-20 16:00", 1.77, 1.87, 5.54),
+    ("2026-02-25 16:00", 1.54, 1.62, 5.32),
+    ("2025-11-19 16:00", 1.26, 1.30, 3.46),
+    ("2025-08-27 16:00", 1.01, 1.05, 4.10),
+])
+
+
+def test_earnings_point_in_time(monkeypatch):
+    """TST-DATA-12: Earnings history uses announcements before the date only; a later result and today's consensus never leak into a past run [REQ-DATA-09]"""
+    EarningsTicker.calendar = CAL
+    monkeypatch.setattr(data, "_ticker", EarningsTicker)
+    e = data.earnings("NVDA", "2026-09-18", horizon_days=5)
+    assert [p["date"] for p in e["past"]] == ["2026-08-26", "2026-05-20", "2026-02-25", "2025-11-19"]
+    assert e["past"][0] == {"date": "2026-08-26", "time": "16:00", "estimate": 2.09, "reported": 2.22, "surprise_pct": 6.16}
+    assert e["next"] == {"date": "2026-09-22", "time": "16:00", "trading_days_away": 2, "inside_horizon": True,
+                         "estimate": None}
+    out = data.tool_earnings("NVDA", "2026-09-18", 5)
+    assert "INSIDE the 5-trading-day decision horizon" in out and "2.40" not in out and "4.3%" not in out
+    assert "consensus as of 2026-09-18 is not available, and its result is withheld" in out
+    assert "| 2026-08-26 | 16:00 | 2.09 | 2.22 | +6.2% |" in out
+    assert EarningsTicker.requested_limit >= 12 + 4
+
+
+def test_earnings_same_day_horizon_and_no_calendar(monkeypatch):
+    """TST-DATA-13: Same-day runs show consensus; the horizon flag follows holding_period_days; no calendar is NO_DATA_AVAILABLE [REQ-DATA-09, REQ-DATA-06]"""
+    EarningsTicker.calendar = CAL
+    monkeypatch.setattr(data, "_ticker", EarningsTicker)
+    live = data.earnings("NVDA", "2026-09-24", horizon_days=5)       # conftest pins today to 2026-09-24
+    assert live["same_day"] and live["next"]["date"] == "2026-11-17" and live["next"]["estimate"] == 2.47
+    assert live["next"]["inside_horizon"] is False and live["next"]["trading_days_away"] == 38
+    assert "Consensus EPS estimate for it (today): 2.47" in data.tool_earnings("NVDA", "2026-09-24", 5)
+    assert data.earnings("NVDA", "2026-09-18", horizon_days=1)["next"]["inside_horizon"] is False
+    same_day_event = data.earnings("NVDA", "2026-09-22", horizon_days=5)
+    assert same_day_event["next"]["date"] == "2026-09-22" and same_day_event["next"]["trading_days_away"] == 0
+    assert same_day_event["past"][0]["date"] == "2026-08-26"        # the result is announced after that day's close
+    EarningsTicker.calendar = None
+    with pytest.raises(data.NoData, match="No earnings calendar for GLD"):
+        data.earnings("GLD", "2026-09-18")
+
+
+def test_earnings_through_cli(cfg, log, capsys, monkeypatch):
+    """TST-DATA-14: The CLI passes the run's holding_period_days to the earnings tool and marks a missing calendar [REQ-DATA-09, REQ-CTX-08]"""
+    EarningsTicker.calendar = CAL
+    monkeypatch.setattr(data, "_ticker", EarningsTicker)
+    state = new_run({**cfg, "holding_period_days": 1}, log)
+    main(["data", "--run", state["run_dir"], "earnings", "NVDA"])
+    assert "outside the 1-trading-day decision horizon" in capsys.readouterr().out
+    EarningsTicker.calendar = pd.DataFrame()
+    main(["data", "--run", state["run_dir"], "earnings", "GLD"])
+    assert capsys.readouterr().out.startswith("NO_DATA_AVAILABLE: No earnings calendar for GLD")
