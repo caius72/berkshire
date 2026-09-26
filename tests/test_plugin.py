@@ -175,6 +175,15 @@ def test_sentiment_bluesky_source():
     assert "four complementary sources" in body and "Mastodon" not in body and "Fear" not in body
 
 
+def test_sentiment_screens_posts():
+    """TST-ROLE-10: The Sentiment Analyst drops off-topic social posts and reports on-topic and stance counts per source [REQ-ROLE-03]"""
+    body = agent("sentiment-analyst")[1]
+    assert "drop posts that are not about this instrument" in body and "sharing the symbol" in body
+    assert "including posts without a user tag" in body
+    assert "`N of M posts on-topic: b bullish, r bearish, n neutral, u unclear`" in body
+    assert "on the on-topic posts only" in body and "user-tag split separately" in body
+
+
 def test_fundamentals_fund_branch():
     """TST-ROLE-09: For a fund, the Fundamentals Analyst uses etf_profile instead of company tools and never infers undisclosed concentration [REQ-ROLE-03, REQ-FLOW-10]"""
     body = agent("fundamentals-analyst")[1]

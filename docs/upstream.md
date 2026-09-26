@@ -50,7 +50,7 @@ rows come from new upstream commits and releases.
 | UP-014 | v0.5.1 | FRED macro indicators tool | adapted | REQ-ROLE-03 | News Analyst looks FRED series up via web search; no dedicated tool. |
 | UP-015 | v0.5.1 | Polymarket prediction-market odds tool | adapted | REQ-ROLE-03 | Via web search in the News Analyst. |
 | UP-016 | v0.5.1 | StockTwits and Reddit sentiment sources | adapted | REQ-ROLE-03 | Sentiment Analyst fetches them with WebFetch/WebSearch. |
-| UP-017 | v0.5.1 | Jev screening of social posts (TypeSafe) | planned | | No vendor: the sentiment persona drops off-topic posts and reports on-topic count and stance per source (amend REQ-ROLE-03). |
+| UP-017 | v0.5.1 | Jev screening of social posts (TypeSafe) | adapted | REQ-ROLE-03 | No vendor or key: the Sentiment Analyst (Claude) screens the posts itself, dropping off-topic ones and reporting on-topic and stance counts per source. |
 | UP-018 | v0.5.1 | Decision log, deferred reflection, regional alpha benchmarks | incorporated | REQ-MEM-01, REQ-MEM-03, REQ-MEM-04 | Same file format. |
 | UP-019 | v0.5.1 | Point-in-time lessons for historical runs (#1251) | incorporated | REQ-MEM-05 | |
 | UP-020 | v0.5.1 | Memory log rotation | incorporated | REQ-MEM-06 | |
