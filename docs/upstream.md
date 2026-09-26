@@ -25,7 +25,7 @@ Berkshire way), `watch`, `decline`.
 | upstream | TauricResearch/TradingAgents |
 | last_reviewed_commit | 35543d0 |
 | last_reviewed_release | v0.5.1 |
-| last_run | 2026-09-25 |
+| last_run | 2026-09-26 |
 
 ## Features
 
@@ -50,7 +50,7 @@ rows come from new upstream commits and releases.
 | UP-014 | v0.5.1 | FRED macro indicators tool | adapted | REQ-ROLE-03 | News Analyst looks FRED series up via web search; no dedicated tool. |
 | UP-015 | v0.5.1 | Polymarket prediction-market odds tool | adapted | REQ-ROLE-03 | Via web search in the News Analyst. |
 | UP-016 | v0.5.1 | StockTwits and Reddit sentiment sources | adapted | REQ-ROLE-03 | Sentiment Analyst fetches them with WebFetch/WebSearch. |
-| UP-017 | v0.5.1 | Jev screening of social posts (TypeSafe) | candidate | | Needs a TypeSafe key and an extra vendor; value unproven for Berkshire. |
+| UP-017 | v0.5.1 | Jev screening of social posts (TypeSafe) | planned | | No vendor: the sentiment persona drops off-topic posts and reports on-topic count and stance per source (amend REQ-ROLE-03). |
 | UP-018 | v0.5.1 | Decision log, deferred reflection, regional alpha benchmarks | incorporated | REQ-MEM-01, REQ-MEM-03, REQ-MEM-04 | Same file format. |
 | UP-019 | v0.5.1 | Point-in-time lessons for historical runs (#1251) | incorporated | REQ-MEM-05 | |
 | UP-020 | v0.5.1 | Memory log rotation | incorporated | REQ-MEM-06 | |
@@ -64,7 +64,7 @@ rows come from new upstream commits and releases.
 | UP-028 | v0.5.1 | Rich live progress panel | adapted | REQ-UI-05, REQ-IF-06 | Web and terminal views over the local API. |
 | UP-029 | v0.5.1 | Env-var configuration with type coercion that fails loudly | incorporated | REQ-IF-05 | BERKSHIRE_* instead of TRADINGAGENTS_*. |
 | UP-030 | v0.5.1 | Ticker path-traversal hardening | incorporated | REQ-SAFE-01 | |
-| UP-031 | v0.5.1 | Vendor routing with fallback chains (yfinance, Alpha Vantage) | watch | | yfinance only today; a fallback matters if Yahoo rate-limits scheduled ticks. |
+| UP-031 | v0.5.1 | Vendor routing with fallback chains (yfinance, Alpha Vantage) | planned |  | Planned: cache the 400-day OHLCV frame per (symbol, trade date) in the run dir and back off on rate limits before any second vendor (Twelve Data declined, #794). New REQ-DATA-12. |
 | UP-032 | v0.5.1 | Multi-provider LLM registry and model catalog | not-applicable | | Berkshire runs on Claude subagents; model choice is REQ-ROLE-02. |
 | UP-033 | v0.5.1 | Provider reasoning/effort, temperature, retry and token knobs | not-applicable | | Handled by Claude Code. |
 | UP-034 | v0.5.1 | Docker images and compose | not-applicable | | A Claude Code plugin. |
@@ -86,3 +86,13 @@ PR is re-analysed only when it changes. Reports: [upstream-reports/](upstream-re
 | #922 | Bluesky, Mastodon and Fear & Greed sentiment sources | 0588a2e52f67 | 2026-09-25 | adapt | adapted | REQ-ROLE-03, REQ-DATA-07 | Adapted: Bluesky only, via WebFetch on api.bsky.app with the run's since/until window (verified PIT); engagement labelled current; empty never lowers confidence. Mastodon, F&G declined. |
 | #1404 | Optional Jev debate gate (early stop) | 78eb1adbc81c | 2026-09-25 | decline | declined |  | Token saving without quality gain; breaks deterministic routing (REQ-FLOW-08), adds a vendor, uncaught TypeError at debate_gate.py:68. |
 | #584 | Pre-computed indicator interpretations | 90c06f0d316c | 2026-09-25 | decline | declined |  | Verified snapshot already gives deterministic indicators; labels are uncalibrated and the Bollinger rule is dead (compute.py:89). |
+| #956 | Alternative method to get news data (Google News) | 21277d6738ff | 2026-09-26 | adapt | planned | REQ-DATA-05, REQ-DATA-07, REQ-ROLE-03 | Planned: merge Google News RSS (after:/before: windowed, clamped, deduplicated, source-tagged) into the news tool; amend REQ-DATA-05/07, REQ-ROLE-03. Report rec. 1. |
+| #1414 | Print the fundamentals percentages with their unit | 529048c94c02 | 2026-09-26 | adapt | planned | REQ-DATA-07 | Planned: dividendYield rendered with %, footer that margins/returns/growth are fractions; new REQ-DATA-11. Report rec. 2. |
+| #1413 | React frontend | 3f0bf51b4471 | 2026-09-26 | decline | declined |  | Declined (Stripe SaaS layer; unauthenticated path traversal at main.py:295-302). Idea planned: refuse a duplicate running start_job, amend REQ-UI-06. |
+| #794 | Twelve Data as a third data vendor | 411257a41440 | 2026-09-26 | decline | declined |  | Keyed; no Yahoo-symbol, non-US or futures coverage; no news; fundamentals not PIT. For UP-031 cache yfinance calls and back off first. |
+| #1407 | Sentiment Analyst: let the caller supply its data sources | 1ca16a2df0e7 | 2026-09-26 | decline | declined |  | Graph-injection plumbing with no archive to feed it; Berkshire's subagent fetches its own sources and labels non-PIT social data. PR bundles unrelated features. |
+| #513 | Optional custom prompt support | 4fed0d3ee9ec | 2026-09-26 | decline | declined |  | Horizon covered by REQ-CTX-08; free text in all 12 roles skews debate and memory, bypasses the run signature, injects into the dashboard's claude -p string. |
+| #359 | Factor rule analyst with manual rule injection | 2fb715915b34 | 2026-09-26 | decline | declined |  | Undated user priors break evidence-only and PIT rules; loads example rules by default, truncates debate history; stale and conflicting. |
+| #302 | ACE - Agentic Context Engineer | c510a8721ada | 2026-09-26 | decline | declined |  | Self-graded skillbook ignores outcomes, no as_of filter, breaks on ace-framework 0.12. Berkshire's settled PIT lessons are better. |
+| #1281 | Cache-friendly debate and analyst prompts | 5ed37446cffb | 2026-09-26 | decline | declined |  | Berkshire already splits static persona (agent file) from volatile context (prompt file); cross-debater prefix reuse can't work with subagents. Covers #878's idea. |
+| #401 | Multi-LLM routing (stage and role based) | e5690d038813 | 2026-09-26 | decline | declined |  | Berkshire already routes Claude models per step (REQ-ROLE-02); the rest is multi-provider plumbing, out by D1; PR puts judges on the quick model. |
