@@ -157,6 +157,11 @@ class Api:
         # data.today() is the one clock the date validation uses too.
         date = pipeline.validate_date(str(body.get("date") or data.today()))
         pipeline.require_listed(ticker, date)
+        # Two orchestrators on one run directory would race on state.json.
+        running = next((j for j in self.jobs() if j["ticker"] == ticker and j["date"] == date
+                        and j["status"] == "running"), None)
+        if running:
+            raise ValueError(f"an analysis of {ticker} for {date} is already running (job {running['id']})")
         args = [ticker, date]
         if body.get("analysts"):
             chosen = pipeline.select_analysts(list(body["analysts"]), pipeline.detect_asset_type(ticker))

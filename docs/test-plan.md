@@ -199,6 +199,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-UI-22 | The start form maps eToro names and refuses unlisted instruments before spawning | REQ-IF-10, REQ-UI-06 | T | EuroOil spawns BZ=F; unlisted → 400 naming symbol_map, nothing spawned. |
 | TST-UI-23 | 's' asks first, then stops the selected running analysis; a finished one is refused | REQ-UI-13, REQ-UI-08 | T | Pilot: cancel keeps it running, confirm stops it via the API, a stopped run gets no dialog. |
 | TST-UI-24 | The pipeline loop stops dispatching when the run was stopped | REQ-UI-13 | I | pipeline-loop.md text. |
+| TST-UI-25 | A second start for a (ticker, date) whose job is still running is refused | REQ-UI-06 | T | Same ticker via its eToro alias → 400 naming the job, nothing spawned; another date spawns; after the job exits a restart spawns. |
 | TST-UP-01 | The ledger is consistent and records the v0.5.1 baseline | REQ-UP-01, REQ-UP-05 | T | `tools/upstream.py check` on the real ledger; ≥ 30 baseline rows across statuses. |
 | TST-UP-02 | The ledger check rejects bad statuses, missing or unknown requirements, duplicates and bad PR rows | REQ-UP-01 | T | Eleven single mutations of the real ledger, each named in the problems. |
 | TST-UP-03 | The worklist splits open PRs into new, head-moved and unchanged, and flags PRs that left the open list | REQ-UP-02 | T | Four ledger rows × three open PRs; a declined PR is not revisited. |
@@ -384,7 +385,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-UI-03 | TST-UI-05, TST-UI-06, TST-UI-13 |
 | REQ-UI-04 | TST-UI-08, TST-UI-09, TST-UI-14, TST-UI-20, TST-WEB-03 |
 | REQ-UI-05 | TST-UI-05, TST-UI-20, TST-WEB-01, TST-WEB-02 |
-| REQ-UI-06 | TST-UI-07, TST-UI-15, TST-UI-22 |
+| REQ-UI-06 | TST-UI-07, TST-UI-15, TST-UI-22, TST-UI-25 |
 | REQ-UI-07 | TST-UI-06, TST-UI-18, TST-UI-19 |
 | REQ-UI-08 | TST-UI-13, TST-UI-14, TST-UI-15, TST-UI-20, TST-UI-23 |
 | REQ-UI-09 | TST-UI-16 |

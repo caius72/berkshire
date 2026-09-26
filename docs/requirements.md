@@ -209,7 +209,7 @@ state, and every view is a client of its HTTP + SSE API. Recorded with the user 
 | REQ-UI-03 | M | Both views shall show the runs (signal and progress), the decision log, the order queue and backtest summaries. | T |
 | REQ-UI-04 | M | Both views shall update live: the server emits an SSE `change` event within about 1 s of a run, log, queue or job changing. The web view reconnects with backoff. | T |
 | REQ-UI-05 | M | A run's detail view shall show what the TradingAgents live panel shows: every agent's status by team, the report of each finished agent (latest by default), the step timeline, and the order proposal with the risk gate's reasons. | T |
-| REQ-UI-06 | M | Both views shall let the user start an analysis (ticker, date, analysts, depth). Input is validated by the engine's rules, and a headless `claude -p /berkshire:analyze …` job is started. Job status and log tail are shown. | T |
+| REQ-UI-06 | M | Both views shall let the user start an analysis (ticker, date, analysts, depth). Input is validated by the engine's rules, and a headless `claude -p /berkshire:analyze …` job is started, unless a job for the same resolved ticker and date is still running. Job status and log tail are shown. | T |
 | REQ-UI-07 | M | The API shall have no endpoint that places, approves, rejects or modifies orders. The views state that orders are placed with `/berkshire:approve`. | T |
 | REQ-UI-08 | M | `berkshire tui` shall provide the terminal view (runs, progress, reports, decisions, orders, jobs), with keys n (new analysis), r (refresh) and q (quit). | T |
 | REQ-UI-09 | M | Textual shall be optional. The engine, server and web view work without it, and `berkshire tui` without it prints how to install the extra (exit code 3) instead of a traceback. | T |
