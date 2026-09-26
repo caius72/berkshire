@@ -119,6 +119,8 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-DATA-16 | Same-day fundamentals mark dividendYield in percent and state that the ratios are fractions | REQ-DATA-11 | T | Stub with dividendYield 2.41 and profitMargins 0.28: `2.41%`, `0.28` unchanged, units note; no dividendYield gives no row; past dates carry no units note. |
 | TST-DATA-17 | Google News is queried inside the window by company name, clamped, deduplicated against Yahoo and tagged headline-only | REQ-DATA-05, REQ-DATA-07 | T | Stubbed RSS: `after:`/`before:` one day wide of the window, `+0200` date, items before, after and undated dropped, a Yahoo duplicate removed, publisher suffix stripped, count note, Yahoo items first under the limit; name-to-query cases. |
 | TST-DATA-18 | A Google News failure adds an unavailable line and never fails the tool; both sources failing is DATA_UNAVAILABLE | REQ-DATA-05, REQ-DATA-06 | T | Google timeout keeps Yahoo items; Yahoo down keeps Google items with no recent-feed gap marker; both down raise (the CLI marks DATA_UNAVAILABLE). |
+| TST-DATA-19 | One run downloads a symbol's price history once; slices match an uncached fetch; out-of-range requests bypass the cache | REQ-DATA-12 | T | Counting fake: snapshot, indicators, stock and valuation through the CLI make one history call; cache file in the run dir; cache off after the command; a 2024 window fetches directly. |
+| TST-DATA-20 | Yahoo rate limits are retried with bounded backoff, then reported DATA_UNAVAILABLE | REQ-DATA-12, REQ-DATA-06 | T | Two rate-limit errors then success (waits 2 s, 4 s, recorded not slept); persistent limit gives DATA_UNAVAILABLE naming YFRateLimitError after 3 tries, nothing cached. |
 | TST-DATA-07 | Profile data and analyst prompts are labelled non-point-in-time for past dates | REQ-DATA-07 | T | Fundamentals note past vs today; analyst prompt point-in-time rule. |
 | TST-IF-01 | Interactive analyze walks the TradingAgents steps with previous answers as defaults | REQ-IF-01 | D | Manual procedure M1. |
 | TST-IF-02 | init/next/submit/status drive a whole run from the CLI with TradingAgents flags | REQ-IF-02, REQ-IF-08 | T | Subprocess-free CLI calls through `main()`, writing canned outputs to the files named by `next`. |
@@ -335,12 +337,13 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-DATA-03 | TST-DATA-03 |
 | REQ-DATA-04 | TST-DATA-04 |
 | REQ-DATA-05 | TST-DATA-05, TST-DATA-17, TST-DATA-18 |
-| REQ-DATA-06 | TST-DATA-06, TST-DATA-11, TST-DATA-13, TST-DATA-18, TST-ROLE-07 |
+| REQ-DATA-06 | TST-DATA-06, TST-DATA-11, TST-DATA-13, TST-DATA-18, TST-DATA-20, TST-ROLE-07 |
 | REQ-DATA-07 | TST-DATA-07, TST-DATA-08, TST-DATA-15, TST-DATA-17, TST-ROLE-08 |
 | REQ-DATA-08 | TST-DATA-09, TST-DATA-10 |
 | REQ-DATA-09 | TST-DATA-12, TST-DATA-13, TST-DATA-14 |
 | REQ-DATA-10 | TST-DATA-15 |
 | REQ-DATA-11 | TST-DATA-16 |
+| REQ-DATA-12 | TST-DATA-19, TST-DATA-20 |
 | REQ-IF-01 | TST-IF-01 |
 | REQ-IF-02 | TST-IF-02 |
 | REQ-IF-03 | TST-IF-03 |

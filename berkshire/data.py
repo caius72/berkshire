@@ -8,7 +8,10 @@ readable string, never a traceback (REQ-DATA-06). yfinance access goes through
 from __future__ import annotations
 
 import re
+import time
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pandas as pd
 
@@ -91,10 +94,59 @@ def as_of_window(start: str | None, end: str | None, trade_date: str) -> tuple[s
 
 # --- prices ----------------------------------------------------------------
 
+HISTORY_DAYS = 400         # calendar days of bars behind the trade date: enough for the 200 SMA
+RATE_LIMIT_TRIES = 3       # Yahoo "Too Many Requests": wait 2 s, then 4 s, then give up
+RATE_LIMIT_WAIT = 2.0
+_sleep = time.sleep
+_run_cache: tuple[Path, str] | None = None
+
+
+@contextmanager
+def run_cache(run_dir: str | Path, trade_date: str):
+    """Within the block, keep each symbol's HISTORY_DAYS of bars up to the trade date in the run
+    directory, so one run's tools download a price history once, not once per call (REQ-DATA-12)."""
+    global _run_cache
+    _run_cache = (Path(run_dir) / "cache", trade_date)
+    try:
+        yield
+    finally:
+        _run_cache = None
+
+
 def ohlcv(symbol: str, start: str, end: str) -> pd.DataFrame:
     """Daily bars with start <= date <= end (inclusive), naive DatetimeIndex."""
-    df = _ticker(symbol).history(start=start, end=(_d(end) + timedelta(days=1)).strftime("%Y-%m-%d"),
-                                 auto_adjust=False)
+    if _run_cache:
+        cache_dir, trade_date = _run_cache
+        base = (_d(trade_date) - timedelta(days=HISTORY_DAYS)).strftime("%Y-%m-%d")
+        if base <= start and end <= trade_date:
+            df = _cached_history(cache_dir, symbol, base, trade_date)
+            return df if df.empty else df[(df.index >= pd.Timestamp(start)) & (df.index <= pd.Timestamp(end))]
+    return _fetch_ohlcv(symbol, start, end)
+
+
+def _cached_history(cache_dir: Path, symbol: str, start: str, end: str) -> pd.DataFrame:
+    from berkshire.config import atomic_write, safe_component
+    path = cache_dir / f"ohlcv-{safe_component(symbol)}.csv"
+    if path.exists():
+        return pd.read_csv(path, index_col=0, parse_dates=True)
+    df = _fetch_ohlcv(symbol, start, end)
+    if not df.empty:  # an empty answer is re-asked, never pinned for the run
+        path.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write(path, df.to_csv())
+    return df
+
+
+def _fetch_ohlcv(symbol: str, start: str, end: str) -> pd.DataFrame:
+    from yfinance.exceptions import YFRateLimitError
+    for attempt in range(RATE_LIMIT_TRIES):
+        try:
+            df = _ticker(symbol).history(start=start, end=(_d(end) + timedelta(days=1)).strftime("%Y-%m-%d"),
+                                         auto_adjust=False)
+            break
+        except YFRateLimitError:
+            if attempt == RATE_LIMIT_TRIES - 1:
+                raise
+            _sleep(RATE_LIMIT_WAIT * 2 ** attempt)
     if df is None or df.empty:
         return pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
     df = df.copy()
@@ -155,8 +207,7 @@ def _fmt(v) -> str:
 
 
 def _history_for(symbol: str, trade_date: str) -> pd.DataFrame:
-    # ~400 calendar days so the 200 SMA has enough rows.
-    start = (_d(trade_date) - timedelta(days=400)).strftime("%Y-%m-%d")
+    start = (_d(trade_date) - timedelta(days=HISTORY_DAYS)).strftime("%Y-%m-%d")
     df = ohlcv(symbol, start, trade_date)
     if df.empty:
         raise NoData(f"No OHLCV data for {symbol} on or before {trade_date}.")

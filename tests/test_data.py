@@ -1,6 +1,7 @@
 """Point-in-time data tools (offline, via the FakeTicker in conftest)."""
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -155,6 +156,52 @@ def test_tool_errors_are_readable(cfg, log, capsys, monkeypatch):
     main(run + ["indicators"])                                     # usage errors are not data errors
     out = capsys.readouterr().out
     assert "Missing arguments" in out and "DATA_UNAVAILABLE" not in out and "NO_DATA_AVAILABLE" not in out
+
+
+def test_run_cache_downloads_once(cfg, log, capsys, monkeypatch):
+    """TST-DATA-19: One run downloads a symbol's price history once; slices match an uncached fetch; out-of-range requests bypass the cache [REQ-DATA-12]"""
+    state = new_run(cfg, log)
+    calls = []
+
+    class Counting(FakeTicker):
+        def history(self, start, end, auto_adjust=False):
+            calls.append((self.symbol, start, end))
+            return super().history(start, end, auto_adjust)
+    monkeypatch.setattr(data, "_ticker", Counting)
+    run = ["data", "--run", state["run_dir"]]
+    for args in (["snapshot", "NVDA"], ["indicators", "NVDA", "rsi,macd"], ["stock", "NVDA", "2026-09-01"],
+                 ["valuation", "NVDA"]):
+        main(run + args)
+    outs = capsys.readouterr().out
+    assert [c[0] for c in calls] == ["NVDA"] and "UNAVAILABLE" not in outs
+    assert (Path(state["run_dir"]) / "cache" / "ohlcv-NVDA.csv").exists() and data._run_cache is None
+    with data.run_cache(state["run_dir"], state["trade_date"]):
+        cached = data.ohlcv("NVDA", "2026-09-01", "2026-09-10")
+    pd.testing.assert_frame_equal(cached, data.ohlcv("NVDA", "2026-09-01", "2026-09-10"), check_freq=False)
+    main(run + ["stock", "NVDA", "2024-01-01", "2024-02-01"])     # older than the cached span: fetched directly
+    assert len(calls) == 3                                          # + the uncached comparison above
+
+
+def test_rate_limit_backoff(cfg, log, capsys, monkeypatch):
+    """TST-DATA-20: Yahoo rate limits are retried with bounded backoff, then reported DATA_UNAVAILABLE [REQ-DATA-12, REQ-DATA-06]"""
+    from yfinance.exceptions import YFRateLimitError
+    waits, failures = [], {"left": 2}
+    monkeypatch.setattr(data, "_sleep", waits.append)
+
+    class Limited(FakeTicker):
+        def history(self, start, end, auto_adjust=False):
+            if failures["left"]:
+                failures["left"] -= 1
+                raise YFRateLimitError()
+            return super().history(start, end, auto_adjust)
+    monkeypatch.setattr(data, "_ticker", Limited)
+    assert not data.ohlcv("NVDA", "2026-09-01", TD).empty and waits == [2.0, 4.0]
+    state = new_run(cfg, log)
+    failures["left"], waits[:] = 99, []
+    main(["data", "--run", state["run_dir"], "snapshot", "NVDA"])
+    out = capsys.readouterr().out
+    assert out.startswith("DATA_UNAVAILABLE: data tool snapshot failed for NVDA: YFRateLimitError") and waits == [2.0, 4.0]
+    assert not (Path(state["run_dir"]) / "cache" / "ohlcv-NVDA.csv").exists()
 
 
 def test_current_sources_labelled(cfg, log):

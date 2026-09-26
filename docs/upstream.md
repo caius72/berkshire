@@ -64,7 +64,7 @@ rows come from new upstream commits and releases.
 | UP-028 | v0.5.1 | Rich live progress panel | adapted | REQ-UI-05, REQ-IF-06 | Web and terminal views over the local API. |
 | UP-029 | v0.5.1 | Env-var configuration with type coercion that fails loudly | incorporated | REQ-IF-05 | BERKSHIRE_* instead of TRADINGAGENTS_*. |
 | UP-030 | v0.5.1 | Ticker path-traversal hardening | incorporated | REQ-SAFE-01 | |
-| UP-031 | v0.5.1 | Vendor routing with fallback chains (yfinance, Alpha Vantage) | planned |  | Planned: cache the 400-day OHLCV frame per (symbol, trade date) in the run dir and back off on rate limits before any second vendor (Twelve Data declined, #794). New REQ-DATA-12. |
+| UP-031 | v0.5.1 | Vendor routing with fallback chains (yfinance, Alpha Vantage) | adapted | REQ-DATA-12 | No second vendor (Twelve Data declined, #794): the 400-day OHLCV frame is cached per (symbol, trade date) in the run dir, with bounded backoff on Yahoo rate limits. |
 | UP-032 | v0.5.1 | Multi-provider LLM registry and model catalog | not-applicable | | Berkshire runs on Claude subagents; model choice is REQ-ROLE-02. |
 | UP-033 | v0.5.1 | Provider reasoning/effort, temperature, retry and token knobs | not-applicable | | Handled by Claude Code. |
 | UP-034 | v0.5.1 | Docker images and compose | not-applicable | | A Claude Code plugin. |
