@@ -114,6 +114,9 @@ def test_target_move_in_reflection(log, cfg):
     assert decision_target(sell) == (80.0, None)
     assert decision_target(none) == (None, None)                    # "150" in the prose is not a target
     assert decision_target("Rating: Buy, target 130") == (None, None)
+    quoted = render_pm_decision({"rating": "Buy", "executive_summary": "E", "price_target": 120.0, "time_horizon": None,
+                                 "investment_thesis": "The old note said **Price Target**: 150"})
+    assert decision_target(quoted) == (120.0, None)                 # only the engine's own line counts
     for t, dec in (("AAA", buy), ("BBB", sell), ("CCC", none)):
         log.store(t, "2026-09-01", dec)
     idx = pd.bdate_range("2026-09-01", periods=8)

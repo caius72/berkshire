@@ -90,7 +90,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-OUT-06 | Sentiment score bounded 0-10; band and confidence restricted | REQ-OUT-06 | T | Out-of-range score, unknown band/confidence, N/A score; case-normalised valid payload. |
 | TST-OUT-07 | Structured outputs render to TradingAgents markdown and the signal is parsed | REQ-OUT-01, REQ-OUT-04 | T | Full canned run: signal Buy, rendered headers, "$290.00" stop coerced, no warnings. |
 | TST-OUT-08 | A final decision without a rating yields REVIEW and is logged as REVIEW | REQ-OUT-05, REQ-OUT-02 | T | PM emits prose without rating/JSON; signal and log tag REVIEW; warning recorded. |
-| TST-OUT-09 | Risk/reward is computed only from correctly ordered levels; inverted or missing levels are named, never abs()-ed | REQ-OUT-07 | T | Eight cases: valid Buy and Sell, stop and target inverted in both directions, zero risk, a missing target, and Hold. |
+| TST-OUT-09 | Risk/reward is computed only from correctly ordered levels; inverted or missing levels are named, never abs()-ed | REQ-OUT-07 | T | Ten cases: valid Buy and Sell, stop and target inverted in both directions, zero risk, a missing target, entry or stop, and Hold. |
 | TST-OUT-10 | TraderProposal accepts target_price like the other levels and renders the engine's R/R line | REQ-OUT-01, REQ-OUT-03, REQ-OUT-07 | T | "$100" and "130.0" are coerced; a percentage target becomes null and R/R says why. |
 | TST-MEM-01 | A decision is appended in the TradingAgents pending format | REQ-MEM-01 | T | Exact tag/body/separator text. |
 | TST-MEM-02 | A second decision for the same ticker+date is a no-op, pending or settled | REQ-MEM-02 | T | Store twice before and after settlement. |
@@ -100,7 +100,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-MEM-06 | Rotation drops oldest resolved entries only | REQ-MEM-06 | T | max 2, three resolved + one pending. |
 | TST-MEM-07 | analyze and tick settle/reflect before starting new runs | REQ-MEM-07 | I | In both skills `berkshire settle` precedes `berkshire init`; `--apply` present. |
 | TST-MEM-08 | A price-fetch failure leaves the entry pending | REQ-MEM-03 | T | Closes fetcher raises. |
-| TST-MEM-09 | The Reflector is told the PM target's implied move from the same start close as the return; no target, no line | REQ-MEM-08 | T | Buy target +20%, Sell target −20%, no target; a number in the prose and a free-text decision are not targets; exact prompt line. |
+| TST-MEM-09 | The Reflector is told the PM target's implied move from the same start close as the return; no target, no line | REQ-MEM-08 | T | Buy target +20%, Sell target −20%, no target; a number in the prose, a quoted `**Price Target**:` mid-thesis and a free-text decision are not targets; exact prompt line. |
 | TST-DATA-01 | Requested dates and windows are clamped to the trade date | REQ-DATA-01 | T | Future/None/garbage dates; window entirely after; OHLCV rows ≤ trade date. |
 | TST-DATA-02 | Snapshot uses the last row on/before the trade date, fixed indicators, <=30 closes | REQ-DATA-02 | T | Request 2026-12-31 on a 2026-09-10 run. |
 | TST-DATA-03 | Indicators match hand-computed values; unknown names list the valid ones | REQ-DATA-03 | T | Hand oracles on the linear series; all 12 compute; invalid names. |

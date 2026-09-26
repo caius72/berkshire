@@ -78,6 +78,8 @@ def test_sentiment_bounds(payload):
     ("Sell", 100.0, 90.0, 80.0, "levels inverted for a Sell"),      # stop below entry
     ("Buy", 100.0, 100.0, 130.0, "levels inverted for a Buy"),      # zero risk is not infinite reward/risk
     ("Buy", 100.0, 90.0, None, "not provided"),
+    ("Buy", None, 90.0, 130.0, "not provided"),                    # a missing entry never reaches a comparison
+    ("Sell", 100.0, None, 80.0, "not provided"),
     ("Hold", 100.0, 90.0, 130.0, "Hold: no position change")])
 def test_risk_reward(action, entry, stop, target, expected):
     """TST-OUT-09: Risk/reward is computed only from correctly ordered levels; inverted or missing levels are named, never abs()-ed [REQ-OUT-07]"""
