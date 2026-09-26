@@ -164,3 +164,12 @@ def test_analysts_honour_no_data_markers():
         assert "NO_DATA_AVAILABLE" in body and "DATA_UNAVAILABLE" in body, name
     for name in ("market-analyst", "fundamentals-analyst", "news-analyst"):
         assert "make no exact numeric claim" in agent(name)[1] and "Do not fill the gap from memory" in agent(name)[1]
+
+
+def test_sentiment_bluesky_source():
+    """TST-ROLE-08: The Sentiment Analyst queries Bluesky within the run's window, labels engagement as current, and an empty feed never lowers confidence [REQ-ROLE-03, REQ-DATA-07]"""
+    body = agent("sentiment-analyst")[1]
+    assert "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=%24<SYMBOL>" in body
+    assert "since=<START>T00:00:00Z&until=<END>T23:59:59Z" in body and "7 days up to the analysis date" in body
+    assert "cite them as current" in body and "never lowers confidence when it is empty" in body
+    assert "four complementary sources" in body and "Mastodon" not in body and "Fear" not in body

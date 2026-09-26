@@ -58,6 +58,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-ROLE-05 | Each persona keeps the TradingAgents prompt's substantive directives | REQ-ROLE-05 | I | Parametrised phrase table per role (focus points, stances, anti-Hold rule, absolute price levels, JSON field names, markdown table). |
 | TST-ROLE-07 | Every analyst treats NO_DATA_AVAILABLE / DATA_UNAVAILABLE output as missing data, not a finding | REQ-DATA-06, REQ-ROLE-05 | I | The four analyst personas name both markers; the three data-tool personas forbid numeric claims and gap-filling. |
 | TST-ROLE-06 | Market Analyst picks up to 8 indicators from the full catalogue | REQ-ROLE-06 | I | Persona lists every name in `data.INDICATORS` and the "up to 8" rule. |
+| TST-ROLE-08 | The Sentiment Analyst queries Bluesky within the run's window, labels engagement as current, and an empty feed never lowers confidence | REQ-ROLE-03, REQ-DATA-07 | I | Persona text: endpoint with `%24` cashtag and since/until, current-engagement caveat, confidence rule; no Mastodon or Fear & Greed. |
 | TST-FLOW-01 | A full run visits the teams in TradingAgents order | REQ-FLOW-01 | T | Canned run, default config; flattened step trace equals the expected 12-step sequence. |
 | TST-FLOW-02 | Selected analysts are offered as one parallel batch; debate waits for all | REQ-FLOW-02 | T | First `next_steps` = 4 analysts; after 3 submits only the 4th is due. |
 | TST-FLOW-03 | Bull opens and the debate alternates for 2 x rounds turns | REQ-FLOW-03 | T | Parametrised rounds 1/2/3; debate trace = bull_1, bear_2, … (2R entries). |
@@ -282,7 +283,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 |---|---|
 | REQ-ROLE-01 | TST-ROLE-01 |
 | REQ-ROLE-02 | TST-ROLE-02 |
-| REQ-ROLE-03 | TST-ROLE-03 |
+| REQ-ROLE-03 | TST-ROLE-03, TST-ROLE-08 |
 | REQ-ROLE-04 | TST-ROLE-04 |
 | REQ-ROLE-05 | TST-ROLE-05, TST-ROLE-07 |
 | REQ-ROLE-06 | TST-ROLE-06 |
@@ -324,7 +325,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-DATA-04 | TST-DATA-04 |
 | REQ-DATA-05 | TST-DATA-05 |
 | REQ-DATA-06 | TST-DATA-06, TST-DATA-11, TST-DATA-13, TST-ROLE-07 |
-| REQ-DATA-07 | TST-DATA-07, TST-DATA-08 |
+| REQ-DATA-07 | TST-DATA-07, TST-DATA-08, TST-ROLE-08 |
 | REQ-DATA-08 | TST-DATA-09, TST-DATA-10 |
 | REQ-DATA-09 | TST-DATA-12, TST-DATA-13, TST-DATA-14 |
 | REQ-IF-01 | TST-IF-01 |
