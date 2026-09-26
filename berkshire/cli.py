@@ -120,38 +120,39 @@ def cmd_data(a, cfg):
     state = pipeline.load_state(a.run)
     td = state["trade_date"]
     x = a.args
-    try:
-        if a.tool == "stock":
-            out = data.tool_stock(x[0], x[1] if len(x) > 1 else None, x[2] if len(x) > 2 else td, td)
-        elif a.tool == "indicators":
-            out = data.tool_indicators(x[0], x[1], x[2] if len(x) > 2 else td, a.look_back or 30, td)
-        elif a.tool == "snapshot":
-            out = data.tool_snapshot(x[0], x[1] if len(x) > 1 else td, td, a.look_back or 30)
-        elif a.tool == "fundamentals":
-            out = data.tool_fundamentals(x[0], td)
-        elif a.tool == "valuation":
-            out = data.tool_valuation(x[0], td)
-        elif a.tool == "etf_profile":
-            out = data.tool_etf_profile(x[0], td)
-        elif a.tool == "earnings":
-            out = data.tool_earnings(x[0], td, state["config"].get("holding_period_days", 5))
-        elif a.tool in ("balance_sheet", "cashflow", "income_statement"):
-            out = data.tool_statement(x[0], a.tool, a.freq, td)
-        elif a.tool == "insider":
-            out = data.tool_insider(x[0], td)
-        elif a.tool == "news":
-            out = data.tool_news(x[0], x[1] if len(x) > 1 else None, x[2] if len(x) > 2 else td, td,
-                                 cfg["news_article_limit"])
-        elif a.tool == "global_news":
-            out = data.tool_global_news(x[0] if x else td, td, cfg, a.look_back)
-        else:
-            out = f"Unknown tool {a.tool!r}. Tools: {', '.join(data.TOOLS)}"
-    except IndexError:
-        out = f"Missing arguments for {a.tool}. See the tool list in your instructions."
-    except data.NoData as exc:  # REQ-DATA-06: the source had nothing for this instrument/date
-        out = data.no_data(str(exc))
-    except Exception as exc:  # noqa: BLE001 - REQ-DATA-06: readable, marked, never a traceback
-        out = data.unavailable(f"data tool {a.tool} failed for {' '.join(x)}: {type(exc).__name__}: {exc}.")
+    with data.run_cache(state["run_dir"], td):
+        try:
+            if a.tool == "stock":
+                out = data.tool_stock(x[0], x[1] if len(x) > 1 else None, x[2] if len(x) > 2 else td, td)
+            elif a.tool == "indicators":
+                out = data.tool_indicators(x[0], x[1], x[2] if len(x) > 2 else td, a.look_back or 30, td)
+            elif a.tool == "snapshot":
+                out = data.tool_snapshot(x[0], x[1] if len(x) > 1 else td, td, a.look_back or 30)
+            elif a.tool == "fundamentals":
+                out = data.tool_fundamentals(x[0], td)
+            elif a.tool == "valuation":
+                out = data.tool_valuation(x[0], td)
+            elif a.tool == "etf_profile":
+                out = data.tool_etf_profile(x[0], td)
+            elif a.tool == "earnings":
+                out = data.tool_earnings(x[0], td, state["config"].get("holding_period_days", 5))
+            elif a.tool in ("balance_sheet", "cashflow", "income_statement"):
+                out = data.tool_statement(x[0], a.tool, a.freq, td)
+            elif a.tool == "insider":
+                out = data.tool_insider(x[0], td)
+            elif a.tool == "news":
+                out = data.tool_news(x[0], x[1] if len(x) > 1 else None, x[2] if len(x) > 2 else td, td,
+                                     cfg["news_article_limit"])
+            elif a.tool == "global_news":
+                out = data.tool_global_news(x[0] if x else td, td, cfg, a.look_back)
+            else:
+                out = f"Unknown tool {a.tool!r}. Tools: {', '.join(data.TOOLS)}"
+        except IndexError:
+            out = f"Missing arguments for {a.tool}. See the tool list in your instructions."
+        except data.NoData as exc:  # REQ-DATA-06: the source had nothing for this instrument/date
+            out = data.no_data(str(exc))
+        except Exception as exc:  # noqa: BLE001 - REQ-DATA-06: readable, marked, never a traceback
+            out = data.unavailable(f"data tool {a.tool} failed for {' '.join(x)}: {type(exc).__name__}: {exc}.")
     print(out)
 
 
@@ -190,7 +191,8 @@ def cmd_gate(a, cfg):
     portfolio = etoro.load_portfolio_file(a.portfolio_file) if a.portfolio_file else state["portfolio"]
     sym = state.get("etoro_symbol") or state["company_of_interest"]
     ask = a.ask if a.ask is not None else _find_quote(_read_json(a.quote_file) or {}, sym, state.get("instrument_id"))
-    atr = a.atr if a.atr is not None else data.latest_atr(state["company_of_interest"], state["trade_date"])
+    with data.run_cache(state["run_dir"], state["trade_date"]):
+        atr = a.atr if a.atr is not None else data.latest_atr(state["company_of_interest"], state["trade_date"])
     res = orders.gate(ticker=state["company_of_interest"], etoro_symbol=sym, instrument_id=state.get("instrument_id"),
                       rating=state["signal"], portfolio=portfolio or {}, ask=ask,
                       trader=state["structured"].get("trader_proposal"), pm=state["structured"].get("pm_decision"),

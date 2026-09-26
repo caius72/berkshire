@@ -1,6 +1,7 @@
 """Point-in-time data tools (offline, via the FakeTicker in conftest)."""
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -82,6 +83,62 @@ def test_news_window_and_gap():
     assert "unavailable for 2026-08-01..2026-09-10" in gap and "not an absence of news" in gap
 
 
+RSS = """<rss><channel>
+<item><title>Rheinmetall wins order - Reuters</title><pubDate>Fri, 05 Sep 2026 07:00:00 +0200</pubDate>
+  <source url="https://reuters.com">Reuters</source></item>
+<item><title>In window</title><pubDate>Sat, 06 Sep 2026 09:00:00 GMT</pubDate><source>Yahoo copy</source></item>
+<item><title>Before the window - FT</title><pubDate>Sun, 31 Aug 2026 23:00:00 GMT</pubDate><source>FT</source></item>
+<item><title>After the date - FT</title><pubDate>Fri, 11 Sep 2026 06:00:00 GMT</pubDate><source>FT</source></item>
+<item><title>Undated - FT</title><source>FT</source></item>
+</channel></rss>"""
+
+
+def test_google_news_windowed(monkeypatch):
+    """TST-DATA-17: Google News is queried inside the window by company name, clamped, deduplicated against Yahoo and tagged headline-only [REQ-DATA-05, REQ-DATA-07]"""
+    urls = []
+    monkeypatch.setattr(data, "_http_get", lambda url: urls.append(url) or RSS.encode())
+    FakeTicker.info_by_symbol["RHM.DE"] = {"longName": "Rheinmetall AG"}
+    FakeTicker.news_items = [{"content": {"title": "In window!", "pubDate": "2026-09-05T12:00:00Z",
+                                          "summary": "s", "provider": {"displayName": "Reuters"}}}]
+    out = data.tool_news("RHM.DE", "2026-09-01", "2026-12-01", TD)
+    from urllib.parse import parse_qs, urlparse
+    assert parse_qs(urlparse(urls[0]).query)["q"] == ["Rheinmetall after:2026-08-31 before:2026-09-11"]
+    assert "### Rheinmetall wins order (Reuters, 2026-09-05, Google News, headline only)" in out
+    assert out.count("In window") == 1 and "In window! (Reuters, 2026-09-05)\ns" in out     # Yahoo's copy kept
+    for leak in ("Before the window", "After the date", "Undated"):
+        assert leak not in out, leak
+    assert 'Google News searched for "Rheinmetall": 2 headlines in the window' in out
+    assert out.index("Rheinmetall wins order") > out.index("In window!")               # Yahoo's items lead
+    few = data.tool_news("RHM.DE", "2026-09-01", "2026-12-01", TD, limit=1)
+    assert "In window!" in few and "Rheinmetall wins order" not in few                # Google only fills the limit
+    assert [data.news_query(n, s) for n, s in (("NVIDIA Corporation", "NVDA"), ("Alphabet Holdings, Inc.", "GOOGL"),
+                                              ("Bitcoin USD", "BTC-USD"), (None, "RHM.DE"), ("", "^GSPC"))] == \
+        ["NVIDIA", "Alphabet", "Bitcoin", "RHM", "GSPC"]
+
+
+def test_google_news_failure_is_soft(monkeypatch):
+    """TST-DATA-18: A Google News failure adds an unavailable line and never fails the tool; both sources failing is DATA_UNAVAILABLE [REQ-DATA-05, REQ-DATA-06]"""
+    def down(url):
+        raise TimeoutError("timed out")
+    monkeypatch.setattr(data, "_http_get", down)
+    FakeTicker.news_items = [{"content": {"title": "Yahoo item", "pubDate": "2026-09-05T12:00:00Z"}}]
+    out = data.tool_news("NVDA", "2026-09-01", TD, TD)
+    assert "<Google News unavailable: TimeoutError: timed out>" in out and "Yahoo item" in out
+    monkeypatch.setattr(data, "_http_get", lambda url: RSS.encode())
+
+    class YahooDown(FakeTicker):
+        @property
+        def news(self):
+            raise ConnectionError("yahoo down")
+    monkeypatch.setattr(data, "_ticker", YahooDown)
+    out = data.tool_news("NVDA", "2026-09-01", TD, TD)
+    assert "<Yahoo Finance news unavailable: ConnectionError: yahoo down>" in out and "Rheinmetall wins order" in out
+    assert "only serves recent items" not in out
+    monkeypatch.setattr(data, "_http_get", down)
+    with pytest.raises(ConnectionError):
+        data.tool_news("NVDA", "2026-09-01", TD, TD)
+
+
 def test_tool_errors_are_readable(cfg, log, capsys, monkeypatch):
     """TST-DATA-06: Failures are marked DATA_UNAVAILABLE (keeping the cause), empty sources NO_DATA_AVAILABLE, never a traceback [REQ-DATA-06]"""
     state = new_run(cfg, log)
@@ -99,6 +156,52 @@ def test_tool_errors_are_readable(cfg, log, capsys, monkeypatch):
     main(run + ["indicators"])                                     # usage errors are not data errors
     out = capsys.readouterr().out
     assert "Missing arguments" in out and "DATA_UNAVAILABLE" not in out and "NO_DATA_AVAILABLE" not in out
+
+
+def test_run_cache_downloads_once(cfg, log, capsys, monkeypatch):
+    """TST-DATA-19: One run downloads a symbol's price history once; slices match an uncached fetch; out-of-range requests bypass the cache [REQ-DATA-12]"""
+    state = new_run(cfg, log)
+    calls = []
+
+    class Counting(FakeTicker):
+        def history(self, start, end, auto_adjust=False):
+            calls.append((self.symbol, start, end))
+            return super().history(start, end, auto_adjust)
+    monkeypatch.setattr(data, "_ticker", Counting)
+    run = ["data", "--run", state["run_dir"]]
+    for args in (["snapshot", "NVDA"], ["indicators", "NVDA", "rsi,macd"], ["stock", "NVDA", "2026-09-01"],
+                 ["valuation", "NVDA"]):
+        main(run + args)
+    outs = capsys.readouterr().out
+    assert [c[0] for c in calls] == ["NVDA"] and "UNAVAILABLE" not in outs
+    assert (Path(state["run_dir"]) / "cache" / "ohlcv-NVDA.csv").exists() and data._run_cache is None
+    with data.run_cache(state["run_dir"], state["trade_date"]):
+        cached = data.ohlcv("NVDA", "2026-09-01", "2026-09-10")
+    pd.testing.assert_frame_equal(cached, data.ohlcv("NVDA", "2026-09-01", "2026-09-10"), check_freq=False)
+    main(run + ["stock", "NVDA", "2024-01-01", "2024-02-01"])     # older than the cached span: fetched directly
+    assert len(calls) == 3                                          # + the uncached comparison above
+
+
+def test_rate_limit_backoff(cfg, log, capsys, monkeypatch):
+    """TST-DATA-20: Yahoo rate limits are retried with bounded backoff, then reported DATA_UNAVAILABLE [REQ-DATA-12, REQ-DATA-06]"""
+    from yfinance.exceptions import YFRateLimitError
+    waits, failures = [], {"left": 2}
+    monkeypatch.setattr(data, "_sleep", waits.append)
+
+    class Limited(FakeTicker):
+        def history(self, start, end, auto_adjust=False):
+            if failures["left"]:
+                failures["left"] -= 1
+                raise YFRateLimitError()
+            return super().history(start, end, auto_adjust)
+    monkeypatch.setattr(data, "_ticker", Limited)
+    assert not data.ohlcv("NVDA", "2026-09-01", TD).empty and waits == [2.0, 4.0]
+    state = new_run(cfg, log)
+    failures["left"], waits[:] = 99, []
+    main(["data", "--run", state["run_dir"], "snapshot", "NVDA"])
+    out = capsys.readouterr().out
+    assert out.startswith("DATA_UNAVAILABLE: data tool snapshot failed for NVDA: YFRateLimitError") and waits == [2.0, 4.0]
+    assert not (Path(state["run_dir"]) / "cache" / "ohlcv-NVDA.csv").exists()
 
 
 def test_current_sources_labelled(cfg, log):
