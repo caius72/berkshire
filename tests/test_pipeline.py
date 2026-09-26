@@ -399,3 +399,40 @@ def test_horizon_in_every_prompt(cfg, log):
     legacy = {**new_run(cfg, log, ticker="AMD"), "config": {k: v for k, v in state["config"].items()
                                                               if k != "holding_period_days"}}
     assert "over the 5 trading days after" in pipeline.build_prompt(legacy, pipeline.next_steps(legacy)[0])
+
+
+# --- ETF mode (REQ-FLOW-10) ---------------------------------------------------
+
+def test_etf_mode(cfg, log):
+    """TST-FLOW-12: A fund is detected from quoteType (or --asset-type etf), keeps its fund analyst, and its debates use fund wording and ETF risk axes [REQ-FLOW-10]"""
+    fund = {"company_name": "SPDR Gold Shares", "quote_type": "ETF", "category": "Commodities Focused"}
+    state = new_run(cfg, log, ticker="GLD", identity=fund)
+    assert state["asset_type"] == "etf" and "fundamentals" in state["analysts"] and "asset=etf" in state["signature"]
+    assert new_run(cfg, log, ticker="QQQ", identity={}, asset_type="etf")["asset_type"] == "etf"
+    prompts = {}
+    while steps := pipeline.next_steps(state):
+        for s in steps:
+            prompts[s["id"]] = pipeline.build_prompt(state, s)
+            state = pipeline.submit(state, s["id"], canned(s["id"]), log)
+    assert "compelling bull argument about the fund" in prompts["bull_1"] and "Fund profile report:" in prompts["bull_1"]
+    for sid in ("aggressive_1", "conservative_2", "neutral_3"):
+        assert pipeline.ETF_RISK_AXES in prompts[sid] and "Fund Profile Report:" in prompts[sid]
+    assert pipeline.ETF_RISK_AXES not in prompts["trader"]
+    stock = new_run(cfg, log, ticker="MSFT", identity={"company_name": "Microsoft", "quote_type": "EQUITY"})
+    assert stock["asset_type"] == "stock"
+    while (steps := pipeline.next_steps(stock))[0]["id"] != "aggressive_1":
+        for s in steps:
+            stock = pipeline.submit(stock, s["id"], canned(s["id"]), log)
+    assert pipeline.ETF_RISK_AXES not in pipeline.build_prompt(stock, steps[0])
+
+
+def test_etf_instrument_context():
+    """TST-CTX-11: Fund identity reads as a fund, with its category; leveraged/inverse funds carry the daily-reset warning [REQ-FLOW-10, REQ-CTX-01]"""
+    ctx = pipeline.instrument_context("SPY", "etf", {"company_name": "SPDR S&P 500", "category": "Large Blend"}, "2026-09-24")
+    assert "The fund to analyze is `SPY`" in ctx and "Fund: SPDR S&P 500; Fund category: Large Blend" in ctx
+    assert "Treat it as an exchange-traded fund, not a company" in ctx and "daily" not in ctx
+    lev = pipeline.instrument_context("TQQQ", "etf", {"category": "Trading--Leveraged Equity"}, "2026-09-24")
+    inv = pipeline.instrument_context("SQQQ", "etf", {"category": "Trading--Inverse Equity"}, "2026-09-24")
+    assert "resets daily" in lev and "resets daily" in inv
+    stock = pipeline.instrument_context("NVDA", "stock", {"company_name": "NVIDIA", "category": "x"}, "2026-09-24")
+    assert "Company: NVIDIA" in stock and "Fund" not in stock

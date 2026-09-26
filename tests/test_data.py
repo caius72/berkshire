@@ -305,3 +305,47 @@ def test_earnings_through_cli(cfg, log, capsys, monkeypatch):
     EarningsTicker.calendar = pd.DataFrame()
     main(["data", "--run", state["run_dir"], "earnings", "GLD"])
     assert capsys.readouterr().out.startswith("NO_DATA_AVAILABLE: No earnings calendar for GLD")
+
+
+# --- ETF profile (REQ-DATA-10) --------------------------------------------------
+
+class FundData:
+    def __init__(self, holdings=None, sectors=None, asset_classes=None, category="Large Blend"):
+        self.fund_overview = {"categoryName": category, "family": "State Street", "legalType": "Exchange Traded Fund"}
+        self.fund_operations = pd.DataFrame({"SPY": [0.000945, 0.03]},
+                                            index=["Annual Report Expense Ratio", "Annual Holdings Turnover"])
+        self.asset_classes = asset_classes if asset_classes is not None else {"stockPosition": 0.9988, "cashPosition": 0.0011}
+        self.sector_weightings = sectors if sectors is not None else {"technology": 0.3869, "energy": 0.0348}
+        self.top_holdings = holdings if holdings is not None else pd.DataFrame(
+            {"Name": ["NVIDIA Corp", "Apple Inc"], "Holding Percent": [0.0808, 0.0703]}, index=["NVDA", "AAPL"])
+
+
+def fund_ticker(fd, quote_type="ETF"):
+    class T(FakeTicker):
+        info = {"quoteType": quote_type, "longName": "Test Fund", "totalAssets": 811937038336}
+        funds_data = fd
+    return T
+
+
+def test_etf_profile(monkeypatch):
+    """TST-DATA-15: etf_profile reports fees, mix, sectors and top-N concentration; undisclosed holdings and past dates are explicit [REQ-DATA-10, REQ-DATA-07]"""
+    monkeypatch.setattr(data, "_ticker", fund_ticker(FundData()))
+    out = data.tool_etf_profile("SPY", "2026-09-24")
+    assert "| Expense ratio | 0.09% |" in out and "| Total assets | 811,937,038,336 |" in out
+    assert "- stock: 99.88%" in out and "- technology: 38.69%" in out
+    assert "top 2 shown only, not the full portfolio" in out and "| NVIDIA Corp | 8.08% |" in out
+    assert "Concentration: the top 2 holdings are 15.11% of the fund." in out and "not necessarily" not in out
+    assert "not necessarily as of 2026-09-18" in data.tool_etf_profile("SPY", "2026-09-18")
+    gld = fund_ticker(FundData(holdings=pd.DataFrame(), sectors={}, asset_classes={"otherPosition": 1.0}, category="Commodities Focused"))
+    monkeypatch.setattr(data, "_ticker", gld)
+    out = data.tool_etf_profile("GLD", "2026-09-24")
+    assert "Holdings are not disclosed by the source." in out and "Concentration" not in out and "- other: 100.00%" in out
+    agg = fund_ticker(FundData(holdings=pd.DataFrame({"Name": ["BlackRock Cash Funds Instl"], "Holding Percent": [0.03]},
+                                                    index=["XX"]), sectors={}))
+    monkeypatch.setattr(data, "_ticker", agg)
+    assert "(only a cash line is listed)" in data.tool_etf_profile("AGG", "2026-09-24")
+    monkeypatch.setattr(data, "_ticker", fund_ticker(FundData(category="Trading--Leveraged Equity")))
+    assert "resets daily" in data.tool_etf_profile("TQQQ", "2026-09-24")
+    monkeypatch.setattr(data, "_ticker", fund_ticker(FundData(), quote_type="EQUITY"))
+    with pytest.raises(data.NoData, match="not an exchange-traded fund"):
+        data.tool_etf_profile("NVDA", "2026-09-24")

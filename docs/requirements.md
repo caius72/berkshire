@@ -32,7 +32,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 |---|---|---|---|
 | REQ-ROLE-01 | M | The plugin shall provide one subagent per TradingAgents role: Market Analyst, Sentiment Analyst, News Analyst, Fundamentals Analyst, Bull Researcher, Bear Researcher, Research Manager, Trader, Aggressive Risk Analyst, Conservative Risk Analyst, Neutral Risk Analyst, Portfolio Manager, and Reflector. | I |
 | REQ-ROLE-02 | M | The Research Manager and Portfolio Manager shall run on the deep model (default `opus`). All other roles shall run on the quick model (default `sonnet`). Both are configurable (`deep_think_llm`, `quick_think_llm`). | T |
-| REQ-ROLE-03 | M | Each analyst shall have the data access of its TradingAgents counterpart. Market: OHLCV, indicators, verified snapshot. Fundamentals: profile, point-in-time valuation, earnings calendar, balance sheet, cash flow, income statement, insider transactions. News: ticker news, global news, and web search for macro data and prediction markets. Sentiment: news plus web search of StockTwits and Reddit, and Bluesky queried within the run's 7-day window. | I |
+| REQ-ROLE-03 | M | Each analyst shall have the data access of its TradingAgents counterpart. Market: OHLCV, indicators, verified snapshot. Fundamentals: profile, point-in-time valuation, earnings calendar, ETF profile for funds, balance sheet, cash flow, income statement, insider transactions. News: ticker news, global news, and web search for macro data and prediction markets. Sentiment: news plus web search of StockTwits and Reddit, and Bluesky queried within the run's 7-day window. | I |
 | REQ-ROLE-04 | M | Researchers, debaters, managers and the Trader shall decide only on the evidence in their prompt. They are not given web or data tools. | I |
 | REQ-ROLE-05 | M | Each role's persona shall keep the substantive directives of the TradingAgents prompt: the bull/bear focus points, the risk stances, the Trader's absolute price levels, the judges' rating scales and anti-Hold guidance, and the end-of-report markdown table for analysts. | I |
 | REQ-ROLE-06 | S | The Market Analyst shall pick up to 8 complementary indicators from the TradingAgents indicator catalogue. | I |
@@ -50,12 +50,13 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-FLOW-07 | M | Research depth shall map Shallow/Medium/Deep to 1/3/5 rounds for both debates. An explicit round-count override wins. | T |
 | REQ-FLOW-08 | M | Routing shall be deterministic and computed from persisted state only, so the same state always yields the same next step. | T |
 | REQ-FLOW-09 | M | Submitting output for a step that is not currently due shall be rejected without changing state. | T |
+| REQ-FLOW-10 | M | Exchange-traded funds shall run in an `etf` mode, set by the vendor's quoteType, eToro asset type 6 or `--asset-type etf`. Prompts call it a fund, give its category, and ask for fund dimensions rather than company fundamentals. Leveraged and inverse funds carry the daily-reset warning, and the risk debaters get the ETF risk axes (tracking and premium/discount, liquidity, expense drag, concentration, decay). The Fundamentals Analyst stays selected. | T |
 
 ## 3. Context and grounding (REQ-CTX)
 
 | ID | Pri | Requirement | Ver |
 |---|---|---|---|
-| REQ-CTX-01 | M | Instrument identity (name, sector/industry, exchange) shall be resolved once per run and injected into every prompt, with the exact-ticker directive. For a past date, a caveat shall say that the profile is current, not historical. If identity cannot be resolved, the run falls back to ticker-only context without failing. | T |
+| REQ-CTX-01 | M | Instrument identity (name, sector/industry or fund category, exchange) shall be resolved once per run and injected into every prompt, with the exact-ticker directive. For a past date, a caveat shall say that the profile is current, not historical. If identity cannot be resolved, the run falls back to ticker-only context without failing. | T |
 | REQ-CTX-02 | M | A missing analyst report shall be presented as an explicit "not available, not an empty finding" marker, never as a blank. | T |
 | REQ-CTX-03 | M | A debater whose opponent has not spoken yet shall receive an explicit opening marker instead of an empty argument. | T |
 | REQ-CTX-04 | M | Portfolio context shall distinguish three cases: a position held, a flat book, and not provided. "Not provided" shall tell the agent not to assume a flat book. | T |
@@ -102,6 +103,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-DATA-07 | M | Non-point-in-time sources shall not leak into past-dated runs. The company profile's price- and period-derived figures (valuation, margins, growth, balance sheet, beta, 52-week range) are withheld on past dates, leaving identity only. Web search and social sources are labelled as current in tool output and in the analyst prompts. | T |
 | REQ-DATA-08 | M | A `valuation` tool shall give market cap, P/E and P/B as of the trade date: the close on or before the date, diluted EPS from four filed quarters (TTM) or else the latest filed fiscal year (never a single quarter), and shares and equity from the newest filed balance sheet. Every input must be ≤ 400 days old and on one split basis (checked via net income ÷ EPS ≈ shares). Losses and negative equity are reported as n/m, and each figure shows its basis and date. | T |
 | REQ-DATA-09 | M | An `earnings` tool shall give earnings context keyed on announcement dates. History is only announcements strictly before the trade date, with the estimate and reported EPS. The next announcement shows about how many trading days away it is and whether it falls inside the decision horizon (`holding_period_days`). Its consensus appears only on a same-day run, and a later event's result is never shown. Instruments without a calendar get `NO_DATA_AVAILABLE`. | T |
+| REQ-DATA-10 | M | An `etf_profile` tool shall report a fund's category, family, expense ratio, assets, asset mix, sector weights, and top holdings with their concentration, labelled "top N shown only". Holdings that are empty or only a cash line are reported as not disclosed, never as a concentration. Past-dated runs get the current-data caveat, and non-funds get `NO_DATA_AVAILABLE`. | T |
 
 ## 7. Interface parity (REQ-IF)
 
@@ -110,7 +112,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-IF-01 | M | `/berkshire:analyze` shall walk the TradingAgents steps interactively: ticker, date, output language, analysts, research depth, models. Previous answers are offered as defaults. | D |
 | REQ-IF-02 | M | `/berkshire:analyze TICKER [DATE] [--analysts …] [--depth …] [--language …] [--portfolio FILE\|etoro] [--checkpoint] [--clear-checkpoints]` shall run non-interactively. | T |
 | REQ-IF-03 | M | The trade date shall be canonical `YYYY-MM-DD` and not in the future. The default is today. | T |
-| REQ-IF-04 | M | Tickers shall keep exchange suffixes (`.DE`, `.L`, `.T`, `-USD`) and be rejected if unsafe as a path component. Crypto is detected from the `-USD` suffix or from an eToro crypto asset type. | T |
+| REQ-IF-04 | M | Tickers shall keep exchange suffixes (`.DE`, `.L`, `.T`, `-USD`) and be rejected if unsafe as a path component. Crypto is detected from the `-USD` suffix or from an eToro crypto asset type. A fund is detected from the vendor's `quoteType` ETF or from eToro asset type 6. | T |
 | REQ-IF-05 | M | Configuration shall come from defaults, then `~/.berkshire/config.json`, then `BERKSHIRE_*` env vars, then CLI flags, each overriding the one before. Env values are coerced to the default's type, and invalid values fail loudly. | T |
 | REQ-IF-06 | M | During a run the user shall see progress by team (pending, in progress, done) plus the current report, like the TradingAgents live panel. | T |
 | REQ-IF-07 | M | At the end of a run the user shall see the signal and the path to the complete report, and a full report on request. | D |

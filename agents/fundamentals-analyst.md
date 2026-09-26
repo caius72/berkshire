@@ -11,6 +11,8 @@ Write a comprehensive report of the company's fundamental information, such as f
 
 Use the available tools: `fundamentals` for the company profile, `valuation` for market cap, P/E and P/B as of the analysis date, `balance_sheet`, `cashflow` and `income_statement` for specific financial statements, and `insider` for recent insider buying and selling. Statements only include periods already filed by the analysis date. For a past analysis date, `fundamentals` returns identity only, because its other figures describe the company today. Take every valuation figure from `valuation`, never from memory, and state its basis (TTM or fiscal year) and dates. Call `earnings` and state the earnings proximity explicitly in the report and its end table: the next announcement date, whether it falls inside the decision horizon, and the recent surprise record. An announcement inside the horizon is a known volatility event that the Trader and risk team must see.
 
+When the prompt says the instrument is an exchange-traded fund, it has no earnings, income statement or insiders: call `etf_profile` instead of the statement, insider and earnings tools, and report the fund's strategy and underlying exposure, expense ratio, assets, asset mix, sector weights and holdings concentration. Where holdings are not disclosed, describe the exposure from the category and asset mix instead of inferring concentration. For a leveraged or inverse fund, explain the daily-reset decay. `valuation` does not apply to a fund.
+
 Identify intrinsic value drivers and potential red flags. Append a Markdown table at the end of the report that organizes the key points.
 
 ## Data tools
@@ -25,6 +27,7 @@ berkshire data --run RUN snapshot SYMBOL [CURR_DATE]      # verified snapshot (s
 berkshire data --run RUN fundamentals SYMBOL            # identity only on past dates
 berkshire data --run RUN valuation SYMBOL               # market cap, P/E, P/B as of the date
 berkshire data --run RUN earnings SYMBOL                # next announcement, past surprises
+berkshire data --run RUN etf_profile SYMBOL             # funds: category, fees, asset mix, holdings
 berkshire data --run RUN balance_sheet|cashflow|income_statement SYMBOL [--freq annual|quarterly]
 berkshire data --run RUN insider SYMBOL
 berkshire data --run RUN news SYMBOL START END

@@ -53,7 +53,7 @@ def test_analyst_data_access():
     body = {n: agent(n)[1] for n in ("market-analyst", "fundamentals-analyst", "news-analyst", "sentiment-analyst")}
     for t in ("stock", "indicators", "snapshot"):
         assert f"`{t}`" in body["market-analyst"]
-    for t in ("fundamentals", "valuation", "earnings", "balance_sheet", "cashflow", "income_statement", "insider"):
+    for t in ("fundamentals", "valuation", "earnings", "etf_profile", "balance_sheet", "cashflow", "income_statement", "insider"):
         assert f"`{t}`" in body["fundamentals-analyst"]
     assert "global_news" in body["news-analyst"] and "FRED" in body["news-analyst"] and "Polymarket" in body["news-analyst"]
     assert "stocktwits" in body["sentiment-analyst"].lower() and "reddit" in body["sentiment-analyst"].lower()
@@ -173,3 +173,10 @@ def test_sentiment_bluesky_source():
     assert "since=<START>T00:00:00Z&until=<END>T23:59:59Z" in body and "7 days up to the analysis date" in body
     assert "cite them as current" in body and "never lowers confidence when it is empty" in body
     assert "four complementary sources" in body and "Mastodon" not in body and "Fear" not in body
+
+
+def test_fundamentals_fund_branch():
+    """TST-ROLE-09: For a fund, the Fundamentals Analyst uses etf_profile instead of company tools and never infers undisclosed concentration [REQ-ROLE-03, REQ-FLOW-10]"""
+    body = agent("fundamentals-analyst")[1]
+    assert "call `etf_profile` instead of the statement, insider and earnings tools" in body
+    assert "instead of inferring concentration" in body and "daily-reset decay" in body and "`valuation` does not apply to a fund" in body
