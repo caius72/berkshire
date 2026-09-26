@@ -324,7 +324,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("ticker"); s.add_argument("date", nargs="?")
     s.add_argument("--analysts"); s.add_argument("--depth"); s.add_argument("--language")
     s.add_argument("--debate-rounds", type=int); s.add_argument("--risk-rounds", type=int)
-    s.add_argument("--asset-type", choices=["stock", "etf", "crypto"]); s.add_argument("--portfolio")
+    s.add_argument("--asset-type", choices=pipeline.ASSET_TYPES); s.add_argument("--portfolio")
     s.add_argument("--checkpoint", action="store_true"); s.add_argument("--skip-if-complete", action="store_true")
     s.add_argument("--etoro-symbol"); s.add_argument("--instrument-id", type=int)
     s.add_argument("--deep-model"); s.add_argument("--quick-model")

@@ -436,3 +436,44 @@ def test_etf_instrument_context():
     assert "resets daily" in lev and "resets daily" in inv
     stock = pipeline.instrument_context("NVDA", "stock", {"company_name": "NVIDIA", "category": "x"}, "2026-09-24")
     assert "Company: NVIDIA" in stock and "Fund" not in stock
+
+
+@pytest.mark.parametrize("ticker,identity,mode", [
+    ("^GSPC", {"company_name": "S&P 500", "quote_type": "INDEX"}, "index"),
+    ("GC=F", {"company_name": "Gold Dec 26", "quote_type": "FUTURE"}, "commodity"),
+    ("EURUSD=X", {"company_name": "EUR/USD", "quote_type": "CURRENCY"}, "fx"),
+    ("BZ=F", {}, "commodity"),                        # identity unavailable: the suffix decides
+    ("^GDAXI", {}, "index"),
+    ("DX-Y.NYB", {"company_name": "US Dollar Index", "quote_type": "INDEX"}, "index")])   # only quoteType tells
+def test_macro_modes(cfg, log, ticker, identity, mode):
+    """TST-FLOW-13: Indices, commodities and currency pairs are detected, keep the Fundamentals Analyst, and their debates use the right noun, the macro drivers report and their own risk axes [REQ-FLOW-11]"""
+    state = new_run(cfg, log, ticker=ticker, identity=identity)
+    assert state["asset_type"] == mode and "fundamentals" in state["analysts"] and f"asset={mode}" in state["signature"]
+    prompts = {}
+    while steps := pipeline.next_steps(state):
+        for s in steps:
+            prompts[s["id"]] = pipeline.build_prompt(state, s)
+            state = pipeline.submit(state, s["id"], canned(s["id"]), log)
+    noun = pipeline.NOUN[mode]
+    assert f"compelling bull argument about the {noun}." in prompts["bull_1"] and "Macro drivers report:" in prompts["bull_1"]
+    for sid in ("aggressive_1", "conservative_2", "neutral_3"):
+        assert pipeline.RISK_AXES[mode] in prompts[sid] and "Macro Drivers Report:" in prompts[sid]
+        assert pipeline.ETF_RISK_AXES not in prompts[sid]
+    assert pipeline.RISK_AXES[mode] not in prompts["trader"]
+    assert pipeline.MACRO_CONTEXT[mode] in prompts["analyst_fundamentals"]
+
+
+def test_macro_instrument_context(cfg, log):
+    """TST-CTX-12: Index, commodity and currency identity read as such, with roll, tracking and direction caveats; an explicit --asset-type wins [REQ-FLOW-11, REQ-CTX-01]"""
+    idx = pipeline.instrument_context("^GSPC", "index", {"company_name": "S&P 500"}, "2026-09-24")
+    assert "The index to analyze is `^GSPC`" in idx and "Name: S&P 500" in idx and "Company" not in idx
+    assert "not a company" in idx and "traded through a contract that tracks it" in idx
+    com = pipeline.instrument_context("GC=F", "commodity", {"company_name": "Gold"}, "2026-09-24")
+    assert "The commodity to analyze" in com and "front-month futures contract" in com and "jumps at contract rolls" in com
+    fx = pipeline.instrument_context("EURUSD=X", "fx", {}, "2026-09-24")
+    assert "The currency pair to analyze" in fx and "first currency strengthens against the second" in fx
+    stock = pipeline.instrument_context("NVDA", "stock", {"company_name": "NVIDIA"}, "2026-09-24")
+    assert "The instrument to analyze" in stock and "Company: NVIDIA" in stock
+    assert not any(t in stock for t in pipeline.MACRO_CONTEXT.values())
+    forced = new_run(cfg, log, ticker="GLD", identity={"quote_type": "ETF"}, asset_type="commodity")
+    assert forced["asset_type"] == "commodity" and pipeline.MACRO_CONTEXT["commodity"] in forced["instrument_context"]

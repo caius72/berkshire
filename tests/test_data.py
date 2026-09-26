@@ -112,8 +112,11 @@ def test_google_news_windowed(monkeypatch):
     few = data.tool_news("RHM.DE", "2026-09-01", "2026-12-01", TD, limit=1)
     assert "In window!" in few and "Rheinmetall wins order" not in few                # Google only fills the limit
     assert [data.news_query(n, s) for n, s in (("NVIDIA Corporation", "NVDA"), ("Alphabet Holdings, Inc.", "GOOGL"),
-                                              ("Bitcoin USD", "BTC-USD"), (None, "RHM.DE"), ("", "^GSPC"))] == \
-        ["NVIDIA", "Alphabet", "Bitcoin", "RHM", "GSPC"]
+                                              ("Bitcoin USD", "BTC-USD"), (None, "RHM.DE"), ("", "^GSPC"),
+                                              ("Gold Dec 26", "GC=F"),
+                                              ("Brent Crude Oil Last Day Financial Futures", "BZ=F"),
+                                              ("EUR/USD", "EURUSD=X"))] == \
+        ["NVIDIA", "Alphabet", "Bitcoin", "RHM", "GSPC", "Gold", "Brent Crude Oil", "EUR/USD"]
 
 
 def test_google_news_failure_is_soft(monkeypatch):

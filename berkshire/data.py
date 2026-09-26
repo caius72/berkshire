@@ -671,7 +671,8 @@ def format_news(items: list[dict], start: str, end: str, source: str, limit: int
 GOOGLE_NEWS_URL = "https://news.google.com/rss/search"
 GOOGLE_TAG = "Google News, headline only"
 _NAME_SUFFIX = re.compile(r"[\s,]+(inc|corp|corporation|co|company|ag|se|sa|s\.a|nv|n\.v|plc|ltd|limited|"
-                          r"holdings?|group|usd)\.?$", re.IGNORECASE)
+                          r"holdings?|group|usd|futures|last day financial|"
+                          r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec) \d{2})\.?$", re.IGNORECASE)
 
 
 def _http_get(url: str) -> bytes:
@@ -683,7 +684,8 @@ def _http_get(url: str) -> bytes:
 
 
 def news_query(name: str | None, symbol: str) -> str:
-    """The company name without its legal form (Rheinmetall AG -> Rheinmetall), else the bare symbol."""
+    """The name without its legal form or futures contract (Rheinmetall AG -> Rheinmetall,
+    Gold Dec 26 -> Gold), else the bare symbol."""
     name = (name or "").strip()
     while _NAME_SUFFIX.search(name):
         name = _NAME_SUFFIX.sub("", name).strip()

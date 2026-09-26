@@ -45,8 +45,21 @@ def validate_date(value: str) -> str:
     return value
 
 
+ASSET_TYPES = ("stock", "etf", "crypto", "index", "commodity", "fx")
+MACRO_TYPES = ("index", "commodity", "fx")   # no company behind the price (REQ-FLOW-11)
+# ponytail: every Yahoo FUTURE counts as a commodity; an equity-index future (ES=F) would need its own rule.
+_QUOTE_TYPES = {"ETF": "etf", "INDEX": "index", "FUTURE": "commodity", "CURRENCY": "fx", "CRYPTOCURRENCY": "crypto"}
+
+
 def detect_asset_type(ticker: str) -> str:
-    return "crypto" if ticker.upper().endswith("-USD") else "stock"
+    t = ticker.upper()
+    if t.endswith("-USD"):
+        return "crypto"
+    if t.startswith("^"):
+        return "index"
+    if t.endswith("=F"):
+        return "commodity"
+    return "fx" if t.endswith("=X") else "stock"
 
 
 def select_analysts(selection, asset_type: str) -> list[str]:
@@ -69,14 +82,35 @@ def is_leveraged_fund(identity: dict) -> bool:
     return "leveraged" in cat or "inverse" in cat
 
 
+NOUN = {"stock": "stock", "etf": "fund", "crypto": "asset", "index": "index", "commodity": "commodity",
+        "fx": "currency pair"}
+FUNDAMENTALS_LABEL = {"stock": "Company fundamentals report", "etf": "Fund profile report",
+                      "crypto": "Asset fundamentals report (may be unavailable for crypto)",
+                      **dict.fromkeys(MACRO_TYPES, "Macro drivers report")}
+MACRO_CONTEXT = {
+    "index": (" Treat it as a stock market index, not a company: analyse what drives it (constituent earnings and "
+              "valuation, sector weights and concentration in its largest members, breadth, rates, liquidity and "
+              "macro data). It has no statements, earnings or insiders of its own, and it is traded through a "
+              "contract that tracks it, not bought directly."),
+    "commodity": (" Treat it as a commodity, not a company: analyse supply and demand, inventories, producer policy, "
+                  "seasonality, the US dollar and positioning. Its price history is the front-month futures "
+                  "contract, so it jumps at contract rolls and can differ from the broker's spot or non-expiry price."),
+    "fx": (" Treat it as a currency pair, not a company: analyse the interest-rate differential and central-bank "
+           "policy of both currencies, inflation and growth data, risk sentiment and capital flows. A rising price "
+           "means the first currency strengthens against the second."),
+}
+
+
 def instrument_context(ticker: str, asset_type: str, identity: dict, trade_date: str) -> str:
     crypto, etf = asset_type == "crypto", asset_type == "etf"
-    ctx = (f"The {'asset' if crypto else 'fund' if etf else 'instrument'} to analyze is `{ticker}`. Use this exact "
+    noun = "instrument" if asset_type == "stock" else NOUN.get(asset_type, "instrument")
+    ctx = (f"The {noun} to analyze is `{ticker}`. Use this exact "
            "ticker in every tool call, report, and recommendation, preserving any exchange suffix (e.g. `.TO`, "
            "`.L`, `.HK`, `.T`, `-USD`).")
     details = []
     if identity.get("company_name"):
-        details.append(f"{'Name' if crypto else 'Fund' if etf else 'Company'}: {identity['company_name']}")
+        label = "Fund" if etf else "Company" if asset_type == "stock" else "Name"
+        details.append(f"{label}: {identity['company_name']}")
     if etf and identity.get("category"):
         details.append(f"Fund category: {identity['category']}")
     sector, industry = identity.get("sector"), identity.get("industry")
@@ -94,6 +128,7 @@ def instrument_context(ticker: str, asset_type: str, identity: dict, trade_date:
                     f"{trade_date}: a name or classification changed since then would read as the current one.")
     if crypto:
         ctx += " Treat it as a crypto asset rather than a company, and do not assume company fundamentals are available."
+    ctx += MACRO_CONTEXT.get(asset_type, "")
     if etf:  # REQ-FLOW-10, TradingAgents #819 adapted
         ctx += (" Treat it as an exchange-traded fund, not a company: analyse its strategy and underlying exposure, "
                 "holdings concentration, expense ratio, assets and liquidity, and structure. It has no earnings, "
@@ -107,6 +142,18 @@ def instrument_context(ticker: str, asset_type: str, identity: dict, trade_date:
 ETF_RISK_AXES = ("This is an exchange-traded fund. Weigh fund-specific risks alongside the market view: tracking "
                  "error and premium or discount to net asset value, liquidity and bid-ask spread, expense drag, "
                  "concentration in its largest holdings, and for leveraged or inverse funds the daily-reset decay.")
+RISK_AXES = {
+    "etf": ETF_RISK_AXES,
+    "index": ("This is a stock index. Weigh index risks alongside the market view: concentration in its largest "
+              "constituents, valuation against interest rates, breadth, and event risk around central-bank meetings "
+              "and macro releases; it moves with the economic cycle, not with one company's news."),
+    "commodity": ("This is a commodity. Weigh commodity risks alongside the market view: supply shocks and producer "
+                  "decisions, inventory surprises, demand swings with the economic cycle, US dollar moves, overnight "
+                  "gaps, and the roll or financing cost of holding the position."),
+    "fx": ("This is a currency pair. Weigh currency risks alongside the market view: central-bank decisions and "
+           "shifts in rate expectations, carry and overnight financing, official intervention, and gap risk around "
+           "macro releases."),
+}
 
 
 def report_or_absent(text: str, source: str) -> str:
@@ -178,8 +225,8 @@ def init_run(ticker: str, trade_date: str, cfg: dict, *, results_dir, memory_log
     trade_date = validate_date(trade_date)
     # Identity first (fail-open): an ETF is recognised by the vendor's quoteType (REQ-FLOW-10).
     identity = data_mod.profile(ticker) if identity is None else identity
-    asset_type = asset_type or ("etf" if str(identity.get("quote_type", "")).upper() == "ETF"
-                                else detect_asset_type(ticker))
+    asset_type = (asset_type or _QUOTE_TYPES.get(str(identity.get("quote_type", "")).upper())
+                  or detect_asset_type(ticker))
     chosen = select_analysts(analysts, asset_type)
     sig = signature(chosen, cfg, asset_type, portfolio)
     rdir = run_dir(results_dir, ticker, trade_date)
@@ -282,9 +329,8 @@ def build_prompt(state: dict, step: dict) -> str:
     inv, risk = state["investment_debate_state"], state["risk_debate_state"]
     if sid.startswith(("bull_", "bear_")):
         bull = sid.startswith("bull_")
-        target = {"stock": "stock", "etf": "fund"}.get(state["asset_type"], "asset")
-        flabel = {"stock": "Company fundamentals report", "etf": "Fund profile report"}.get(
-            state["asset_type"], "Asset fundamentals report (may be unavailable for crypto)")
+        target = NOUN.get(state["asset_type"], "asset")
+        flabel = FUNDAMENTALS_LABEL.get(state["asset_type"], FUNDAMENTALS_LABEL["crypto"])
         opp = opponent_or_opening(inv["current_response"], "bear analyst" if bull else "bull analyst")
         return (f"Resources available:\n\n{ic}\nMarket research report: {r['market']}\n"
                 f"Social media sentiment report: {r['sentiment']}\nLatest world affairs news: {r['news']}\n"
@@ -313,11 +359,11 @@ def build_prompt(state: dict, step: dict) -> str:
         return (f"Here is the trader's decision:\n\n{state['trader_investment_plan']}\n\n{ic}\n"
                 f"{state['portfolio_context']}\nMarket Research Report: {r['market']}\n"
                 f"Social Media Sentiment Report: {r['sentiment']}\nLatest World Affairs Report: {r['news']}\n"
-                f"{'Fund Profile Report' if state['asset_type'] == 'etf' else 'Company Fundamentals Report'}: "
+                f"{FUNDAMENTALS_LABEL.get(state['asset_type'], 'Company fundamentals report').split(' (')[0].title()}: "
                 f"{r['fundamentals']}\nHere is the current conversation history: "
                 f"{risk['history']}\n{last}\nIf there are no responses from the other viewpoints yet, present "
                 f"your own argument based on the available data."
-                f"{' ' + ETF_RISK_AXES if state['asset_type'] == 'etf' else ''}{lang}{out}")
+                f"{' ' + RISK_AXES[state['asset_type']] if state['asset_type'] in RISK_AXES else ''}{lang}{out}")
 
     if sid == "portfolio_manager":
         lessons = (f"- Lessons from prior decisions and outcomes:\n{state['past_context']}\n"
