@@ -82,6 +82,62 @@ def test_news_window_and_gap():
     assert "unavailable for 2026-08-01..2026-09-10" in gap and "not an absence of news" in gap
 
 
+RSS = """<rss><channel>
+<item><title>Rheinmetall wins order - Reuters</title><pubDate>Fri, 05 Sep 2026 07:00:00 +0200</pubDate>
+  <source url="https://reuters.com">Reuters</source></item>
+<item><title>In window</title><pubDate>Sat, 06 Sep 2026 09:00:00 GMT</pubDate><source>Yahoo copy</source></item>
+<item><title>Before the window - FT</title><pubDate>Sun, 31 Aug 2026 23:00:00 GMT</pubDate><source>FT</source></item>
+<item><title>After the date - FT</title><pubDate>Fri, 11 Sep 2026 06:00:00 GMT</pubDate><source>FT</source></item>
+<item><title>Undated - FT</title><source>FT</source></item>
+</channel></rss>"""
+
+
+def test_google_news_windowed(monkeypatch):
+    """TST-DATA-17: Google News is queried inside the window by company name, clamped, deduplicated against Yahoo and tagged headline-only [REQ-DATA-05, REQ-DATA-07]"""
+    urls = []
+    monkeypatch.setattr(data, "_http_get", lambda url: urls.append(url) or RSS.encode())
+    FakeTicker.info_by_symbol["RHM.DE"] = {"longName": "Rheinmetall AG"}
+    FakeTicker.news_items = [{"content": {"title": "In window!", "pubDate": "2026-09-05T12:00:00Z",
+                                          "summary": "s", "provider": {"displayName": "Reuters"}}}]
+    out = data.tool_news("RHM.DE", "2026-09-01", "2026-12-01", TD)
+    from urllib.parse import parse_qs, urlparse
+    assert parse_qs(urlparse(urls[0]).query)["q"] == ["Rheinmetall after:2026-08-31 before:2026-09-11"]
+    assert "### Rheinmetall wins order (Reuters, 2026-09-05, Google News, headline only)" in out
+    assert out.count("In window") == 1 and "In window! (Reuters, 2026-09-05)\ns" in out     # Yahoo's copy kept
+    for leak in ("Before the window", "After the date", "Undated"):
+        assert leak not in out, leak
+    assert 'Google News searched for "Rheinmetall": 2 headlines in the window' in out
+    assert out.index("Rheinmetall wins order") > out.index("In window!")               # Yahoo's items lead
+    few = data.tool_news("RHM.DE", "2026-09-01", "2026-12-01", TD, limit=1)
+    assert "In window!" in few and "Rheinmetall wins order" not in few                # Google only fills the limit
+    assert [data.news_query(n, s) for n, s in (("NVIDIA Corporation", "NVDA"), ("Alphabet Holdings, Inc.", "GOOGL"),
+                                              ("Bitcoin USD", "BTC-USD"), (None, "RHM.DE"), ("", "^GSPC"))] == \
+        ["NVIDIA", "Alphabet", "Bitcoin", "RHM", "GSPC"]
+
+
+def test_google_news_failure_is_soft(monkeypatch):
+    """TST-DATA-18: A Google News failure adds an unavailable line and never fails the tool; both sources failing is DATA_UNAVAILABLE [REQ-DATA-05, REQ-DATA-06]"""
+    def down(url):
+        raise TimeoutError("timed out")
+    monkeypatch.setattr(data, "_http_get", down)
+    FakeTicker.news_items = [{"content": {"title": "Yahoo item", "pubDate": "2026-09-05T12:00:00Z"}}]
+    out = data.tool_news("NVDA", "2026-09-01", TD, TD)
+    assert "<Google News unavailable: TimeoutError: timed out>" in out and "Yahoo item" in out
+    monkeypatch.setattr(data, "_http_get", lambda url: RSS.encode())
+
+    class YahooDown(FakeTicker):
+        @property
+        def news(self):
+            raise ConnectionError("yahoo down")
+    monkeypatch.setattr(data, "_ticker", YahooDown)
+    out = data.tool_news("NVDA", "2026-09-01", TD, TD)
+    assert "<Yahoo Finance news unavailable: ConnectionError: yahoo down>" in out and "Rheinmetall wins order" in out
+    assert "only serves recent items" not in out
+    monkeypatch.setattr(data, "_http_get", down)
+    with pytest.raises(ConnectionError):
+        data.tool_news("NVDA", "2026-09-01", TD, TD)
+
+
 def test_tool_errors_are_readable(cfg, log, capsys, monkeypatch):
     """TST-DATA-06: Failures are marked DATA_UNAVAILABLE (keeping the cause), empty sources NO_DATA_AVAILABLE, never a traceback [REQ-DATA-06]"""
     state = new_run(cfg, log)

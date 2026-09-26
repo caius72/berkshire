@@ -56,6 +56,7 @@ def test_analyst_data_access():
     for t in ("fundamentals", "valuation", "earnings", "etf_profile", "balance_sheet", "cashflow", "income_statement", "insider"):
         assert f"`{t}`" in body["fundamentals-analyst"]
     assert "global_news" in body["news-analyst"] and "FRED" in body["news-analyst"] and "Polymarket" in body["news-analyst"]
+    assert "Google News, headline only" in body["news-analyst"] and "WebFetch the article" in body["news-analyst"]
     assert "stocktwits" in body["sentiment-analyst"].lower() and "reddit" in body["sentiment-analyst"].lower()
 
 

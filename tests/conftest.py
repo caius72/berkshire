@@ -69,6 +69,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(backtest, "today", lambda: TODAY)
     FakeTicker.frames, FakeTicker.info_by_symbol, FakeTicker.news_items = {}, {}, []
     monkeypatch.setattr(data, "_ticker", FakeTicker)
+    monkeypatch.setattr(data, "_http_get", lambda url: b"<rss><channel></channel></rss>")  # never the network
     return tmp_path
 
 

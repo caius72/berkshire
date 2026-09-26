@@ -7,6 +7,7 @@ readable string, never a traceback (REQ-DATA-06). yfinance access goes through
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime, timedelta
 
 import pandas as pd
@@ -598,21 +599,108 @@ def coverage_gap(dates: list, start: str, end: str, source: str) -> str | None:
     return None
 
 
-def format_news(items: list[dict], start: str, end: str, source: str, limit: int) -> str:
+def format_news(items: list[dict], start: str, end: str, source: str, limit: int,
+                gap: str | None = "auto", notes: tuple = ()) -> str:
+    """Window-trimmed items under their notes. `gap` is the coverage-gap marker; "auto" judges it
+    from every item's date, which suits a single recent-items feed."""
     kept = [i for i in items if in_window(i["date"], start, end)][:limit]
-    lines = [f"### {i['title']} ({i['publisher'] or 'unknown'}, {i['date']:%Y-%m-%d})\n{i['summary']}"
-             if i["date"] else f"### {i['title']} ({i['publisher'] or 'unknown'}, undated)\n{i['summary']}"
-             for i in kept]
-    gap = coverage_gap([i["date"] for i in items], start, end, source)
+    lines = [f"### {i['title']} ({i['publisher'] or 'unknown'}, "
+             f"{format(i['date'], '%Y-%m-%d') if i['date'] else 'undated'}"
+             f"{', ' + i['via'] if i.get('via') else ''})\n{i['summary']}" for i in kept]
+    if gap == "auto":
+        gap = coverage_gap([i["date"] for i in items], start, end, source)
+    head = [n for n in (gap, *notes) if n]
     if not lines:
-        return gap or f"No {source} items between {start} and {end}."
-    return "\n\n".join(([gap] if gap else []) + lines)
+        return "\n\n".join(head if gap else [*head, f"No {source} items between {start} and {end}."])
+    return "\n\n".join(head + lines)
+
+
+# --- Google News RSS (REQ-DATA-05) -----------------------------------------
+
+GOOGLE_NEWS_URL = "https://news.google.com/rss/search"
+GOOGLE_TAG = "Google News, headline only"
+_NAME_SUFFIX = re.compile(r"[\s,]+(inc|corp|corporation|co|company|ag|se|sa|s\.a|nv|n\.v|plc|ltd|limited|"
+                          r"holdings?|group|usd)\.?$", re.IGNORECASE)
+
+
+def _http_get(url: str) -> bytes:
+    import urllib.request
+    # Only called with GOOGLE_NEWS_URL, a fixed https endpoint.
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (berkshire)"})  # noqa: S310
+    with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
+        return resp.read()
+
+
+def news_query(name: str | None, symbol: str) -> str:
+    """The company name without its legal form (Rheinmetall AG -> Rheinmetall), else the bare symbol."""
+    name = (name or "").strip()
+    while _NAME_SUFFIX.search(name):
+        name = _NAME_SUFFIX.sub("", name).strip()
+    return name or re.split(r"[.\-=^]", symbol.lstrip("^"))[0]
+
+
+def _title_key(title: str) -> str:
+    return re.sub(r"\W+", " ", title.lower()).strip()
+
+
+def _google_news_items(query: str, start: str, end: str) -> list[dict]:
+    """Headlines for `query` published in start..end. The after:/before: operators work by day,
+    so the query is widened a day each side and the caller clamps with `in_window`."""
+    from email.utils import parsedate_to_datetime
+    from urllib.parse import urlencode
+    from xml.etree import ElementTree
+
+    after = (_d(start) - timedelta(days=1)).strftime("%Y-%m-%d")
+    before = (_d(end) + timedelta(days=1)).strftime("%Y-%m-%d")
+    url = GOOGLE_NEWS_URL + "?" + urlencode({"q": f"{query} after:{after} before:{before}",
+                                             "hl": "en-US", "gl": "US", "ceid": "US:en"})
+    # Expat refuses external entities and caps entity expansion; the feed is Google's.
+    root = ElementTree.fromstring(_http_get(url))  # noqa: S314
+    items = []
+    for it in root.iter("item"):
+        publisher = it.findtext("source")
+        title = (it.findtext("title") or "").strip()
+        if publisher and title.endswith(f" - {publisher}"):
+            title = title[: -len(publisher) - 3]
+        try:
+            dt = parsedate_to_datetime(it.findtext("pubDate") or "")
+        except (TypeError, ValueError):
+            continue  # undated headlines cannot be placed in the window
+        items.append({"title": title, "summary": "", "publisher": publisher, "date": dt, "via": GOOGLE_TAG})
+    return items
 
 
 def tool_news(symbol: str, start: str, end: str, trade_date: str, limit: int = 20) -> str:
+    """Yahoo Finance news merged with Google News headlines for the company name. Google is queried
+    inside the window, so it covers past dates and non-US names that Yahoo's recent feed misses."""
     start, end = as_of_window(start, end, trade_date)
-    items = [_news_item(n) for n in (_ticker(symbol).news or [])]
-    return f"## {symbol} news {start}..{end}\n\n" + format_news(items, start, end, "Yahoo Finance news", limit)
+    try:
+        yahoo, yahoo_error = [_news_item(n) for n in (_ticker(symbol).news or [])], None
+    except Exception as exc:  # noqa: BLE001 - one source failing is not the tool failing
+        yahoo, yahoo_error = [], exc
+    query = news_query(profile(symbol).get("company_name"), symbol)
+    try:
+        google = _google_news_items(query, start, end)
+    except Exception as exc:  # noqa: BLE001
+        if yahoo_error:
+            raise yahoo_error from exc
+        google, google_note = [], f"<Google News unavailable: {type(exc).__name__}: {exc}>"
+    else:
+        google_note = (f"Google News searched for \"{query}\": {sum(in_window(g['date'], start, end) for g in google)} "
+                       f"headlines in the window, tagged \"{GOOGLE_TAG}\" (dated to the day; the search index is current).")
+    # Yahoo's items (with summaries) first, then Google's headlines fill the rest of the limit; newest first in each.
+    newest = lambda i: i["date"] or datetime.min.replace(tzinfo=UTC)  # noqa: E731
+    seen, merged = {_title_key(i["title"]) for i in yahoo}, sorted(yahoo, key=newest, reverse=True)
+    for g in sorted(google, key=newest, reverse=True):
+        if _title_key(g["title"]) not in seen:
+            seen.add(_title_key(g["title"]))
+            merged.append(g)
+    notes = (f"<Yahoo Finance news unavailable: {type(yahoo_error).__name__}: {yahoo_error}>" if yahoo_error else None,
+             google_note)
+    return f"## {symbol} news {start}..{end}\n\n" + format_news(
+        merged, start, end, "Yahoo Finance news", limit,
+        gap=None if yahoo_error else coverage_gap([i["date"] for i in yahoo], start, end, "Yahoo Finance news"),
+        notes=notes)
 
 
 def tool_global_news(curr_date: str | None, trade_date: str, cfg: dict, look_back_days: int | None = None) -> str:
