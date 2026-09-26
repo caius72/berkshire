@@ -87,6 +87,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-MEM-05 | M | Past context shall contain up to 5 same-ticker entries (full) and 3 cross-ticker reflections, most recent first. For a historical run only lessons resolved on or before the trade date are included. | T |
 | REQ-MEM-06 | S | When `memory_log_max_entries` is set, the oldest resolved entries shall be rotated out. Pending entries are never pruned. | T |
 | REQ-MEM-07 | M | A run shall settle the ticker's pending decisions before it starts. The scheduled tick shall settle every ticker it covers. | I |
+| REQ-MEM-08 | S | When the settled decision states a price target, the reflection input shall give the move the target implied from the same start close the return is measured from, with the stated horizon. The Reflector judges the realised move against it: a partial move in a shorter window is not a failure. The target is read only from the engine-rendered decision line, and the log format is unchanged. | T |
 
 ## 6. Data tools (REQ-DATA)
 

@@ -96,6 +96,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-MEM-06 | Rotation drops oldest resolved entries only | REQ-MEM-06 | T | max 2, three resolved + one pending. |
 | TST-MEM-07 | analyze and tick settle/reflect before starting new runs | REQ-MEM-07 | I | In both skills `berkshire settle` precedes `berkshire init`; `--apply` present. |
 | TST-MEM-08 | A price-fetch failure leaves the entry pending | REQ-MEM-03 | T | Closes fetcher raises. |
+| TST-MEM-09 | The Reflector is told the PM target's implied move from the same start close as the return; no target, no line | REQ-MEM-08 | T | Buy target +20%, Sell target −20%, no target; a number in the prose and a free-text decision are not targets; exact prompt line. |
 | TST-DATA-01 | Requested dates and windows are clamped to the trade date | REQ-DATA-01 | T | Future/None/garbage dates; window entirely after; OHLCV rows ≤ trade date. |
 | TST-DATA-02 | Snapshot uses the last row on/before the trade date, fixed indicators, <=30 closes | REQ-DATA-02 | T | Request 2026-12-31 on a 2026-09-10 run. |
 | TST-DATA-03 | Indicators match hand-computed values; unknown names list the valid ones | REQ-DATA-03 | T | Hand oracles on the linear series; all 12 compute; invalid names. |
@@ -316,6 +317,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-MEM-05 | TST-CTX-09, TST-MEM-05 |
 | REQ-MEM-06 | TST-MEM-06 |
 | REQ-MEM-07 | TST-MEM-07 |
+| REQ-MEM-08 | TST-MEM-09 |
 | REQ-DATA-01 | TST-DATA-01 |
 | REQ-DATA-02 | TST-DATA-02 |
 | REQ-DATA-03 | TST-DATA-03 |

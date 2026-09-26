@@ -79,7 +79,7 @@ PERSONA = {
     "market-analyst": ["source of truth", "flag the discrepancy", "Markdown table"],
     "fundamentals-analyst": ["red flags", "Markdown table"], "news-analyst": ["Markdown table"],
     "sentiment-analyst": ["70/30", "Distinguish opinion from event", '"overall_score"'],
-    "reflector": ["2-4 sentences", "too short to judge"],
+    "reflector": ["2-4 sentences", "too short to judge", "implied move", "not a failure"],
 }
 
 
