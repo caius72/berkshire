@@ -154,6 +154,17 @@ def test_fundamentals_withheld_on_past_dates(monkeypatch):
     assert "marketCap" in live and "withheld" not in live
 
 
+def test_fundamentals_units(monkeypatch):
+    """TST-DATA-16: Same-day fundamentals mark dividendYield in percent and state that the ratios are fractions [REQ-DATA-11]"""
+    stub(monkeypatch, info={"longName": "Acme", "dividendYield": 2.41, "profitMargins": 0.28})
+    live = data.tool_fundamentals("ACME", "2026-09-24")
+    assert "| dividendYield | 2.41% |" in live and "| profitMargins | 0.28 |" in live
+    assert data.UNITS_NOTE in live
+    stub(monkeypatch, info={"longName": "Acme", "profitMargins": 0.28})
+    assert "dividendYield" not in data.tool_fundamentals("ACME", "2026-09-24")
+    assert data.UNITS_NOTE not in data.tool_fundamentals("ACME", "2026-09-18")
+
+
 def test_valuation_ttm(monkeypatch):
     """TST-DATA-09: Valuation uses the close on the date, 4 filed quarters of EPS and the newest filed balance sheet [REQ-DATA-08]"""
     stub(monkeypatch,

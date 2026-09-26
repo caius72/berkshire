@@ -115,6 +115,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-DATA-13 | Same-day runs show consensus; the horizon flag follows holding_period_days; no calendar is NO_DATA_AVAILABLE | REQ-DATA-09, REQ-DATA-06 | T | Same-day consensus; 38 trading days counted by hand; horizon 1 vs 5; a same-day announcement is the next event; empty calendar raises NoData. |
 | TST-DATA-14 | The CLI passes the run's holding_period_days to the earnings tool and marks a missing calendar | REQ-DATA-09, REQ-CTX-08 | T | Run with a 1-day horizon; `berkshire data earnings` output; empty calendar through the CLI. |
 | TST-DATA-15 | etf_profile reports fees, mix, sectors and top-N concentration; undisclosed holdings and past dates are explicit | REQ-DATA-10, REQ-DATA-07 | T | SPY-, GLD- (no holdings), AGG- (cash line only) and leveraged-shaped stubs; the past-date caveat; a non-fund raises NoData. |
+| TST-DATA-16 | Same-day fundamentals mark dividendYield in percent and state that the ratios are fractions | REQ-DATA-11 | T | Stub with dividendYield 2.41 and profitMargins 0.28: `2.41%`, `0.28` unchanged, units note; no dividendYield gives no row; past dates carry no units note. |
 | TST-DATA-07 | Profile data and analyst prompts are labelled non-point-in-time for past dates | REQ-DATA-07 | T | Fundamentals note past vs today; analyst prompt point-in-time rule. |
 | TST-IF-01 | Interactive analyze walks the TradingAgents steps with previous answers as defaults | REQ-IF-01 | D | Manual procedure M1. |
 | TST-IF-02 | init/next/submit/status drive a whole run from the CLI with TradingAgents flags | REQ-IF-02, REQ-IF-08 | T | Subprocess-free CLI calls through `main()`, writing canned outputs to the files named by `next`. |
@@ -336,6 +337,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-DATA-08 | TST-DATA-09, TST-DATA-10 |
 | REQ-DATA-09 | TST-DATA-12, TST-DATA-13, TST-DATA-14 |
 | REQ-DATA-10 | TST-DATA-15 |
+| REQ-DATA-11 | TST-DATA-16 |
 | REQ-IF-01 | TST-IF-01 |
 | REQ-IF-02 | TST-IF-02 |
 | REQ-IF-03 | TST-IF-03 |
