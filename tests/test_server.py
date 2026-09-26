@@ -250,3 +250,15 @@ def test_start_job_resolves_and_refuses_unlisted(api, spawned):
     FakeTicker.frames["NOPE"] = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"], index=pd.DatetimeIndex([]))
     status, err = server.route("POST", "/api/jobs", {"ticker": "NOPE", "date": "2026-09-18"}, api)
     assert status == 400 and "symbol_map" in err["error"] and len(spawned) == 1
+
+
+def test_duplicate_running_job_refused(api, spawned):
+    """TST-UI-25: A second start for a (ticker, date) whose job is still running is refused [REQ-UI-06]"""
+    _, first = server.route("POST", "/api/jobs", {"ticker": "BZ=F", "date": "2026-09-18"}, api)
+    status, err = server.route("POST", "/api/jobs", {"ticker": "EuroOil", "date": "2026-09-18"}, api)
+    assert status == 400 and "already running" in err["error"] and first["id"] in err["error"]
+    assert len(spawned) == 1
+    assert server.route("POST", "/api/jobs", {"ticker": "BZ=F", "date": "2026-09-17"}, api)[0] == 201
+    api._procs[first["id"]] = FakeProc(code=0)
+    assert server.route("POST", "/api/jobs", {"ticker": "BZ=F", "date": "2026-09-18"}, api)[0] == 201
+    assert len(spawned) == 3

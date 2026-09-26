@@ -244,6 +244,14 @@ _FUNDAMENTAL_FIELDS = ("longName", "sector", "industry", "marketCap", "trailingP
 
 
 IDENTITY_FIELDS = ("longName", "sector", "industry")
+# Yahoo gives these in percent (2.41 = 2.41%); the margins, returns and growth next to them are fractions.
+_PERCENT_FIELDS = {"dividendYield"}
+UNITS_NOTE = ("Margins, returns and growth are fractions (0.27 = 27%); fields marked % are in percent. "
+              "Market cap, revenue, debt, cash and free cash flow are in the listing currency.")
+
+
+def _profile_value(field: str, v) -> str:
+    return f"{v}%" if field in _PERCENT_FIELDS and isinstance(v, (int, float)) else str(v)
 
 
 def tool_fundamentals(symbol: str, trade_date: str) -> str:
@@ -253,7 +261,7 @@ def tool_fundamentals(symbol: str, trade_date: str) -> str:
     info = _ticker(symbol).info or {}
     past = trade_date < today()
     fields = IDENTITY_FIELDS if past else _FUNDAMENTAL_FIELDS
-    rows = [f"| {k} | {info[k]} |" for k in fields if info.get(k) is not None]
+    rows = [f"| {k} | {_profile_value(k, info[k])} |" for k in fields if info.get(k) is not None]
     if not rows:
         return no_data(f"No fundamentals for {symbol}.")
     out = f"# {symbol} company fundamentals {CURRENT_NOTE.format(date=trade_date) if past else ''}\n\n"
@@ -262,6 +270,8 @@ def tool_fundamentals(symbol: str, trade_date: str) -> str:
         out += (f"\n\nValuation, margins, growth, balance-sheet and 52-week figures are withheld: the source "
                 f"reports them as of today, which would leak information from after {trade_date}. Use `valuation` "
                 f"for market cap, P/E and P/B as of {trade_date}, and the filed statements for everything else.")
+    else:
+        out += f"\n\n{UNITS_NOTE}"
     return out
 
 

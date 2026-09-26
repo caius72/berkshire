@@ -60,6 +60,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-ROLE-06 | Market Analyst picks up to 8 indicators from the full catalogue | REQ-ROLE-06 | I | Persona lists every name in `data.INDICATORS` and the "up to 8" rule. |
 | TST-ROLE-08 | The Sentiment Analyst queries Bluesky within the run's window, labels engagement as current, and an empty feed never lowers confidence | REQ-ROLE-03, REQ-DATA-07 | I | Persona text: endpoint with `%24` cashtag and since/until, current-engagement caveat, confidence rule; no Mastodon or Fear & Greed. |
 | TST-ROLE-09 | For a fund, the Fundamentals Analyst uses etf_profile instead of company tools and never infers undisclosed concentration | REQ-ROLE-03, REQ-FLOW-10 | I | Persona text for the fund branch. |
+| TST-ROLE-10 | The Sentiment Analyst drops off-topic social posts and reports on-topic and stance counts per source | REQ-ROLE-03 | I | Persona text: off-topic cases (list, spam, shared symbol), four stance classes incl. untagged posts, the count line, ratios and confidence on on-topic posts, StockTwits tag split kept separate. |
 | TST-FLOW-01 | A full run visits the teams in TradingAgents order | REQ-FLOW-01 | T | Canned run, default config; flattened step trace equals the expected 12-step sequence. |
 | TST-FLOW-02 | Selected analysts are offered as one parallel batch; debate waits for all | REQ-FLOW-02 | T | First `next_steps` = 4 analysts; after 3 submits only the 4th is due. |
 | TST-FLOW-03 | Bull opens and the debate alternates for 2 x rounds turns | REQ-FLOW-03 | T | Parametrised rounds 1/2/3; debate trace = bull_1, bear_2, … (2R entries). |
@@ -115,6 +116,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-DATA-13 | Same-day runs show consensus; the horizon flag follows holding_period_days; no calendar is NO_DATA_AVAILABLE | REQ-DATA-09, REQ-DATA-06 | T | Same-day consensus; 38 trading days counted by hand; horizon 1 vs 5; a same-day announcement is the next event; empty calendar raises NoData. |
 | TST-DATA-14 | The CLI passes the run's holding_period_days to the earnings tool and marks a missing calendar | REQ-DATA-09, REQ-CTX-08 | T | Run with a 1-day horizon; `berkshire data earnings` output; empty calendar through the CLI. |
 | TST-DATA-15 | etf_profile reports fees, mix, sectors and top-N concentration; undisclosed holdings and past dates are explicit | REQ-DATA-10, REQ-DATA-07 | T | SPY-, GLD- (no holdings), AGG- (cash line only) and leveraged-shaped stubs; the past-date caveat; a non-fund raises NoData. |
+| TST-DATA-16 | Same-day fundamentals mark dividendYield in percent and state that the ratios are fractions | REQ-DATA-11 | T | Stub with dividendYield 2.41 and profitMargins 0.28: `2.41%`, `0.28` unchanged, units note; no dividendYield gives no row; past dates carry no units note. |
 | TST-DATA-07 | Profile data and analyst prompts are labelled non-point-in-time for past dates | REQ-DATA-07 | T | Fundamentals note past vs today; analyst prompt point-in-time rule. |
 | TST-IF-01 | Interactive analyze walks the TradingAgents steps with previous answers as defaults | REQ-IF-01 | D | Manual procedure M1. |
 | TST-IF-02 | init/next/submit/status drive a whole run from the CLI with TradingAgents flags | REQ-IF-02, REQ-IF-08 | T | Subprocess-free CLI calls through `main()`, writing canned outputs to the files named by `next`. |
@@ -199,6 +201,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-UI-22 | The start form maps eToro names and refuses unlisted instruments before spawning | REQ-IF-10, REQ-UI-06 | T | EuroOil spawns BZ=F; unlisted → 400 naming symbol_map, nothing spawned. |
 | TST-UI-23 | 's' asks first, then stops the selected running analysis; a finished one is refused | REQ-UI-13, REQ-UI-08 | T | Pilot: cancel keeps it running, confirm stops it via the API, a stopped run gets no dialog. |
 | TST-UI-24 | The pipeline loop stops dispatching when the run was stopped | REQ-UI-13 | I | pipeline-loop.md text. |
+| TST-UI-25 | A second start for a (ticker, date) whose job is still running is refused | REQ-UI-06 | T | Same ticker via its eToro alias → 400 naming the job, nothing spawned; another date spawns; after the job exits a restart spawns. |
 | TST-UP-01 | The ledger is consistent and records the v0.5.1 baseline | REQ-UP-01, REQ-UP-05 | T | `tools/upstream.py check` on the real ledger; ≥ 30 baseline rows across statuses. |
 | TST-UP-02 | The ledger check rejects bad statuses, missing or unknown requirements, duplicates and bad PR rows | REQ-UP-01 | T | Eleven single mutations of the real ledger, each named in the problems. |
 | TST-UP-03 | The worklist splits open PRs into new, head-moved and unchanged, and flags PRs that left the open list | REQ-UP-02 | T | Four ledger rows × three open PRs; a declined PR is not revisited. |
@@ -288,7 +291,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 |---|---|
 | REQ-ROLE-01 | TST-ROLE-01 |
 | REQ-ROLE-02 | TST-ROLE-02 |
-| REQ-ROLE-03 | TST-ROLE-03, TST-ROLE-08, TST-ROLE-09 |
+| REQ-ROLE-03 | TST-ROLE-03, TST-ROLE-08, TST-ROLE-09, TST-ROLE-10 |
 | REQ-ROLE-04 | TST-ROLE-04 |
 | REQ-ROLE-05 | TST-ROLE-05, TST-ROLE-07 |
 | REQ-ROLE-06 | TST-ROLE-06 |
@@ -335,6 +338,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-DATA-08 | TST-DATA-09, TST-DATA-10 |
 | REQ-DATA-09 | TST-DATA-12, TST-DATA-13, TST-DATA-14 |
 | REQ-DATA-10 | TST-DATA-15 |
+| REQ-DATA-11 | TST-DATA-16 |
 | REQ-IF-01 | TST-IF-01 |
 | REQ-IF-02 | TST-IF-02 |
 | REQ-IF-03 | TST-IF-03 |
@@ -384,7 +388,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-UI-03 | TST-UI-05, TST-UI-06, TST-UI-13 |
 | REQ-UI-04 | TST-UI-08, TST-UI-09, TST-UI-14, TST-UI-20, TST-WEB-03 |
 | REQ-UI-05 | TST-UI-05, TST-UI-20, TST-WEB-01, TST-WEB-02 |
-| REQ-UI-06 | TST-UI-07, TST-UI-15, TST-UI-22 |
+| REQ-UI-06 | TST-UI-07, TST-UI-15, TST-UI-22, TST-UI-25 |
 | REQ-UI-07 | TST-UI-06, TST-UI-18, TST-UI-19 |
 | REQ-UI-08 | TST-UI-13, TST-UI-14, TST-UI-15, TST-UI-20, TST-UI-23 |
 | REQ-UI-09 | TST-UI-16 |
