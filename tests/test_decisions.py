@@ -68,3 +68,33 @@ def test_sentiment_bounds(payload):
     assert d.structured(js(payload), "sentiment")[1] is None
     ok = d.structured(js({**payload, "overall_band": "mixed", "overall_score": 5, "confidence": "LOW"}), "sentiment")
     assert ok[1] == {"overall_band": "Mixed", "overall_score": 5.0, "confidence": "low", "narrative": "n"}
+
+
+@pytest.mark.parametrize("action,entry,stop,target,expected", [
+    ("Buy", 100.0, 90.0, 130.0, 3.0),
+    ("Sell", 100.0, 110.0, 80.0, 2.0),
+    ("Buy", 100.0, 110.0, 130.0, "levels inverted for a Buy"),      # stop above entry
+    ("Buy", 100.0, 90.0, 95.0, "levels inverted for a Buy"),        # target below entry
+    ("Sell", 100.0, 90.0, 80.0, "levels inverted for a Sell"),      # stop below entry
+    ("Buy", 100.0, 100.0, 130.0, "levels inverted for a Buy"),      # zero risk is not infinite reward/risk
+    ("Buy", 100.0, 90.0, None, "not provided"),
+    ("Hold", 100.0, 90.0, 130.0, "Hold: no position change")])
+def test_risk_reward(action, entry, stop, target, expected):
+    """TST-OUT-09: Risk/reward is computed only from correctly ordered levels; inverted or missing levels are named, never abs()-ed [REQ-OUT-07]"""
+    rr, why = d.risk_reward(action, entry, stop, target)
+    if isinstance(expected, float):
+        assert rr == pytest.approx(expected) and why == ""
+    else:
+        assert rr is None and expected in why
+
+
+def test_trader_render_with_target():
+    """TST-OUT-10: TraderProposal accepts target_price like the other levels and renders the engine's R/R line [REQ-OUT-01, REQ-OUT-03, REQ-OUT-07]"""
+    md, parsed, _ = d.structured(js({"action": "Buy", "reasoning": "R", "entry_price": "$100", "stop_loss": 90,
+                                     "target_price": "130.0"}), "trader_proposal")
+    assert parsed["target_price"] == 130.0
+    assert "**Target Price**: 130.0" in md and "**Risk/Reward**: 3.00 (computed from entry, stop and target)" in md
+    assert md.endswith("FINAL TRANSACTION PROPOSAL: **BUY**")
+    md, _, _ = d.structured(js({"action": "Buy", "reasoning": "R", "entry_price": 100, "stop_loss": 110,
+                                "target_price": "15%"}), "trader_proposal")
+    assert "**Target Price**: not provided" in md and "**Risk/Reward**: n/a (entry, stop or target not provided)" in md

@@ -86,6 +86,8 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-OUT-06 | Sentiment score bounded 0-10; band and confidence restricted | REQ-OUT-06 | T | Out-of-range score, unknown band/confidence, N/A score; case-normalised valid payload. |
 | TST-OUT-07 | Structured outputs render to TradingAgents markdown and the signal is parsed | REQ-OUT-01, REQ-OUT-04 | T | Full canned run: signal Buy, rendered headers, "$290.00" stop coerced, no warnings. |
 | TST-OUT-08 | A final decision without a rating yields REVIEW and is logged as REVIEW | REQ-OUT-05, REQ-OUT-02 | T | PM emits prose without rating/JSON; signal and log tag REVIEW; warning recorded. |
+| TST-OUT-09 | Risk/reward is computed only from correctly ordered levels; inverted or missing levels are named, never abs()-ed | REQ-OUT-07 | T | Eight cases: valid Buy and Sell, stop and target inverted in both directions, zero risk, a missing target, and Hold. |
+| TST-OUT-10 | TraderProposal accepts target_price like the other levels and renders the engine's R/R line | REQ-OUT-01, REQ-OUT-03, REQ-OUT-07 | T | "$100" and "130.0" are coerced; a percentage target becomes null and R/R says why. |
 | TST-MEM-01 | A decision is appended in the TradingAgents pending format | REQ-MEM-01 | T | Exact tag/body/separator text. |
 | TST-MEM-02 | A second decision for the same ticker+date is a no-op, pending or settled | REQ-MEM-02 | T | Store twice before and after settlement. |
 | TST-MEM-03 | Benchmark by override/suffix/default; returns need the full window | REQ-MEM-03 | T | Suffix map, dotted US ticker → SPY, override; hand-computed raw/alpha; short series → None. |
@@ -134,6 +136,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-RISK-08 | Close intents only target direct positions (mirrors excluded upstream) | REQ-RISK-07 | T | Summary with a mirror position row. |
 | TST-RISK-09 | Limits are validated; defaults match the agreed conservative set | REQ-RISK-08 | T | Six invalid values; default tuple. |
 | TST-RISK-10 | The gate result (intent or veto + reasons) is written to the run dir | REQ-RISK-09 | T | CLI `gate` with quote and book files; orders.json content. |
+| TST-RISK-11 | An open with a take-profit records its reward/risk from ask, stop and take-profit; without one, none | REQ-RISK-09 | T | The gate with and without a PM price target. |
 | TST-EXE-01 | Opens/closes go through prepare/place tools, never execute-write | REQ-EXE-01 | I | approve names the four tools and forbids execute-write; no skill pre-approves place-*/execute-write. |
 | TST-EXE-02 | place-* only after a per-order AskUserQuestion; unattended skills never place | REQ-EXE-02 | I | Text order AskUserQuestion < place-trade; tick/analyze/backtest prohibitions. |
 | TST-EXE-03 | Account defaults to demo; only demo/real accepted; the gate stamps it on intents | REQ-EXE-03 | T | Default, validation (TST-RISK-09 covers "live"), intent account. |
@@ -299,12 +302,13 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-CTX-06 | TST-CTX-06, TST-CTX-09 |
 | REQ-CTX-07 | TST-CTX-07 |
 | REQ-CTX-08 | TST-CTX-10, TST-DATA-14 |
-| REQ-OUT-01 | TST-OUT-01, TST-OUT-02, TST-OUT-07 |
+| REQ-OUT-01 | TST-OUT-01, TST-OUT-02, TST-OUT-07, TST-OUT-10 |
 | REQ-OUT-02 | TST-OUT-03, TST-OUT-08 |
-| REQ-OUT-03 | TST-OUT-04 |
+| REQ-OUT-03 | TST-OUT-04, TST-OUT-10 |
 | REQ-OUT-04 | TST-OUT-05, TST-OUT-07 |
 | REQ-OUT-05 | TST-OUT-05, TST-OUT-08 |
 | REQ-OUT-06 | TST-OUT-06 |
+| REQ-OUT-07 | TST-OUT-09, TST-OUT-10 |
 | REQ-MEM-01 | TST-MEM-01 |
 | REQ-MEM-02 | TST-MEM-02 |
 | REQ-MEM-03 | TST-CTX-10, TST-MEM-03, TST-MEM-04, TST-MEM-08 |
@@ -348,7 +352,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-RISK-06 | TST-RISK-07 |
 | REQ-RISK-07 | TST-RISK-08 |
 | REQ-RISK-08 | TST-RISK-09 |
-| REQ-RISK-09 | TST-RISK-10 |
+| REQ-RISK-09 | TST-RISK-10, TST-RISK-11 |
 | REQ-EXE-01 | TST-EXE-01 |
 | REQ-EXE-02 | TST-EXE-02, TST-EXE-09 |
 | REQ-EXE-03 | TST-EXE-03, TST-EXE-08, TST-EXE-09 |

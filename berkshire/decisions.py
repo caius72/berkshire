@@ -98,15 +98,36 @@ def validate_trader_proposal(d: dict) -> dict:
             "reasoning": _text(d, "reasoning"),
             "entry_price": optional_float(d.get("entry_price")),
             "stop_loss": optional_float(d.get("stop_loss")),
+            "target_price": optional_float(d.get("target_price")),
             "position_sizing": _text(d, "position_sizing", required=False)}
+
+
+def risk_reward(action: str, entry, stop, target) -> tuple[float | None, str]:
+    """Reward/risk from the proposal's own levels, or None with the reason (REQ-OUT-07).
+
+    Direction-checked, never abs(): a Buy needs stop < entry < target and a Sell needs
+    target < entry < stop. Inverted levels mean the proposal contradicts itself, which the
+    ratio must expose rather than hide (TradingAgents #1082 adapted).
+    """
+    if action == "Hold":
+        return None, "n/a (Hold: no position change)"
+    if None in (entry, stop, target):
+        return None, "n/a (entry, stop or target not provided)"
+    if action == "Buy" and stop < entry < target:
+        return (target - entry) / (entry - stop), ""
+    if action == "Sell" and target < entry < stop:
+        return (entry - target) / (stop - entry), ""
+    return None, f"n/a (levels inverted for a {action}: entry {entry}, stop {stop}, target {target})"
 
 
 def render_trader_proposal(p: dict) -> str:
     parts = [f"**Action**: {p['action']}", "", f"**Reasoning**: {p['reasoning']}"]
     for label, key in (("Entry Price", "entry_price"), ("Stop Loss", "stop_loss"),
-                       ("Position Sizing", "position_sizing")):
+                       ("Target Price", "target_price"), ("Position Sizing", "position_sizing")):
         v = p.get(key)
         parts += ["", f"**{label}**: {v if v not in (None, '') else 'not provided'}"]
+    rr, why = risk_reward(p["action"], p.get("entry_price"), p.get("stop_loss"), p.get("target_price"))
+    parts += ["", f"**Risk/Reward**: {f'{rr:.2f} (computed from entry, stop and target)' if rr is not None else why}"]
     parts += ["", f"FINAL TRANSACTION PROPOSAL: **{p['action'].upper()}**"]
     return "\n".join(parts)
 

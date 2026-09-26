@@ -148,3 +148,11 @@ def test_enqueue_idempotent_per_run(cfg, log, capsys):
     main(["enqueue", state["run_dir"], "--tag", "tick-2"])
     second = json.loads(capsys.readouterr().out)
     assert len(first["queued"]) == 1 and second["queued"] == [] and "already queued" in second["skipped"][0]
+
+
+def test_gate_records_reward_risk():
+    """TST-RISK-11: An open with a take-profit records its reward/risk from ask, stop and take-profit; without one, none [REQ-RISK-09]"""
+    res = gate("Buy", ticker="AMD", trader={"stop_loss": 190.0}, pm={"price_target": 230.0})
+    assert "reward/risk 3.00 (ask 200.0, stop 190.0, take-profit 230.0)" in res["reasons"]
+    res = gate("Buy", ticker="AMD", trader={"stop_loss": 190.0}, pm={"price_target": None})
+    assert not any(r.startswith("reward/risk") for r in res["reasons"])

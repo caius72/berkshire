@@ -70,10 +70,11 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 |---|---|---|---|
 | REQ-OUT-01 | M | The Research Manager, Trader, Portfolio Manager and Sentiment Analyst shall emit a JSON block matching their schema (ResearchPlan, TraderProposal, PortfolioDecision, SentimentReport). The engine renders it to the same markdown as TradingAgents. | T |
 | REQ-OUT-02 | M | If the JSON block is missing or invalid, the engine shall fall back to the free-text output instead of failing the run. | T |
-| REQ-OUT-03 | M | Optional price fields shall accept numbers and formatted prices (`"$1,234.50"` → 1234.5). Placeholders (`"N/A"`, `"none"`), percentages, ranges and hedged values become null. | T |
+| REQ-OUT-03 | M | Optional price fields (entry, stop, target, price target) shall accept numbers and formatted prices (`"$1,234.50"` → 1234.5). Placeholders (`"N/A"`, `"none"`), percentages, ranges and hedged values become null. | T |
 | REQ-OUT-04 | M | The run signal shall be one of Buy/Overweight/Hold/Underweight/Sell, parsed from the final decision. The parser prefers the last labelled `Rating:` line, ignores scale-legend lines, and accepts a bare rating word only when exactly one distinct rating appears. | T |
 | REQ-OUT-05 | M | A final decision with no parseable rating shall produce the non-tradeable signal `REVIEW`, never Hold. | T |
 | REQ-OUT-06 | M | The Sentiment score shall be bounded to 0–10, and band and confidence restricted to their enums. | T |
+| REQ-OUT-07 | M | The Trader's proposal shall carry an optional target price. The engine shall compute reward/risk from entry, stop and target only when they are ordered correctly for the action (Buy: stop < entry < target; Sell: target < entry < stop). Missing, inverted or zero-risk levels are named as such, and Hold has none. The model never states the ratio itself. | T |
 
 ## 5. Memory and reflection (REQ-MEM)
 
@@ -152,7 +153,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-RISK-06 | M | At most `max_orders_per_run` intents are queued per tick. Opens are ranked by rating strength, and closes always go first. | T |
 | REQ-RISK-07 | M | Closes shall target only directly held positions, never copy-trading mirrors. | T |
 | REQ-RISK-08 | M | All limits shall be configurable and validated (fractions in (0,1], positive amounts). Defaults: target 5 %, max order 5 %, max instrument 15 %, min cash 10 %, 5 orders per run, $50 minimum, 2×ATR stop, close 50 % on Underweight. | T |
-| REQ-RISK-09 | M | Every intent and every veto shall be recorded with its reasons in the run directory. | T |
+| REQ-RISK-09 | M | Every intent and every veto shall be recorded with its reasons in the run directory. An open with a take-profit also records its reward/risk from ask, stop and take-profit. | T |
 
 ## 12. Execution via eToro MCP (REQ-EXE)
 
