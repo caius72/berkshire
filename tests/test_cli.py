@@ -65,7 +65,8 @@ def test_ticker_safety(ticker, ok):
     """TST-SAFE-01: Suffixes survive; path-escaping tickers and run ids are rejected [REQ-SAFE-01, REQ-IF-04]"""
     if ok:
         assert config.safe_component(ticker) == ticker
-        assert pipeline.detect_asset_type(ticker) == ("crypto" if ticker.endswith("-USD") else "stock")
+        assert pipeline.detect_asset_type(ticker) == {"BTC-USD": "crypto", "^GSPC": "index",
+                                                      "GC=F": "commodity"}.get(ticker, "stock")
     else:
         with pytest.raises(ValueError):
             config.safe_component(ticker)

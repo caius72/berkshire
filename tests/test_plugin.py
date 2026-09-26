@@ -185,6 +185,20 @@ def test_sentiment_screens_posts():
     assert "on the on-topic posts only" in body and "user-tag split separately" in body
 
 
+def test_fundamentals_macro_branch():
+    """TST-ROLE-11: For an index, commodity or currency pair, the Fundamentals Analyst researches macro drivers on the web instead of calling company tools [REQ-ROLE-03, REQ-FLOW-11]"""
+    assert {"WebSearch", "WebFetch"} <= tools("fundamentals-analyst")
+    body = agent("fundamentals-analyst")[1]
+    assert "a stock index, a commodity or a currency pair" in body and "do not call the statement, insider, earnings" in body
+    for driver in ("**Index:**", "**Commodity:**", "**Currency pair:**", "Commitments of Traders", "OPEC+", "real yields"):
+        assert driver in body, driver
+    assert "use only items published on or before that date" in body
+    from berkshire import pipeline
+    for mode in pipeline.MACRO_TYPES:     # the persona's trigger phrase matches the engine's context wording
+        assert "Treat it as a " + {"index": "stock market index", "commodity": "commodity", "fx": "currency pair"}[mode] \
+            in pipeline.MACRO_CONTEXT[mode]
+
+
 def test_fundamentals_fund_branch():
     """TST-ROLE-09: For a fund, the Fundamentals Analyst uses etf_profile instead of company tools and never infers undisclosed concentration [REQ-ROLE-03, REQ-FLOW-10]"""
     body = agent("fundamentals-analyst")[1]

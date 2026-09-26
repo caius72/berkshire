@@ -97,3 +97,18 @@ def test_etoro_etf_type():
         {"itemId": 15435, "itemType": "Instrument", "market": {"symbolName": "EIMI.L", "assetTypeId": 6}}]}]}}
     items, _ = etoro.universe(None, wl, "W", config.DEFAULTS["symbol_map"], 10)
     assert [(i["ticker"], i["asset_type"]) for i in items] == [("SPY", "etf"), ("EIMI.L", "etf")]
+
+
+def test_etoro_macro_types():
+    """TST-EXE-11: eToro forex, commodity and index types become the fx, commodity and index modes without a network call [REQ-FLOW-11, REQ-IF-04]"""
+    wl = {"watchlists": {"watchlists": [{"name": "W", "items": [
+        {"itemId": 18, "itemType": "Instrument", "market": {"symbolName": "GOLD", "assetTypeId": 2}},
+        {"itemId": 341, "itemType": "Instrument", "market": {"symbolName": "EuroOIL", "assetTypeId": 2}},
+        {"itemId": 1, "itemType": "Instrument", "market": {"symbolName": "EURUSD", "assetTypeId": 1}},
+        {"itemId": 27, "itemType": "Instrument", "market": {"symbolName": "SPX500", "assetTypeId": 4}},
+        {"itemId": 1137, "itemType": "Instrument", "market": {"symbolName": "NVDA", "assetTypeId": 5}}]}]}}
+    items, _ = etoro.universe(None, wl, "W", config.DEFAULTS["symbol_map"], 10)
+    assert [(i["ticker"], i["asset_type"]) for i in items] == [
+        ("GC=F", "commodity"), ("BZ=F", "commodity"), ("EURUSD=X", "fx"), ("^GSPC", "index"), ("NVDA", "stock")]
+    from berkshire import pipeline
+    assert set(etoro._KINDS.values()) | {"stock"} == set(pipeline.ASSET_TYPES)

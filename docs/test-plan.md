@@ -61,6 +61,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-ROLE-08 | The Sentiment Analyst queries Bluesky within the run's window, labels engagement as current, and an empty feed never lowers confidence | REQ-ROLE-03, REQ-DATA-07 | I | Persona text: endpoint with `%24` cashtag and since/until, current-engagement caveat, confidence rule; no Mastodon or Fear & Greed. |
 | TST-ROLE-09 | For a fund, the Fundamentals Analyst uses etf_profile instead of company tools and never infers undisclosed concentration | REQ-ROLE-03, REQ-FLOW-10 | I | Persona text for the fund branch. |
 | TST-ROLE-10 | The Sentiment Analyst drops off-topic social posts and reports on-topic and stance counts per source | REQ-ROLE-03 | I | Persona text: off-topic cases (list, spam, shared symbol), four stance classes incl. untagged posts, the count line, ratios and confidence on on-topic posts, StockTwits tag split kept separate. |
+| TST-ROLE-11 | For an index, commodity or currency pair, the Fundamentals Analyst researches macro drivers on the web instead of calling company tools | REQ-ROLE-03, REQ-FLOW-11 | I | Persona: WebSearch/WebFetch tools, the no-company-tools rule, per-mode drivers, point-in-time rule; the trigger phrase matches the engine's context. |
 | TST-FLOW-01 | A full run visits the teams in TradingAgents order | REQ-FLOW-01 | T | Canned run, default config; flattened step trace equals the expected 12-step sequence. |
 | TST-FLOW-02 | Selected analysts are offered as one parallel batch; debate waits for all | REQ-FLOW-02 | T | First `next_steps` = 4 analysts; after 3 submits only the 4th is due. |
 | TST-FLOW-03 | Bull opens and the debate alternates for 2 x rounds turns | REQ-FLOW-03 | T | Parametrised rounds 1/2/3; debate trace = bull_1, bear_2, … (2R entries). |
@@ -72,6 +73,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-FLOW-09 | Submitting a step that is not due raises and leaves state unchanged | REQ-FLOW-09 | T | Submit `trader` first and an empty output; state on disk byte-identical. |
 | TST-FLOW-10 | The shared loop dispatches due steps in parallel and submits each | REQ-FLOW-02, REQ-FLOW-08 | I | pipeline-loop.md requires one message for all due steps, submit per step, engine-owned order; all three skills reference it. |
 | TST-FLOW-12 | A fund is detected from quoteType (or --asset-type etf), keeps its fund analyst, and its debates use fund wording and ETF risk axes | REQ-FLOW-10 | T | GLD-shaped identity through a full canned run; bull and risk prompts; the Trader and a stock run get no ETF axes. |
+| TST-FLOW-13 | Indices, commodities and currency pairs are detected, keep the Fundamentals Analyst, and their debates use the right noun, the macro drivers report and their own risk axes | REQ-FLOW-11 | T | ^GSPC/INDEX, GC=F/FUTURE, EURUSD=X/CURRENCY, DX-Y.NYB known only by quoteType, and BZ=F and ^GDAXI without identity; full run: bull noun and label, mode axes (not ETF's) for the three risk debaters only, macro context in the analyst prompt. |
 | TST-CTX-01 | Resolved identity + exact-ticker rule reach every prompt; past-date caveat; fail-open | REQ-CTX-01 | T | All 12 prompts contain `` `NVDA` `` and the company; caveat only for past dates; empty identity → ticker-only. |
 | TST-CTX-02 | A report from an unselected analyst is an explicit 'not available' marker | REQ-CTX-02 | T | Market-only run; bull prompt contains the absent markers for news/fundamentals. |
 | TST-CTX-03 | First speakers get an opening marker instead of an empty opponent argument | REQ-CTX-03 | T | bull_1 and aggressive_1 prompts contain opening markers. |
@@ -83,6 +85,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-CTX-09 | A historical run only sees lessons resolved by its trade date; a live run sees all | REQ-MEM-05, REQ-CTX-06 | T | One lesson resolved before and one after the trade date; historical vs live init. |
 | TST-CTX-10 | Every prompt states the scoring horizon from holding_period_days; the horizon is part of the run signature | REQ-CTX-08, REQ-MEM-03 | T | A 7-day horizon reaches all 12 prompts with the date; the signature changes with the horizon; a pre-horizon state falls back to 5 days. |
 | TST-CTX-11 | Fund identity reads as a fund, with its category; leveraged/inverse funds carry the daily-reset warning | REQ-FLOW-10, REQ-CTX-01 | T | Plain, leveraged and inverse fund categories; a stock with a category is unaffected. |
+| TST-CTX-12 | Index, commodity and currency identity read as such, with roll, tracking and direction caveats; an explicit --asset-type wins | REQ-FLOW-11, REQ-CTX-01 | T | Context strings per mode; `Name:` not `Company:`; a stock carries none of the macro wording. |
 | TST-OUT-01 | Each schema validates its JSON and renders the TradingAgents headers | REQ-OUT-01 | T | Research plan, trader proposal (absent fields "not provided", FINAL TRANSACTION PROPOSAL line), PM decision. |
 | TST-OUT-02 | With several JSON blocks the last one is used | REQ-OUT-01 | T | Draft + final block. |
 | TST-OUT-03 | Missing, malformed or invalid JSON falls back to free text with an error | REQ-OUT-02 | T | Three negative inputs (none, broken JSON, enum violation). |
@@ -117,7 +120,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-DATA-14 | The CLI passes the run's holding_period_days to the earnings tool and marks a missing calendar | REQ-DATA-09, REQ-CTX-08 | T | Run with a 1-day horizon; `berkshire data earnings` output; empty calendar through the CLI. |
 | TST-DATA-15 | etf_profile reports fees, mix, sectors and top-N concentration; undisclosed holdings and past dates are explicit | REQ-DATA-10, REQ-DATA-07 | T | SPY-, GLD- (no holdings), AGG- (cash line only) and leveraged-shaped stubs; the past-date caveat; a non-fund raises NoData. |
 | TST-DATA-16 | Same-day fundamentals mark dividendYield in percent and state that the ratios are fractions | REQ-DATA-11 | T | Stub with dividendYield 2.41 and profitMargins 0.28: `2.41%`, `0.28` unchanged, units note; no dividendYield gives no row; past dates carry no units note. |
-| TST-DATA-17 | Google News is queried inside the window by company name, clamped, deduplicated against Yahoo and tagged headline-only | REQ-DATA-05, REQ-DATA-07 | T | Stubbed RSS: `after:`/`before:` one day wide of the window, `+0200` date, items before, after and undated dropped, a Yahoo duplicate removed, publisher suffix stripped, count note, Yahoo items first under the limit; name-to-query cases. |
+| TST-DATA-17 | Google News is queried inside the window by company name, clamped, deduplicated against Yahoo and tagged headline-only | REQ-DATA-05, REQ-DATA-07 | T | Stubbed RSS: `after:`/`before:` one day wide of the window, `+0200` date, items before, after and undated dropped, a Yahoo duplicate removed, publisher suffix stripped, count note, Yahoo items first under the limit; name-to-query cases incl. futures contract names. |
 | TST-DATA-18 | A Google News failure adds an unavailable line and never fails the tool; both sources failing is DATA_UNAVAILABLE | REQ-DATA-05, REQ-DATA-06 | T | Google timeout keeps Yahoo items; Yahoo down keeps Google items with no recent-feed gap marker; both down raise (the CLI marks DATA_UNAVAILABLE). |
 | TST-DATA-19 | One run downloads a symbol's price history once; slices match an uncached fetch; out-of-range requests bypass the cache | REQ-DATA-12 | T | Counting fake: snapshot, indicators, stock and valuation through the CLI make one history call; cache file in the run dir; cache off after the command; a 2024 window fetches directly. |
 | TST-DATA-20 | Yahoo rate limits are retried with bounded backoff, then reported DATA_UNAVAILABLE | REQ-DATA-12, REQ-DATA-06 | T | Two rate-limit errors then success (waits 2 s, 4 s, recorded not slept); persistent limit gives DATA_UNAVAILABLE naming YFRateLimitError after 3 tries, nothing cached. |
@@ -159,6 +162,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-EXE-08 | The approval confirmation names the account (DEMO/REAL) | REQ-EXE-03 | I | approve text. |
 | TST-EXE-09 | Demo order end-to-end through /berkshire:approve | REQ-EXE-02, REQ-EXE-03 | D | Manual procedure M2. |
 | TST-EXE-10 | eToro asset type 6 (ETF) becomes the etf asset mode without a network call | REQ-FLOW-10, REQ-EXE-07 | T | asset_kind for types 5, 6 and 10; a universe with SPY and EIMI.L. |
+| TST-EXE-11 | eToro forex, commodity and index types become the fx, commodity and index modes without a network call | REQ-FLOW-11, REQ-IF-04 | T | Watchlist with GOLD, EuroOIL, EURUSD, SPX500, NVDA; every eToro kind is a pipeline asset type. |
 | TST-SCHED-01 | Universe = holdings then named watchlist, de-duplicated, users/unmappable skipped | REQ-SCHED-01, REQ-IF-04 | T | Fixture from the live watchlist shape (users, commodities, forex, crypto, .DE). |
 | TST-SCHED-02 | universe reports trading_day=false on weekends so the tick only settles | REQ-SCHED-02 | T | Fri/Sat/Sun. |
 | TST-SCHED-03 | A run's intent is queued once; a repeated tick does not double-order | REQ-SCHED-03 | T | Enqueue the same run twice. |
@@ -295,7 +299,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 |---|---|
 | REQ-ROLE-01 | TST-ROLE-01 |
 | REQ-ROLE-02 | TST-ROLE-02 |
-| REQ-ROLE-03 | TST-ROLE-03, TST-ROLE-08, TST-ROLE-09, TST-ROLE-10 |
+| REQ-ROLE-03 | TST-ROLE-03, TST-ROLE-08, TST-ROLE-09, TST-ROLE-10, TST-ROLE-11 |
 | REQ-ROLE-04 | TST-ROLE-04 |
 | REQ-ROLE-05 | TST-ROLE-05, TST-ROLE-07 |
 | REQ-ROLE-06 | TST-ROLE-06 |
@@ -309,7 +313,8 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-FLOW-08 | TST-FLOW-08, TST-FLOW-10 |
 | REQ-FLOW-09 | TST-FLOW-09 |
 | REQ-FLOW-10 | TST-CTX-11, TST-EXE-10, TST-FLOW-12, TST-ROLE-09 |
-| REQ-CTX-01 | TST-CTX-01, TST-CTX-08, TST-CTX-11 |
+| REQ-FLOW-11 | TST-CTX-12, TST-EXE-11, TST-FLOW-13, TST-ROLE-11 |
+| REQ-CTX-01 | TST-CTX-01, TST-CTX-08, TST-CTX-11, TST-CTX-12 |
 | REQ-CTX-02 | TST-CTX-02 |
 | REQ-CTX-03 | TST-CTX-03 |
 | REQ-CTX-04 | TST-CTX-04 |
@@ -347,7 +352,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-IF-01 | TST-IF-01 |
 | REQ-IF-02 | TST-IF-02 |
 | REQ-IF-03 | TST-IF-03 |
-| REQ-IF-04 | TST-SAFE-01, TST-SCHED-01 |
+| REQ-IF-04 | TST-EXE-11, TST-SAFE-01, TST-SCHED-01 |
 | REQ-IF-05 | TST-IF-05 |
 | REQ-IF-06 | TST-IF-06 |
 | REQ-IF-07 | TST-IF-07 |
