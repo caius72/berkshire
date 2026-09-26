@@ -98,3 +98,34 @@ def test_rotation_keeps_pending(tmp_path):
     log.apply_outcomes([outcome("NVDA", f"2026-07-{day}") for day in ("01", "02", "03")])
     kept = [(e["date"], e["pending"]) for e in log.entries()]
     assert kept == [("2026-07-02", False), ("2026-07-03", False), ("2026-07-04", True)]
+
+
+def test_target_move_in_reflection(log, cfg):
+    """TST-MEM-09: The Reflector is told the PM target's implied move from the same start close as the return; no target, no line [REQ-MEM-08]"""
+    from berkshire.decisions import render_pm_decision
+    from berkshire.memory import decision_target
+    buy = render_pm_decision({"rating": "Buy", "executive_summary": "Buy near 100; stop 90.", "investment_thesis": "T",
+                              "price_target": 120.0, "time_horizon": "3-6 months"})
+    sell = render_pm_decision({"rating": "Sell", "executive_summary": "E", "investment_thesis": "T",
+                               "price_target": 80.0, "time_horizon": None})
+    none = render_pm_decision({"rating": "Hold", "executive_summary": "Target 150 later.", "investment_thesis": "T",
+                               "price_target": None, "time_horizon": None})
+    assert decision_target(buy) == (120.0, "3-6 months")
+    assert decision_target(sell) == (80.0, None)
+    assert decision_target(none) == (None, None)                    # "150" in the prose is not a target
+    assert decision_target("Rating: Buy, target 130") == (None, None)
+    quoted = render_pm_decision({"rating": "Buy", "executive_summary": "E", "price_target": 120.0, "time_horizon": None,
+                                 "investment_thesis": "The old note said **Price Target**: 150"})
+    assert decision_target(quoted) == (120.0, None)                 # only the engine's own line counts
+    for t, dec in (("AAA", buy), ("BBB", sell), ("CCC", none)):
+        log.store(t, "2026-09-01", dec)
+    idx = pd.bdate_range("2026-09-01", periods=8)
+    closes = lambda sym, start, end: pd.Series([100.0, 101, 102, 103, 104, 105, 106, 107], index=idx)
+    cands = {c["ticker"]: c for c in settle_candidates(log, cfg, None, closes)}
+    assert cands["AAA"]["target_move"] == pytest.approx(0.20) and cands["AAA"]["start_close"] == 100.0
+    assert cands["BBB"]["target_move"] == pytest.approx(-0.20) and cands["CCC"]["target_move"] is None
+    prompt = reflection_prompt(cands["AAA"])
+    assert "Price target 120 implied +20.0% from the 2026-09-01 close of 100.00, over the stated horizon (3-6 months); " \
+           "this 5-day window realised +5.0%." in prompt
+    assert "implied -20.0%" in reflection_prompt(cands["BBB"]) and "over the stated horizon (not stated)" in reflection_prompt(cands["BBB"])
+    assert "Price target" not in reflection_prompt(cands["CCC"])

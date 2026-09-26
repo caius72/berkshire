@@ -28,6 +28,7 @@ berkshire data --run RUN snapshot SYMBOL [CURR_DATE]      # verified snapshot (s
 berkshire data --run RUN fundamentals SYMBOL            # identity only on past dates
 berkshire data --run RUN valuation SYMBOL               # market cap, P/E, P/B as of the date
 berkshire data --run RUN earnings SYMBOL                # next announcement, past surprises
+berkshire data --run RUN etf_profile SYMBOL             # funds: category, fees, asset mix, holdings
 berkshire data --run RUN balance_sheet|cashflow|income_statement SYMBOL [--freq annual|quarterly]
 berkshire data --run RUN insider SYMBOL
 berkshire data --run RUN news SYMBOL START END

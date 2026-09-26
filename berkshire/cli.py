@@ -131,6 +131,8 @@ def cmd_data(a, cfg):
             out = data.tool_fundamentals(x[0], td)
         elif a.tool == "valuation":
             out = data.tool_valuation(x[0], td)
+        elif a.tool == "etf_profile":
+            out = data.tool_etf_profile(x[0], td)
         elif a.tool == "earnings":
             out = data.tool_earnings(x[0], td, state["config"].get("holding_period_days", 5))
         elif a.tool in ("balance_sheet", "cashflow", "income_statement"):
@@ -320,7 +322,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("ticker"); s.add_argument("date", nargs="?")
     s.add_argument("--analysts"); s.add_argument("--depth"); s.add_argument("--language")
     s.add_argument("--debate-rounds", type=int); s.add_argument("--risk-rounds", type=int)
-    s.add_argument("--asset-type", choices=["stock", "crypto"]); s.add_argument("--portfolio")
+    s.add_argument("--asset-type", choices=["stock", "etf", "crypto"]); s.add_argument("--portfolio")
     s.add_argument("--checkpoint", action="store_true"); s.add_argument("--skip-if-complete", action="store_true")
     s.add_argument("--etoro-symbol"); s.add_argument("--instrument-id", type=int)
     s.add_argument("--deep-model"); s.add_argument("--quick-model")

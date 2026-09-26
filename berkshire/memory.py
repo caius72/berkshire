@@ -148,6 +148,21 @@ def compute_returns(stock, bench, holding_days: int):
     return raw, raw - b, stock.index[holding_days].strftime("%Y-%m-%d")
 
 
+_TARGET_RE = re.compile(r"^\*\*Price Target\*\*: (-?\d+(?:\.\d+)?)\s*$", re.MULTILINE)
+_HORIZON_RE = re.compile(r"^\*\*Time Horizon\*\*: (.+?)\s*$", re.MULTILINE)
+
+
+def decision_target(decision: str) -> tuple[float | None, str | None]:
+    """(price target, time horizon) from an engine-rendered PM decision; None when not given.
+
+    Anchored on the lines render_pm_decision writes, so a number in the prose is never mistaken
+    for the target; a free-text fallback decision simply has none.
+    """
+    t, h = _TARGET_RE.search(decision or ""), _HORIZON_RE.search(decision or "")
+    horizon = h.group(1) if h and h.group(1) != "not provided" else None
+    return (float(t.group(1)) if t else None), horizon
+
+
 def settle_candidates(log: DecisionLog, cfg: dict, tickers: list[str] | None, closes) -> list[dict]:
     """Pending entries whose holding window has traded, with returns filled in.
 
@@ -163,21 +178,34 @@ def settle_candidates(log: DecisionLog, cfg: dict, tickers: list[str] | None, cl
         end = (start + timedelta(days=round(days * 7 / 5) + 7)).strftime("%Y-%m-%d")
         bench = resolve_benchmark(e["ticker"], cfg)
         try:
-            res = compute_returns(closes(e["ticker"], e["date"], end), closes(bench, e["date"], end), days)
+            stock = closes(e["ticker"], e["date"], end)
+            res = compute_returns(stock, closes(bench, e["date"], end), days)
         except Exception:  # noqa: BLE001 - unreachable/delisted: stays pending
             res = None
         if res is None:
             continue
         raw, alpha, resolved = res
+        start_close = float(stock.iloc[0])
+        target, horizon = decision_target(e["decision"])
         out.append({"ticker": e["ticker"], "trade_date": e["date"], "raw_return": raw,
                     "alpha_return": alpha, "holding_days": days, "resolution_date": resolved,
-                    "benchmark": bench, "decision": e["decision"]})
+                    "benchmark": bench, "decision": e["decision"],
+                    # What the PM expected, from the same close the return is measured from (REQ-MEM-08).
+                    "start_close": start_close, "start_date": stock.index[0].strftime("%Y-%m-%d"),
+                    "price_target": target, "time_horizon": horizon,
+                    "target_move": None if target is None or start_close <= 0 else target / start_close - 1})
     return out
 
 
 def reflection_prompt(c: dict) -> str:
     """Input for the Reflector agent (TradingAgents reflection.py)."""
+    expected = ""
+    if c.get("target_move") is not None:  # TradingAgents #1087 adapted: a fact, not a ratio
+        expected = (f"Price target {c['price_target']:g} implied {c['target_move']:+.1%} from the "
+                    f"{c['start_date']} close of {c['start_close']:.2f}, over the stated horizon "
+                    f"({c.get('time_horizon') or 'not stated'}); this {c['holding_days']}-day window realised "
+                    f"{c['raw_return']:+.1%}.\n")
     return (f"The outcome covers {c['holding_days']} trading days after the analysis date, which may be "
             f"shorter than the horizon the decision was written for.\n\n"
             f"Raw return over {c['holding_days']} trading days: {c['raw_return']:+.1%}\n"
-            f"Alpha vs {c['benchmark']}: {c['alpha_return']:+.1%}\n\nFinal Decision:\n{c['decision']}")
+            f"Alpha vs {c['benchmark']}: {c['alpha_return']:+.1%}\n{expected}\nFinal Decision:\n{c['decision']}")

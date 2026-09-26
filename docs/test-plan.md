@@ -58,6 +58,8 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-ROLE-05 | Each persona keeps the TradingAgents prompt's substantive directives | REQ-ROLE-05 | I | Parametrised phrase table per role (focus points, stances, anti-Hold rule, absolute price levels, JSON field names, markdown table). |
 | TST-ROLE-07 | Every analyst treats NO_DATA_AVAILABLE / DATA_UNAVAILABLE output as missing data, not a finding | REQ-DATA-06, REQ-ROLE-05 | I | The four analyst personas name both markers; the three data-tool personas forbid numeric claims and gap-filling. |
 | TST-ROLE-06 | Market Analyst picks up to 8 indicators from the full catalogue | REQ-ROLE-06 | I | Persona lists every name in `data.INDICATORS` and the "up to 8" rule. |
+| TST-ROLE-08 | The Sentiment Analyst queries Bluesky within the run's window, labels engagement as current, and an empty feed never lowers confidence | REQ-ROLE-03, REQ-DATA-07 | I | Persona text: endpoint with `%24` cashtag and since/until, current-engagement caveat, confidence rule; no Mastodon or Fear & Greed. |
+| TST-ROLE-09 | For a fund, the Fundamentals Analyst uses etf_profile instead of company tools and never infers undisclosed concentration | REQ-ROLE-03, REQ-FLOW-10 | I | Persona text for the fund branch. |
 | TST-FLOW-01 | A full run visits the teams in TradingAgents order | REQ-FLOW-01 | T | Canned run, default config; flattened step trace equals the expected 12-step sequence. |
 | TST-FLOW-02 | Selected analysts are offered as one parallel batch; debate waits for all | REQ-FLOW-02 | T | First `next_steps` = 4 analysts; after 3 submits only the 4th is due. |
 | TST-FLOW-03 | Bull opens and the debate alternates for 2 x rounds turns | REQ-FLOW-03 | T | Parametrised rounds 1/2/3; debate trace = bull_1, bear_2, … (2R entries). |
@@ -68,6 +70,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-FLOW-08 | Same persisted state -> same next step, across a reload | REQ-FLOW-08 | T | Submit 5 steps, reload state.json, compare `next_steps`. |
 | TST-FLOW-09 | Submitting a step that is not due raises and leaves state unchanged | REQ-FLOW-09 | T | Submit `trader` first and an empty output; state on disk byte-identical. |
 | TST-FLOW-10 | The shared loop dispatches due steps in parallel and submits each | REQ-FLOW-02, REQ-FLOW-08 | I | pipeline-loop.md requires one message for all due steps, submit per step, engine-owned order; all three skills reference it. |
+| TST-FLOW-12 | A fund is detected from quoteType (or --asset-type etf), keeps its fund analyst, and its debates use fund wording and ETF risk axes | REQ-FLOW-10 | T | GLD-shaped identity through a full canned run; bull and risk prompts; the Trader and a stock run get no ETF axes. |
 | TST-CTX-01 | Resolved identity + exact-ticker rule reach every prompt; past-date caveat; fail-open | REQ-CTX-01 | T | All 12 prompts contain `` `NVDA` `` and the company; caveat only for past dates; empty identity → ticker-only. |
 | TST-CTX-02 | A report from an unselected analyst is an explicit 'not available' marker | REQ-CTX-02 | T | Market-only run; bull prompt contains the absent markers for news/fundamentals. |
 | TST-CTX-03 | First speakers get an opening marker instead of an empty opponent argument | REQ-CTX-03 | T | bull_1 and aggressive_1 prompts contain opening markers. |
@@ -78,6 +81,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-CTX-08 | An identity lookup error does not fail the run | REQ-CTX-01 | T | yfinance raises; init succeeds with ticker-only context. |
 | TST-CTX-09 | A historical run only sees lessons resolved by its trade date; a live run sees all | REQ-MEM-05, REQ-CTX-06 | T | One lesson resolved before and one after the trade date; historical vs live init. |
 | TST-CTX-10 | Every prompt states the scoring horizon from holding_period_days; the horizon is part of the run signature | REQ-CTX-08, REQ-MEM-03 | T | A 7-day horizon reaches all 12 prompts with the date; the signature changes with the horizon; a pre-horizon state falls back to 5 days. |
+| TST-CTX-11 | Fund identity reads as a fund, with its category; leveraged/inverse funds carry the daily-reset warning | REQ-FLOW-10, REQ-CTX-01 | T | Plain, leveraged and inverse fund categories; a stock with a category is unaffected. |
 | TST-OUT-01 | Each schema validates its JSON and renders the TradingAgents headers | REQ-OUT-01 | T | Research plan, trader proposal (absent fields "not provided", FINAL TRANSACTION PROPOSAL line), PM decision. |
 | TST-OUT-02 | With several JSON blocks the last one is used | REQ-OUT-01 | T | Draft + final block. |
 | TST-OUT-03 | Missing, malformed or invalid JSON falls back to free text with an error | REQ-OUT-02 | T | Three negative inputs (none, broken JSON, enum violation). |
@@ -86,6 +90,8 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-OUT-06 | Sentiment score bounded 0-10; band and confidence restricted | REQ-OUT-06 | T | Out-of-range score, unknown band/confidence, N/A score; case-normalised valid payload. |
 | TST-OUT-07 | Structured outputs render to TradingAgents markdown and the signal is parsed | REQ-OUT-01, REQ-OUT-04 | T | Full canned run: signal Buy, rendered headers, "$290.00" stop coerced, no warnings. |
 | TST-OUT-08 | A final decision without a rating yields REVIEW and is logged as REVIEW | REQ-OUT-05, REQ-OUT-02 | T | PM emits prose without rating/JSON; signal and log tag REVIEW; warning recorded. |
+| TST-OUT-09 | Risk/reward is computed only from correctly ordered levels; inverted or missing levels are named, never abs()-ed | REQ-OUT-07 | T | Ten cases: valid Buy and Sell, stop and target inverted in both directions, zero risk, a missing target, entry or stop, and Hold. |
+| TST-OUT-10 | TraderProposal accepts target_price like the other levels and renders the engine's R/R line | REQ-OUT-01, REQ-OUT-03, REQ-OUT-07 | T | "$100" and "130.0" are coerced; a percentage target becomes null and R/R says why. |
 | TST-MEM-01 | A decision is appended in the TradingAgents pending format | REQ-MEM-01 | T | Exact tag/body/separator text. |
 | TST-MEM-02 | A second decision for the same ticker+date is a no-op, pending or settled | REQ-MEM-02 | T | Store twice before and after settlement. |
 | TST-MEM-03 | Benchmark by override/suffix/default; returns need the full window | REQ-MEM-03 | T | Suffix map, dotted US ticker → SPY, override; hand-computed raw/alpha; short series → None. |
@@ -94,6 +100,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-MEM-06 | Rotation drops oldest resolved entries only | REQ-MEM-06 | T | max 2, three resolved + one pending. |
 | TST-MEM-07 | analyze and tick settle/reflect before starting new runs | REQ-MEM-07 | I | In both skills `berkshire settle` precedes `berkshire init`; `--apply` present. |
 | TST-MEM-08 | A price-fetch failure leaves the entry pending | REQ-MEM-03 | T | Closes fetcher raises. |
+| TST-MEM-09 | The Reflector is told the PM target's implied move from the same start close as the return; no target, no line | REQ-MEM-08 | T | Buy target +20%, Sell target −20%, no target; a number in the prose, a quoted `**Price Target**:` mid-thesis and a free-text decision are not targets; exact prompt line. |
 | TST-DATA-01 | Requested dates and windows are clamped to the trade date | REQ-DATA-01 | T | Future/None/garbage dates; window entirely after; OHLCV rows ≤ trade date. |
 | TST-DATA-02 | Snapshot uses the last row on/before the trade date, fixed indicators, <=30 closes | REQ-DATA-02 | T | Request 2026-12-31 on a 2026-09-10 run. |
 | TST-DATA-03 | Indicators match hand-computed values; unknown names list the valid ones | REQ-DATA-03 | T | Hand oracles on the linear series; all 12 compute; invalid names. |
@@ -107,6 +114,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-DATA-12 | Earnings history uses announcements before the date only; a later result and today's consensus never leak into a past run | REQ-DATA-09 | T | Calendar stub with an event 2 trading days after the date whose result exists now; history cut, horizon flag, limit covers back-dates. |
 | TST-DATA-13 | Same-day runs show consensus; the horizon flag follows holding_period_days; no calendar is NO_DATA_AVAILABLE | REQ-DATA-09, REQ-DATA-06 | T | Same-day consensus; 38 trading days counted by hand; horizon 1 vs 5; a same-day announcement is the next event; empty calendar raises NoData. |
 | TST-DATA-14 | The CLI passes the run's holding_period_days to the earnings tool and marks a missing calendar | REQ-DATA-09, REQ-CTX-08 | T | Run with a 1-day horizon; `berkshire data earnings` output; empty calendar through the CLI. |
+| TST-DATA-15 | etf_profile reports fees, mix, sectors and top-N concentration; undisclosed holdings and past dates are explicit | REQ-DATA-10, REQ-DATA-07 | T | SPY-, GLD- (no holdings), AGG- (cash line only) and leveraged-shaped stubs; the past-date caveat; a non-fund raises NoData. |
 | TST-DATA-07 | Profile data and analyst prompts are labelled non-point-in-time for past dates | REQ-DATA-07 | T | Fundamentals note past vs today; analyst prompt point-in-time rule. |
 | TST-IF-01 | Interactive analyze walks the TradingAgents steps with previous answers as defaults | REQ-IF-01 | D | Manual procedure M1. |
 | TST-IF-02 | init/next/submit/status drive a whole run from the CLI with TradingAgents flags | REQ-IF-02, REQ-IF-08 | T | Subprocess-free CLI calls through `main()`, writing canned outputs to the files named by `next`. |
@@ -134,6 +142,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-RISK-08 | Close intents only target direct positions (mirrors excluded upstream) | REQ-RISK-07 | T | Summary with a mirror position row. |
 | TST-RISK-09 | Limits are validated; defaults match the agreed conservative set | REQ-RISK-08 | T | Six invalid values; default tuple. |
 | TST-RISK-10 | The gate result (intent or veto + reasons) is written to the run dir | REQ-RISK-09 | T | CLI `gate` with quote and book files; orders.json content. |
+| TST-RISK-11 | An open with a take-profit records its reward/risk from ask, stop and take-profit; without one, none | REQ-RISK-09 | T | The gate with and without a PM price target. |
 | TST-EXE-01 | Opens/closes go through prepare/place tools, never execute-write | REQ-EXE-01 | I | approve names the four tools and forbids execute-write; no skill pre-approves place-*/execute-write. |
 | TST-EXE-02 | place-* only after a per-order AskUserQuestion; unattended skills never place | REQ-EXE-02 | I | Text order AskUserQuestion < place-trade; tick/analyze/backtest prohibitions. |
 | TST-EXE-03 | Account defaults to demo; only demo/real accepted; the gate stamps it on intents | REQ-EXE-03 | T | Default, validation (TST-RISK-09 covers "live"), intent account. |
@@ -143,6 +152,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-EXE-07 | eToro symbols map to Yahoo symbols; unmappable ones return None | REQ-EXE-07 | T | 10-row table over asset types from the live watchlist. |
 | TST-EXE-08 | The approval confirmation names the account (DEMO/REAL) | REQ-EXE-03 | I | approve text. |
 | TST-EXE-09 | Demo order end-to-end through /berkshire:approve | REQ-EXE-02, REQ-EXE-03 | D | Manual procedure M2. |
+| TST-EXE-10 | eToro asset type 6 (ETF) becomes the etf asset mode without a network call | REQ-FLOW-10, REQ-EXE-07 | T | asset_kind for types 5, 6 and 10; a universe with SPY and EIMI.L. |
 | TST-SCHED-01 | Universe = holdings then named watchlist, de-duplicated, users/unmappable skipped | REQ-SCHED-01, REQ-IF-04 | T | Fixture from the live watchlist shape (users, commodities, forex, crypto, .DE). |
 | TST-SCHED-02 | universe reports trading_day=false on weekends so the tick only settles | REQ-SCHED-02 | T | Fri/Sat/Sun. |
 | TST-SCHED-03 | A run's intent is queued once; a repeated tick does not double-order | REQ-SCHED-03 | T | Enqueue the same run twice. |
@@ -278,7 +288,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 |---|---|
 | REQ-ROLE-01 | TST-ROLE-01 |
 | REQ-ROLE-02 | TST-ROLE-02 |
-| REQ-ROLE-03 | TST-ROLE-03 |
+| REQ-ROLE-03 | TST-ROLE-03, TST-ROLE-08, TST-ROLE-09 |
 | REQ-ROLE-04 | TST-ROLE-04 |
 | REQ-ROLE-05 | TST-ROLE-05, TST-ROLE-07 |
 | REQ-ROLE-06 | TST-ROLE-06 |
@@ -291,7 +301,8 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-FLOW-07 | TST-FLOW-07 |
 | REQ-FLOW-08 | TST-FLOW-08, TST-FLOW-10 |
 | REQ-FLOW-09 | TST-FLOW-09 |
-| REQ-CTX-01 | TST-CTX-01, TST-CTX-08 |
+| REQ-FLOW-10 | TST-CTX-11, TST-EXE-10, TST-FLOW-12, TST-ROLE-09 |
+| REQ-CTX-01 | TST-CTX-01, TST-CTX-08, TST-CTX-11 |
 | REQ-CTX-02 | TST-CTX-02 |
 | REQ-CTX-03 | TST-CTX-03 |
 | REQ-CTX-04 | TST-CTX-04 |
@@ -299,12 +310,13 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-CTX-06 | TST-CTX-06, TST-CTX-09 |
 | REQ-CTX-07 | TST-CTX-07 |
 | REQ-CTX-08 | TST-CTX-10, TST-DATA-14 |
-| REQ-OUT-01 | TST-OUT-01, TST-OUT-02, TST-OUT-07 |
+| REQ-OUT-01 | TST-OUT-01, TST-OUT-02, TST-OUT-07, TST-OUT-10 |
 | REQ-OUT-02 | TST-OUT-03, TST-OUT-08 |
-| REQ-OUT-03 | TST-OUT-04 |
+| REQ-OUT-03 | TST-OUT-04, TST-OUT-10 |
 | REQ-OUT-04 | TST-OUT-05, TST-OUT-07 |
 | REQ-OUT-05 | TST-OUT-05, TST-OUT-08 |
 | REQ-OUT-06 | TST-OUT-06 |
+| REQ-OUT-07 | TST-OUT-09, TST-OUT-10 |
 | REQ-MEM-01 | TST-MEM-01 |
 | REQ-MEM-02 | TST-MEM-02 |
 | REQ-MEM-03 | TST-CTX-10, TST-MEM-03, TST-MEM-04, TST-MEM-08 |
@@ -312,15 +324,17 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-MEM-05 | TST-CTX-09, TST-MEM-05 |
 | REQ-MEM-06 | TST-MEM-06 |
 | REQ-MEM-07 | TST-MEM-07 |
+| REQ-MEM-08 | TST-MEM-09 |
 | REQ-DATA-01 | TST-DATA-01 |
 | REQ-DATA-02 | TST-DATA-02 |
 | REQ-DATA-03 | TST-DATA-03 |
 | REQ-DATA-04 | TST-DATA-04 |
 | REQ-DATA-05 | TST-DATA-05 |
 | REQ-DATA-06 | TST-DATA-06, TST-DATA-11, TST-DATA-13, TST-ROLE-07 |
-| REQ-DATA-07 | TST-DATA-07, TST-DATA-08 |
+| REQ-DATA-07 | TST-DATA-07, TST-DATA-08, TST-DATA-15, TST-ROLE-08 |
 | REQ-DATA-08 | TST-DATA-09, TST-DATA-10 |
 | REQ-DATA-09 | TST-DATA-12, TST-DATA-13, TST-DATA-14 |
+| REQ-DATA-10 | TST-DATA-15 |
 | REQ-IF-01 | TST-IF-01 |
 | REQ-IF-02 | TST-IF-02 |
 | REQ-IF-03 | TST-IF-03 |
@@ -348,14 +362,14 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-RISK-06 | TST-RISK-07 |
 | REQ-RISK-07 | TST-RISK-08 |
 | REQ-RISK-08 | TST-RISK-09 |
-| REQ-RISK-09 | TST-RISK-10 |
+| REQ-RISK-09 | TST-RISK-10, TST-RISK-11 |
 | REQ-EXE-01 | TST-EXE-01 |
 | REQ-EXE-02 | TST-EXE-02, TST-EXE-09 |
 | REQ-EXE-03 | TST-EXE-03, TST-EXE-08, TST-EXE-09 |
 | REQ-EXE-04 | TST-EXE-04 |
 | REQ-EXE-05 | TST-EXE-05 |
 | REQ-EXE-06 | TST-EXE-06 |
-| REQ-EXE-07 | TST-EXE-07 |
+| REQ-EXE-07 | TST-EXE-07, TST-EXE-10 |
 | REQ-SCHED-01 | TST-SCHED-01, TST-SCHED-05 |
 | REQ-SCHED-02 | TST-SCHED-02 |
 | REQ-SCHED-03 | TST-CKPT-03, TST-SCHED-03 |

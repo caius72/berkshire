@@ -112,7 +112,9 @@ def yf_symbol(etoro_symbol: str, asset_type: int | None, symbol_map: dict) -> st
 
 
 def asset_kind(asset_type: int | None, yf: str) -> str:
-    return "crypto" if asset_type == ASSET_CRYPTO or yf.endswith("-USD") else "stock"
+    if asset_type == ASSET_CRYPTO or yf.endswith("-USD"):
+        return "crypto"
+    return "etf" if asset_type == ASSET_ETF else "stock"   # REQ-FLOW-10: known without a network call
 
 
 def from_etoro_summary(summary: dict) -> dict:

@@ -80,6 +80,9 @@ def gate(*, ticker: str, etoro_symbol: str | None, instrument_id, rating: str, p
 
     tp = (pm or {}).get("price_target")
     take_profit = tp if tp is not None and tp > ask else None
+    if take_profit is not None:  # the order's own reward/risk, recorded with the reasons (REQ-RISK-09)
+        reasons.append(f"reward/risk {(take_profit - ask) / (ask - stop):.2f} "
+                       f"(ask {ask}, stop {stop}, take-profit {take_profit})")
     return {"intent": {**base, "kind": "open", "direction": "buy", "leverage": 1, "amount": amount,
                        "stop_loss_rate": stop, "take_profit_rate": take_profit, "ask": ask},
             "reasons": reasons}

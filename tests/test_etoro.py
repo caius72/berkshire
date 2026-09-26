@@ -86,3 +86,14 @@ def test_account_default_demo():
                          portfolio={"equity": 1e5, "cash": 5e4, "positions": []}, ask=100.0, trader=None, pm=None,
                          atr=2.0, cfg={**config.DEFAULTS, "account": "real"})["intent"]
     assert intent["account"] == "real"
+
+
+def test_etoro_etf_type():
+    """TST-EXE-10: eToro asset type 6 (ETF) becomes the etf asset mode without a network call [REQ-FLOW-10, REQ-EXE-07]"""
+    assert etoro.asset_kind(etoro.ASSET_ETF, "SPY") == "etf"
+    assert etoro.asset_kind(etoro.ASSET_STOCK, "NVDA") == "stock" and etoro.asset_kind(etoro.ASSET_CRYPTO, "BTC-USD") == "crypto"
+    wl = {"watchlists": {"watchlists": [{"name": "W", "items": [
+        {"itemId": 3000, "itemType": "Instrument", "market": {"symbolName": "SPY", "assetTypeId": 6}},
+        {"itemId": 15435, "itemType": "Instrument", "market": {"symbolName": "EIMI.L", "assetTypeId": 6}}]}]}}
+    items, _ = etoro.universe(None, wl, "W", config.DEFAULTS["symbol_map"], 10)
+    assert [(i["ticker"], i["asset_type"]) for i in items] == [("SPY", "etf"), ("EIMI.L", "etf")]

@@ -229,7 +229,8 @@ def profile(symbol: str) -> dict:
     name = info.get("longName") or info.get("shortName")
     if isinstance(name, str) and name.strip():
         out["company_name"] = name.strip()
-    for src, dst in (("sector", "sector"), ("industry", "industry"), ("exchange", "exchange"), ("quoteType", "quote_type")):
+    for src, dst in (("sector", "sector"), ("industry", "industry"), ("exchange", "exchange"), ("quoteType", "quote_type"),
+                     ("category", "category")):
         v = info.get(src)
         if isinstance(v, str) and v.strip() and v.strip().lower() not in ("none", "n/a"):
             out[dst] = v.strip()
@@ -409,6 +410,70 @@ def tool_insider(symbol: str, trade_date: str) -> str:
     return f"# {symbol} insider transactions on or before {trade_date}\n" + df.head(30).to_csv(index=False)
 
 
+# --- ETF profile (REQ-DATA-10) ----------------------------------------------
+
+def _pct(v) -> str:
+    return "n/a" if v is None or pd.isna(v) else f"{float(v) * 100:.2f}%"
+
+
+def tool_etf_profile(symbol: str, trade_date: str, top: int = 10) -> str:
+    """Fund profile: category, family, expense ratio, assets, asset mix, sectors, top holdings.
+
+    All of it is the source's current snapshot (holdings, weights and fees change over time), so a
+    past-dated run gets the CURRENT_NOTE caveat (REQ-DATA-07). A holdings list that is empty or only
+    a cash line is reported as not disclosed, never as a concentration figure (TradingAgents #819).
+    """
+    t = _ticker(symbol)
+    info = t.info or {}
+    if str(info.get("quoteType", "")).upper() != "ETF":
+        raise NoData(f"{symbol} is not an exchange-traded fund according to the source (quoteType "
+                     f"{info.get('quoteType') or 'unknown'}).")
+    fd = t.funds_data
+    overview = getattr(fd, "fund_overview", None) or {}
+    ops = getattr(fd, "fund_operations", None)
+    expense = None
+    if isinstance(ops, pd.DataFrame) and "Annual Report Expense Ratio" in ops.index and not ops.empty:
+        expense = ops.loc["Annual Report Expense Ratio"].iloc[0]           # a fraction (0.000945 = 0.0945%)
+    turnover = ops.loc["Annual Holdings Turnover"].iloc[0] if isinstance(ops, pd.DataFrame) \
+        and "Annual Holdings Turnover" in ops.index and not ops.empty else None
+    assets = info.get("totalAssets")
+    rows = [("Name", info.get("longName") or info.get("shortName")),
+            ("Category", overview.get("categoryName") or info.get("category")),
+            ("Fund family", overview.get("family") or info.get("fundFamily")),
+            ("Legal type", overview.get("legalType") or info.get("legalType")),
+            ("Expense ratio", _pct(expense)),
+            ("Annual holdings turnover", _pct(turnover)),
+            ("Total assets", f"{assets:,.0f}" if assets else "n/a")]
+    out = [f"# {symbol} fund profile {CURRENT_NOTE.format(date=trade_date) if trade_date < today() else ''}", "",
+           "| Field | Value |", "|---|---|"] + [f"| {k} | {v if v not in (None, '') else 'n/a'} |" for k, v in rows]
+
+    mix = {k.removesuffix("Position"): v for k, v in (getattr(fd, "asset_classes", None) or {}).items() if v}
+    if mix:
+        out += ["", "## Asset mix", ""] + [f"- {k}: {_pct(v)}" for k, v in sorted(mix.items(), key=lambda x: -x[1])]
+    sectors = {k: v for k, v in (getattr(fd, "sector_weightings", None) or {}).items() if v}
+    if sectors:
+        out += ["", "## Sector weights", ""] + \
+            [f"- {k.replace('_', ' ')}: {_pct(v)}" for k, v in sorted(sectors.items(), key=lambda x: -x[1])]
+
+    holdings = getattr(fd, "top_holdings", None)
+    names = [] if not isinstance(holdings, pd.DataFrame) or holdings.empty else \
+        [(str(h.get("Name") or sym), float(h.get("Holding Percent") or 0)) for sym, h in holdings.iterrows()]
+    only_cash = len(names) == 1 and "cash" in names[0][0].lower()
+    if not names or only_cash:
+        out += ["", "## Top holdings", "", "Holdings are not disclosed by the source" +
+                (" (only a cash line is listed)" if only_cash else "") +
+                ". Do not infer concentration; describe the exposure from the category and asset mix."]
+    else:
+        shown = names[:top]
+        out += ["", f"## Top {len(shown)} holdings (the top {len(shown)} shown only, not the full portfolio)", "",
+                "| Holding | Weight |", "|---|---:|"] + [f"| {n} | {_pct(w)} |" for n, w in shown]
+        out += ["", f"Concentration: the top {len(shown)} holdings are {_pct(sum(w for _, w in shown))} of the fund."]
+    if "leveraged" in str(rows[1][1]).lower() or "inverse" in str(rows[1][1]).lower():
+        out += ["", "This is a leveraged or inverse fund that resets daily: multi-day returns diverge from the "
+                "multiple of its index (volatility decay)."]
+    return "\n".join(out)
+
+
 # --- earnings calendar (REQ-DATA-09) ----------------------------------------
 
 def earnings(symbol: str, trade_date: str, horizon_days: int = 5, history: int = 4) -> dict:
@@ -558,5 +623,5 @@ def tool_global_news(curr_date: str | None, trade_date: str, cfg: dict, look_bac
                                                               cfg["global_news_article_limit"])
 
 
-TOOLS = ("stock", "indicators", "snapshot", "fundamentals", "valuation", "earnings", "balance_sheet", "cashflow",
+TOOLS = ("stock", "indicators", "snapshot", "fundamentals", "valuation", "earnings", "etf_profile", "balance_sheet", "cashflow",
          "income_statement", "insider", "news", "global_news")

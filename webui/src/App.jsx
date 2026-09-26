@@ -90,7 +90,7 @@ function RunDetail({ run, tick }) {
   if (error) return <p className="error">{error.message}</p>
   if (!data) return <p className="muted">Loading {run.ticker}…</p>
   const s = data.summary
-  const company = /Company: ([^;.]+)/.exec(data.instrument_context)?.[1] || /Name: ([^;.]+)/.exec(data.instrument_context)?.[1]
+  const company = /(?:Company|Fund|Name): ([^;]+?)(?:;|\. )/.exec(data.instrument_context)?.[1]
   const current = section ?? data.sections.length - 1
   const sec = data.sections[current]
   return (
