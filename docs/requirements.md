@@ -194,7 +194,9 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-SAFE-01 | M | Paths built from tickers or run ids shall be validated so they cannot escape the Berkshire home. | T |
 | REQ-SAFE-02 | M | All state, log and queue writes shall be atomic (temp file + rename). | T |
 | REQ-SAFE-03 | M | Every report shall carry the research disclaimer: "not financial advice". | T |
-| REQ-SAFE-04 | M | The traceability matrix shall be complete: every REQ is covered by ≥ 1 TST, and every automated TST exists in `tests/`. | T |
+| REQ-SAFE-04 | M | The traceability matrix shall be complete: every REQ is covered by ≥ 1 TST, and every automated TST exists in `tests/`. Every manual TST names a procedure in the test plan, and each procedure id is defined once. | T |
+| REQ-SAFE-05 | M | The repository root shall have an `AGENTS.md` that links every document in `docs/` and states the change discipline: requirement, test-plan row and tagged test in the same commit, the matrix regenerated, the local gates (tests with coverage, pinned ruff, web tests), the upstream ledger check, and the version bump. `CLAUDE.md` forwards to it. | I |
+| REQ-SAFE-06 | S | `docs/design.md` shall describe the engine: one row per module of `berkshire/` with its responsibility and requirement areas, the run lifecycle, the home layout and the tick. | I |
 
 ## 15. Web and terminal views (REQ-UI)
 

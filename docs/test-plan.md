@@ -217,7 +217,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-UI-24 | The pipeline loop stops dispatching when the run was stopped | REQ-UI-13 | I | pipeline-loop.md text. |
 | TST-UI-25 | A second start for a (ticker, date) whose job is still running is refused | REQ-UI-06 | T | Same ticker via its eToro alias → 400 naming the job, nothing spawned; another date spawns; after the job exits a restart spawns. |
 | TST-UI-26 | A dashboard job past job_timeout_minutes is ended once, its run marked stopped, and a restart is accepted | REQ-UI-14 | T | Backdated job: fake killer called once, run stopped with the timeout reason, status timed out; a fresh job untouched; restart of the same ticker/date spawns. |
-| TST-UI-27 | A headless claude -p with --strict-mcp-config loads no eToro tools | REQ-UI-06 | D | Manual procedure M5. |
+| TST-UI-27 | A headless claude -p with --strict-mcp-config loads no eToro tools | REQ-UI-06 | D | Manual procedure M7. |
 | TST-UP-01 | The ledger is consistent and records the v0.5.1 baseline | REQ-UP-01, REQ-UP-05 | T | `tools/upstream.py check` on the real ledger; ≥ 30 baseline rows across statuses. |
 | TST-UP-02 | The ledger check rejects bad statuses, missing or unknown requirements, duplicates and bad PR rows | REQ-UP-01 | T | Eleven single mutations of the real ledger, each named in the problems. |
 | TST-UP-03 | The worklist splits open PRs into new, head-moved and unchanged, and flags PRs that left the open list | REQ-UP-02 | T | Four ledger rows × three open PRs; a declined PR is not revisited. |
@@ -225,6 +225,9 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-UP-05 | The skill may read upstream but has no permission to push, merge, comment or edit there | REQ-UP-04 | I | allowed-tools contains only read-only git/gh commands. |
 | TST-UP-06 | A full /upstream-scout run against live upstream | REQ-UP-02, REQ-UP-03, REQ-UP-04 | D | Manual procedure M6. |
 | TST-SAFE-04 | Requirements, test plan and test code are mutually traceable | REQ-SAFE-04 | T | `tests/test_traceability.py`. |
+| TST-SAFE-05 | Every manual procedure id is defined once, and every manual test names one that exists | REQ-SAFE-04 | T | Procedure headings in §4 unique; each D row's design cell names an M-id defined there. |
+| TST-SAFE-06 | AGENTS.md links every ground-truth document and states the change discipline; CLAUDE.md forwards to it | REQ-SAFE-05 | I | Every `docs/*.md` linked; the gate commands named; CLAUDE.md names AGENTS.md. |
+| TST-SAFE-07 | The design document describes every engine module | REQ-SAFE-06 | I | One module-table row per `berkshire/*.py` (except `__init__`, `__main__`), so a new module cannot go undescribed. |
 
 ## 3. Entry and exit criteria
 
@@ -275,11 +278,6 @@ Load the plugin: `claude --plugin-dir /Users/kai/repos/ai/berkshire`, or
 6. Start a second analysis and stop it with **Stop analysis** (web, two clicks) or `s` (TUI). The job ends
    within seconds, the run shows Stopped with its reason, and no further agents are started.
 
-**M5 — headless job boundary (TST-UI-27).** From `$HOME`, with the eToro connector enabled, run
-`claude -p "Reply with only the names of your available tools that contain 'eToro', or NONE." --permission-mode dontAsk`
-once without and once with `--strict-mcp-config`. Without the flag it lists the eToro tools; with it,
-`NONE`. Checked on Claude Code 2.1.283, 2026-09-27.
-
 **M5 — first CI run (TST-CI-09).**
 1. Push to the GitHub `main` branch. All six jobs pass.
 2. The test job's summary shows the coverage table, and the `coverage` artifact has `coverage.xml`.
@@ -294,6 +292,11 @@ once without and once with `--strict-mcp-config`. Without the flag it lists the 
 3. Run it again at once. No PR is re-analysed (all unchanged), and the next five of the backlog are taken.
 4. Choose one recommendation. Its row becomes `planned`, and nothing else in the repo changes.
 
+**M7 — headless job boundary (TST-UI-27).** From `$HOME`, with the eToro connector enabled, run
+`claude -p "Reply with only the names of your available tools that contain 'eToro', or NONE." --permission-mode dontAsk`
+once without and once with `--strict-mcp-config`. Without the flag it lists the eToro tools; with it,
+`NONE`. Checked on Claude Code 2.1.283, 2026-09-27.
+
 | Procedure | Date | Result | Notes |
 |---|---|---|---|
 | M1 | | not yet run | |
@@ -302,6 +305,7 @@ once without and once with `--strict-mcp-config`. Without the flag it lists the 
 | M4 | | not yet run | |
 | M6 | | not yet run | |
 | M5 | 2026-09-25 | pass (run 36119571904) | The first three runs failed and were fixed: a clock mismatch, the Node 22 test glob, gitleaks-action on a first push, and CodeQL upload on a private repo. Coverage 87.7%. |
+| M7 | 2026-09-27 | pass | Claude Code 2.1.283: eToro tools listed without the flag, `NONE` with it. |
 
 ## 5. Traceability matrix (REQ → TST)
 
@@ -409,7 +413,9 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-SAFE-01 | TST-SAFE-01 |
 | REQ-SAFE-02 | TST-CKPT-01, TST-SAFE-02 |
 | REQ-SAFE-03 | TST-RPT-01 |
-| REQ-SAFE-04 | TST-SAFE-04 |
+| REQ-SAFE-04 | TST-SAFE-04, TST-SAFE-05 |
+| REQ-SAFE-05 | TST-SAFE-06 |
+| REQ-SAFE-06 | TST-SAFE-07 |
 | REQ-UI-01 | TST-UI-01, TST-UI-04, TST-UI-12, TST-UI-19 |
 | REQ-UI-02 | TST-UI-02, TST-UI-03, TST-UI-04, TST-UI-10, TST-WEB-02, TST-WEB-04 |
 | REQ-UI-03 | TST-UI-05, TST-UI-06, TST-UI-13 |

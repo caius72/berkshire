@@ -97,7 +97,10 @@ State lives in `~/.berkshire/`: `runs/<TICKER>/<DATE>/` (state, prompts, outputs
 
 * [docs/tradingagents-analysis.md](docs/tradingagents-analysis.md): analysis of the source framework
 * [docs/requirements.md](docs/requirements.md): 105 requirements (`REQ-*`) and the recorded design decisions
+* [docs/design.md](docs/design.md): engine modules, run lifecycle, home layout and the tick
 * [docs/test-plan.md](docs/test-plan.md): strategy, test cases (`TST-*`), manual procedures, and the REQ→TST matrix
+* [docs/upstream.md](docs/upstream.md): the upstream TradingAgents ledger, kept by `/upstream-scout`, with reports in [docs/upstream-reports/](docs/upstream-reports/)
+* [AGENTS.md](AGENTS.md): the change discipline and local gates, for agents and people
 
 ```bash
 uv run --all-extras pytest --cov   # offline, ~8 s; coverage floor and traceability check included
