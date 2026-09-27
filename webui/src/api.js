@@ -83,7 +83,7 @@ export function subscribe(onEvent, onStatus = () => {}) {
           if (done) break
           const out = parseSSE(buf + dec.decode(value, { stream: true }))
           buf = out.rest
-          out.events.forEach((e) => onEvent(e.event, e.data))
+          for (const e of out.events) onEvent(e.event, e.data)
         }
       } catch {
         if (stopped) return

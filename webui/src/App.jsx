@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, subscribe } from './api.js'
 import Markdown from './Markdown.jsx'
 
@@ -24,15 +24,17 @@ function StopButton({ ticker, date, onStopped, label = 'Stop analysis' }) {
   }
   return (
     <span className="stop-wrap">
-      <button className={`stop ${armed ? 'armed' : ''}`} onClick={stop}>{armed ? 'Click again to stop' : label}</button>
+      <button type="button" className={`stop ${armed ? 'armed' : ''}`} onClick={stop}>{armed ? 'Click again to stop' : label}</button>
       {err && <span className="error small">{err}</span>}
     </span>
   )
 }
 
+// Loads `fn()` and reloads whenever `deps` change; views pass the SSE `tick` in `deps` to refresh on change.
 function useAsync(fn, deps) {
   const [state, set] = useState({ data: null, error: null })
-  const reload = useCallback(() => fn().then((data) => set({ data, error: null }), (error) => set({ data: null, error })), deps) // eslint-disable-line
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the caller's deps decide when to reload, not fn's identity
+  const reload = useCallback(() => fn().then((data) => set({ data, error: null }), (error) => set({ data: null, error })), deps)
   useEffect(() => { reload() }, [reload])
   return [state, reload]
 }
@@ -83,10 +85,8 @@ function OrderCard({ orders }) {
 }
 
 function RunDetail({ run, tick }) {
-  const [{ data, error }, reload] = useAsync(() => api.run(run.ticker, run.date), [run.ticker, run.date])
-  const [section, setSection] = useState(null)
-  useEffect(() => { reload() }, [tick]) // eslint-disable-line
-  useEffect(() => { setSection(null) }, [run.ticker, run.date])
+  const [{ data, error }, reload] = useAsync(() => api.run(run.ticker, run.date), [run.ticker, run.date, tick])
+  const [section, setSection] = useState(null)  // reset per run: Runs keys RunDetail by the run
   if (error) return <p className="error">{error.message}</p>
   if (!data) return <p className="muted">Loading {run.ticker}…</p>
   const s = data.summary
@@ -113,7 +113,7 @@ function RunDetail({ run, tick }) {
           <nav className="sections">
             {data.sections.length === 0 && <p className="muted small">Reports appear here as each agent finishes.</p>}
             {data.sections.map((x, i) => (
-              <button key={x.dir + x.key} className={i === current ? 'on' : ''} onClick={() => setSection(i)}>
+              <button type="button" key={x.dir + x.key} className={i === current ? 'on' : ''} onClick={() => setSection(i)}>
                 <span className="sec-team">{x.team.split('. ')[0]}</span>{x.agent}
               </button>
             ))}
@@ -140,28 +140,28 @@ function RunDetail({ run, tick }) {
 }
 
 function Runs({ tick, onNew }) {
-  const [{ data: runs, error }, reload] = useAsync(api.runs, [])
+  const [{ data: runs, error }] = useAsync(api.runs, [tick])
   const [sel, setSel] = useState(null)
-  useEffect(() => { reload() }, [tick]) // eslint-disable-line
   if (error) return <p className="error">{error.message}</p>
   if (!runs) return <p className="muted">Loading analyses…</p>
   if (runs.length === 0) return (
     <div className="empty"><h2>No analyses yet</h2><p>Start one here, or run <code>/berkshire:analyze NVDA</code> in Claude Code.</p>
-      <button className="primary" onClick={onNew}>New analysis</button></div>)
+      <button type="button" className="primary" onClick={onNew}>New analysis</button></div>)
   const current = runs.find((r) => sel && r.ticker === sel.ticker && r.date === sel.date) || runs[0]
   return (
     <div className="runs">
       <nav className="run-list" aria-label="Analyses">
         {runs.map((r) => (
-          <button key={r.ticker + r.date} className={r === current ? 'on' : ''} onClick={() => setSel(r)}>
+          <button type="button" key={r.ticker + r.date} className={r === current ? 'on' : ''} onClick={() => setSel(r)}>
             <span className="rl-ticker">{r.ticker}</span>
             <Signal value={r.signal} status={r.status} />
             <span className="rl-date">{r.date}</span>
-            <span className="rl-bar" style={{ '--p': r.done / r.total }} aria-label={`${r.done} of ${r.total}`} />
+            <span className="rl-bar" style={{ '--p': r.done / r.total }} role="progressbar" aria-valuemin={0}
+              aria-valuemax={r.total} aria-valuenow={r.done} aria-label={`${r.done} of ${r.total} agents finished`} />
           </button>
         ))}
       </nav>
-      <RunDetail run={current} tick={tick} />
+      <RunDetail key={current.ticker + current.date} run={current} tick={tick} />
     </div>
   )
 }
@@ -171,42 +171,41 @@ function Table({ cols, rows, empty }) {
   return (
     <div className="table-wrap"><table className="data">
       <thead><tr>{cols.map((c) => <th key={c}>{c}</th>)}</tr></thead>
-      <tbody>{rows.map((r, i) => <tr key={i}>{r.map((c, k) => <td key={k}>{c}</td>)}</tr>)}</tbody>
+      <tbody>{rows.map((r, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: rows and cells have no identity beyond their position
+        <tr key={i}>{r.map((c, k) => <td key={k}>{c}</td>)}</tr>))}</tbody>
     </table></div>
   )
 }
 
 function Decisions({ tick }) {
-  const [{ data, error }, reload] = useAsync(api.memory, [])
-  useEffect(() => { reload() }, [tick]) // eslint-disable-line
+  const [{ data, error }] = useAsync(api.memory, [tick])
   if (error) return <p className="error">{error.message}</p>
   return (
     <section className="page-section"><h2>Decision log</h2>
       <p className="lede">Each finished analysis is logged here. After the holding window has traded, it gets its return, its alpha against the benchmark, and a lesson that the portfolio manager reads next time.</p>
       <Table cols={['Date', 'Ticker', 'Rating', 'Return', 'Alpha', 'Window', 'Lesson']} empty="No decisions logged yet."
-        rows={data?.map((e) => [e.date, e.ticker, <Signal value={e.rating} />, e.raw || 'pending', e.alpha || '', e.holding || '', e.reflection || <span className="muted">not yet settled</span>])} />
+        rows={data?.map((e) => [e.date, e.ticker, <Signal key="rating" value={e.rating} />, e.raw || 'pending', e.alpha || '', e.holding || '', e.reflection || <span key="lesson" className="muted">not yet settled</span>])} />
     </section>
   )
 }
 
 function Orders({ tick }) {
-  const [{ data, error }, reload] = useAsync(api.queue, [])
-  useEffect(() => { reload() }, [tick]) // eslint-disable-line
+  const [{ data, error }] = useAsync(api.queue, [tick])
   if (error) return <p className="error">{error.message}</p>
   return (
     <section className="page-section"><h2>Order queue</h2>
       <p className="lede">Proposals from the risk gate. They are read-only here. Place or reject them from Claude with <code>/berkshire:approve</code>, which confirms each one with eToro.</p>
       <Table cols={['Created', 'Instrument', 'Rating', 'Order', 'Stop', 'Account', 'Status']} empty="The queue is empty."
-        rows={data?.map((q) => [q.created.replace('T', ' ').slice(0, 16), q.intent.etoro_symbol, <Signal value={q.intent.rating} />,
+        rows={data?.map((q) => [q.created.replace('T', ' ').slice(0, 16), q.intent.etoro_symbol, <Signal key="rating" value={q.intent.rating} />,
           q.intent.kind === 'open' ? `Buy $${q.intent.amount}` : `Close ${q.intent.closes.length}`, q.intent.stop_loss_rate ?? '', q.intent.account,
-          <span className={`status status-${q.status}`}>{q.status.replace('_', ' ')}</span>])} />
+          <span key="status" className={`status status-${q.status}`}>{q.status.replace('_', ' ')}</span>])} />
     </section>
   )
 }
 
 function Backtests({ tick }) {
-  const [{ data, error }, reload] = useAsync(api.backtests, [])
-  useEffect(() => { reload() }, [tick]) // eslint-disable-line
+  const [{ data, error }] = useAsync(api.backtests, [tick])
   if (error) return <p className="error">{error.message}</p>
   return (
     <section className="page-section"><h2>Backtests</h2>
@@ -217,7 +216,7 @@ function Backtests({ tick }) {
           <h3>{b.run_id}</h3>
           <p className="muted small">{b.resolved} settled, {b.pending} waiting for their window, {b.unscored} without a rating</p>
           <Table cols={['Rating', 'Decisions', 'Called direction', 'Mean alpha']} empty="Nothing settled yet."
-            rows={Object.entries(b.by_rating).map(([r, s]) => [<Signal value={r} />, s.count,
+            rows={Object.entries(b.by_rating).map(([r, s]) => [<Signal key="rating" value={r} />, s.count,
               s.hit_rate == null ? 'no direction' : `${Math.round(s.hit_rate * 100)}%`, `${(s.mean_alpha * 100).toFixed(2)}%`])} />
         </div>
       ))}
@@ -226,16 +225,15 @@ function Backtests({ tick }) {
 }
 
 function Jobs({ tick }) {
-  const [{ data, error }, reload] = useAsync(api.jobs, [])
-  useEffect(() => { reload() }, [tick]) // eslint-disable-line
+  const [{ data, error }, reload] = useAsync(api.jobs, [tick])
   if (error) return <p className="error">{error.message}</p>
   return (
     <section className="page-section"><h2>Jobs</h2>
       <p className="lede">Analyses started from this page run headless in Claude Code. Their output log is below.</p>
       <Table cols={['Started', 'Instrument', 'Date', 'Status', '']} empty="No jobs started from here yet."
         rows={data?.map((j) => [j.started.replace('T', ' ').slice(0, 16), j.ticker, j.date,
-          <span className={`status status-${j.status.split(' ')[0]}`}>{j.status}</span>,
-          j.status === 'running' ? <StopButton ticker={j.ticker} date={j.date} label="Stop" onStopped={reload} /> : null])} />
+          <span key="status" className={`status status-${j.status.split(' ')[0]}`}>{j.status}</span>,
+          j.status === 'running' ? <StopButton key="stop" ticker={j.ticker} date={j.date} label="Stop" onStopped={reload} /> : null])} />
       {data?.[0]?.log_tail && <pre className="log">{data[0].log_tail}</pre>}
     </section>
   )
@@ -255,6 +253,7 @@ function NewAnalysis({ onClose, onStarted }) {
     <div className="modal" role="dialog" aria-modal="true" aria-labelledby="na-title" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
       <form className="sheet" onSubmit={submit}>
         <h2 id="na-title">New analysis</h2>
+        {/* biome-ignore lint/a11y/noAutofocus: opening the dialog moves focus into it, to its first field */}
         <label>Instrument<input autoFocus required value={form.ticker} placeholder="NVDA, RHM.DE, BTC-USD"
           onChange={(e) => setForm({ ...form, ticker: e.target.value.toUpperCase() })} /></label>
         <label>Analysis date<input type="date" max={today} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
@@ -269,7 +268,7 @@ function NewAnalysis({ onClose, onStarted }) {
         {err && <p className="error">{err}</p>}
         <div className="sheet-actions">
           <button type="button" onClick={onClose}>Cancel</button>
-          <button className="primary" disabled={busy || !form.ticker || !form.analysts.length}>{busy ? 'Starting…' : 'Start analysis'}</button>
+          <button type="submit" className="primary" disabled={busy || !form.ticker || !form.analysts.length}>{busy ? 'Starting…' : 'Start analysis'}</button>
         </div>
         <p className="muted small">This runs <code>/berkshire:analyze</code> headless in Claude Code. It never places orders.</p>
       </form>
@@ -289,10 +288,10 @@ export default function App() {
       <header className="top">
         <span className="brand">Berkshire</span>
         <nav className="views">
-          {VIEWS.map((v) => <button key={v} className={v === view ? 'on' : ''} aria-current={v === view ? 'page' : undefined} onClick={() => setView(v)}>{v}</button>)}
+          {VIEWS.map((v) => <button type="button" key={v} className={v === view ? 'on' : ''} aria-current={v === view ? 'page' : undefined} onClick={() => setView(v)}>{v}</button>)}
         </nav>
         <span className={`live live-${live}`} title={live === 'live' ? 'Updates as agents finish' : 'Reconnecting to berkshire serve'}>{live === 'live' ? 'Live' : live === 'offline' ? 'Offline' : 'Connecting'}</span>
-        <button className="primary" onClick={() => setModal(true)}>New analysis</button>
+        <button type="button" className="primary" onClick={() => setModal(true)}>New analysis</button>
       </header>
       <main>
         {view === 'Runs' && <Runs tick={tick} onNew={() => setModal(true)} />}

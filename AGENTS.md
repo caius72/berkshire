@@ -32,7 +32,7 @@ Expected values come from the requirement, not from the code. Write the failing 
 ```bash
 uv run --all-extras pytest -q --cov    # tests, traceability, coverage floor in pyproject.toml
 uvx ruff@0.16.5 check .                # the version pinned in .github/workflows/ci.yml
-cd webui && npm test && npm run build  # web view
+cd webui && npm run lint && npm test && npm run build  # web view
 uv run python tools/upstream.py check  # the upstream ledger, when docs/upstream.md changes
 ```
 

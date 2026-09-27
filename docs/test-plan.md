@@ -207,7 +207,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-CI-04 | gitleaks scans the full history on every push and PR | REQ-CI-04 | I | fetch-depth 0, pinned gitleaks binary, `gitleaks git .` with no commit range. |
 | TST-CI-05 | CodeQL analyses Python and JavaScript with security-extended queries | REQ-CI-05 | I | sast matrix, permissions, and a gate step that fails on any SARIF result. |
 | TST-CI-06 | The core job installs no extras, asserts textual is absent and checks the tui hint | REQ-CI-06 | I | core job commands; textual only in the extra. |
-| TST-CI-07 | The webui job runs npm ci, the node tests and the vite build | REQ-CI-07 | I | webui job + package.json + lockfile. |
+| TST-CI-07 | The webui job runs npm ci, the pinned linter, the node tests and the vite build | REQ-CI-07 | I | webui job + package.json (exact Biome version, `lint` script) + biome.json (recommended + hook rules as errors) + lockfile. |
 | TST-CI-08 | Read-only default permissions, versioned actions, locked installs | REQ-CI-08 | I | Every `uses:` ends in `@vN`. |
 | TST-CI-09 | First push to GitHub: every job green, coverage and CodeQL results published | REQ-CI-01, REQ-CI-03, REQ-CI-04, REQ-CI-05 | D | Manual procedure M5. |
 | TST-FLOW-11 | A stopped run offers and accepts no steps; --checkpoint resumes it | REQ-UI-13 | T | Stop after one step; next/submit/CLI `next`; resume clears the flag; a complete run cannot be stopped. |

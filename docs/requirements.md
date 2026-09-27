@@ -241,7 +241,7 @@ Modelled on matlab-tui's `.gitlab-ci.yml`, as GitHub Actions (D9).
 | REQ-CI-04 | M | Secret-leak detection (gitleaks) shall scan the full git history on every push and pull request. | I |
 | REQ-CI-05 | M | Static analysis (CodeQL) shall cover Python and JavaScript. | I |
 | REQ-CI-06 | M | A job without the optional extras shall assert textual is absent and run the suite, proving REQ-UI-09 rather than assuming it. | I |
-| REQ-CI-07 | M | The web view shall be checked by `npm ci`, the node unit tests and `vite build`. | I |
+| REQ-CI-07 | M | The web view shall be checked by `npm ci`, a pinned linter (Biome, exact version in `package.json`) with the explicit rule set in `webui/biome.json` including the React hook rules, the node unit tests and `vite build`. | I |
 | REQ-CI-08 | M | The workflow shall run with read-only default permissions, use versioned actions, and fail on the first broken job. | I |
 
 ## 17. Upstream tracking (REQ-UP)

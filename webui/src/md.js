@@ -42,7 +42,7 @@ export function parseBlocks(md) {
       while (i < lines.length) {
         const m = /^\s*([-*+]|\d+[.)])\s+(.*)$/.exec(lines[i])
         if (m) { items.push(m[2]); i++ } else if (lines[i].trim() && /^\s{2,}/.test(lines[i])) {
-          items[items.length - 1] += ' ' + lines[i].trim(); i++
+          items[items.length - 1] += ` ${lines[i].trim()}`; i++
         } else break
       }
       blocks.push({ type: 'list', ordered, items })
@@ -67,14 +67,13 @@ export function parseInline(s) {
   const out = []
   const re = /(`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|\*[^*\s][^*]*\*)/g
   let last = 0
-  let m
-  while ((m = re.exec(s || ''))) {
+  for (const m of (s || '').matchAll(re)) {
     if (m.index > last) out.push({ t: 'text', v: s.slice(last, m.index) })
     const tok = m[0]
     if (tok.startsWith('`')) out.push({ t: 'code', v: tok.slice(1, -1) })
     else if (tok.startsWith('**') || tok.startsWith('__')) out.push({ t: 'b', v: tok.slice(2, -2) })
     else out.push({ t: 'i', v: tok.slice(1, -1) })
-    last = re.lastIndex
+    last = m.index + tok.length
   }
   if (last < (s || '').length) out.push({ t: 'text', v: s.slice(last) })
   return out
