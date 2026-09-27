@@ -41,6 +41,14 @@ It **proposes, it does not implement.** Nothing outside `docs/upstream.md` and
    every other status needs a note saying why.
 4. A merged PR that is already in the ledger's Pull requests table becomes a feature row.
    Update its PR row: keep the verdict, and set Status to reflect the decision on the feature.
+5. Upstream develops the next release on a `vX.Y.Z` branch before it reaches `main`. `DEV` = the
+   newest `origin/v*` branch with commits not on `main` (`git -C U branch -r --sort=-committerdate`,
+   then `git -C U log --oneline origin/main..<branch>`). `WD` = `last_reviewed_dev_commit` from the
+   Watermark if it is on `DEV`, else `git -C U merge-base origin/main origin/DEV`. Review
+   `git -C U log --oneline --no-merges WD..origin/DEV` as in 1.3, with `Upstream` = `DEV-dev <sha>`
+   (e.g. `v0.5.2-dev 47ac1f2`). When these commits later reach `main` (step 1.2), a commit
+   whose issue number or subject already has a row is not a new feature: set that row's `Upstream`
+   to the release.
 
 ## 2. Open PRs: what to analyse
 
@@ -90,7 +98,8 @@ In `docs/upstream.md`:
   Status for a fresh verdict: `adopt`/`adapt` → `candidate`, `watch` → `watch`, `decline` → `declined`.
   Status becomes `planned`, `incorporated` or `adapted` only through step 7.
 - Update the Watermark: `last_reviewed_commit` = `git -C U rev-parse --short origin/main`,
-  `last_reviewed_release` = the newest release, and `last_run` = D. Only now, after the report exists,
+  `last_reviewed_release` = the newest release, `last_reviewed_dev_commit` =
+  `git -C U rev-parse --short origin/DEV` (when step 1.5 ran), and `last_run` = D. Only now, after the report exists,
   so an interrupted run is redone rather than skipped.
 - `uv run python tools/upstream.py check` must print `ledger OK`, and
   `uv run pytest tests/test_upstream.py tests/test_traceability.py -q` must pass.
