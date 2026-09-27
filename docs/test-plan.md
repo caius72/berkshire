@@ -19,6 +19,7 @@ Covers every requirement in [requirements.md](requirements.md). Test ids are
 | **Inspection (I)** | Plugin artefacts: 13 role subagents, persona directives, tool boundaries, execution guardrails in the skills | pytest over the markdown and frontmatter | `tests/test_plugin.py` |
 | **Traceability (T)** | REQ ↔ TST consistency | pytest parses both docs and all test docstrings | `tests/test_traceability.py` |
 | **Views (T)** | The API server (guard, routes, SSE, jobs), the client, the Textual TUI (driven by Textual's pilot against a real server thread), and the web view's pure modules | pytest; `node --test` | `tests/test_server.py`, `test_tui.py`, `webui/test/web.test.js` |
+| **Upstream ledger (T)** | The ledger in `docs/upstream.md`: fixed statuses, requirement ids that exist, the PR worklist, and the skill's ordering rules | pytest over the ledger and `tools/upstream.py` | `tests/test_upstream.py` |
 | **CI config (I)** | The workflow, lint rules and coverage floor | pytest over the parsed YAML/TOML | `tests/test_ci.py` |
 | **Manual (D)** | Behaviour that depends on live LLM agents, the Claude Code UI, or the eToro account | Documented procedures (§4), run against the **eToro demo account** | this document |
 
@@ -228,6 +229,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-SAFE-05 | Every manual procedure id is defined once, and every manual test names one that exists | REQ-SAFE-04 | T | Procedure headings in §4 unique; each D row's design cell names an M-id defined there. |
 | TST-SAFE-06 | AGENTS.md links every ground-truth document and states the change discipline; CLAUDE.md forwards to it | REQ-SAFE-05 | I | Every `docs/*.md` linked; the gate commands named; CLAUDE.md names AGENTS.md. |
 | TST-SAFE-07 | The design document describes every engine module | REQ-SAFE-06 | I | One module-table row per `berkshire/*.py` (except `__init__`, `__main__`), so a new module cannot go undescribed. |
+| TST-SAFE-08 | The test strategy names every test file, and the README states no requirement count that can drift | REQ-SAFE-07 | T | Every `tests/test_*.py` appears in §1; no `N requirements` in the README; the README links the ledger and names `/upstream-scout`. |
 
 ## 3. Entry and exit criteria
 
@@ -416,6 +418,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-SAFE-04 | TST-SAFE-04, TST-SAFE-05 |
 | REQ-SAFE-05 | TST-SAFE-06 |
 | REQ-SAFE-06 | TST-SAFE-07 |
+| REQ-SAFE-07 | TST-SAFE-08 |
 | REQ-UI-01 | TST-UI-01, TST-UI-04, TST-UI-12, TST-UI-19 |
 | REQ-UI-02 | TST-UI-02, TST-UI-03, TST-UI-04, TST-UI-10, TST-WEB-02, TST-WEB-04 |
 | REQ-UI-03 | TST-UI-05, TST-UI-06, TST-UI-13 |
