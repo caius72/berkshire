@@ -1,4 +1,4 @@
-# Lint rules for CI and local runs:  uvx ruff@0.16.5 check .
+# Lint rules and format settings for CI and local runs:  uvx ruff@0.16.5 check .  and  uvx ruff@0.16.5 format --check .
 # The rule set is explicit so a ruff upgrade cannot change what CI enforces;
 # the version CI installs is pinned in .github/workflows/ci.yml.
 target-version = "py311"

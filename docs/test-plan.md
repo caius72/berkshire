@@ -202,7 +202,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-WEB-03 | The SSE parser handles split chunks, comments and multi-event buffers | REQ-UI-04 | T | Event split across two chunks; keep-alive comment. |
 | TST-WEB-04 | The ?t= token moves to sessionStorage and leaves the address bar | REQ-UI-02 | T | Fake location/storage/history. |
 | TST-CI-01 | CI runs on push and PR to main with test, core, lint, webui, secrets and sast jobs | REQ-CI-01 | I | Parse ci.yml. |
-| TST-CI-02 | ruff is pinned in CI and the rule set includes bandit security checks | REQ-CI-02 | I | ci.yml env + ruff.toml. |
+| TST-CI-02 | ruff is pinned in CI, the rule set includes bandit security checks, and the format check runs | REQ-CI-02 | I | ci.yml env + ruff.toml + `ruff format --check .` in the lint job. |
 | TST-CI-03 | The test job runs every extra under branch coverage with a ratcheting floor and publishes the report | REQ-CI-03 | I | ci.yml + [tool.coverage]. Floor ≥ 89 and the step that fails when coverage is ≥ 2 points above it. |
 | TST-CI-04 | gitleaks scans the full history on every push to any branch and on every PR | REQ-CI-04 | I | fetch-depth 0, pinned gitleaks binary, `gitleaks git .` with no commit range. `secrets.yml` covers pushes to branches other than main with the same version and steps. |
 | TST-CI-05 | CodeQL analyses Python and JavaScript with security-extended queries | REQ-CI-05 | I | sast matrix, permissions, and a gate step that fails on any SARIF result. |

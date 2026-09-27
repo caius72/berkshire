@@ -236,7 +236,7 @@ Modelled on matlab-tui's `.gitlab-ci.yml`, as GitHub Actions (D9).
 | ID | Pri | Requirement | Ver |
 |---|---|---|---|
 | REQ-CI-01 | M | A workflow shall run on every push and pull request to `main` with these jobs: test, core (no extras), lint, webui, secrets, sast. | I |
-| REQ-CI-02 | M | Lint shall use a pinned ruff version and the explicit rule set in `ruff.toml`, including the bandit (`S`) security rules. | I |
+| REQ-CI-02 | M | Lint shall use a pinned ruff version and the explicit rule set in `ruff.toml`, including the bandit (`S`) security rules. The same pinned ruff shall check the layout of the Python sources (`ruff format --check`). | I |
 | REQ-CI-03 | M | The test job shall install every extra and measure branch coverage. It fails below the floor in `pyproject.toml`, and also when coverage is 2 or more points above it, so the floor is kept within 2 points of actual coverage (a ratchet). It publishes `coverage.xml` plus a summary. | I |
 | REQ-CI-04 | M | Secret-leak detection (gitleaks) shall scan the full git history on every push, to any branch, and on every pull request: `ci.yml` for `main` and pull requests, `secrets.yml` for pushes to other branches, with the same pinned version and scan. | I |
 | REQ-CI-05 | M | Static analysis (CodeQL) shall cover Python and JavaScript. | I |

@@ -79,13 +79,15 @@ jobs:
           test "$code" -eq 3
           grep -q "optional 'tui' extra" err.txt
 
-  # Rules are explicit in ruff.toml, including bandit (S) security checks (REQ-CI-02).
+  # Rules are explicit in ruff.toml, including bandit (S) security checks, and layout is
+  # checked by the same pinned ruff's formatter (REQ-CI-02).
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uvx "ruff@${RUFF_VERSION}" check --output-format=github .
+      - run: uvx "ruff@${RUFF_VERSION}" format --check .   # layout, same pinned ruff (Python sources only, see ruff.toml)
 
   # webui/dist is not committed, so CI proves the bundle still builds, the React code passes
   # the pinned linter, and the pure modules (markdown, SSE parser, token handling) pass their tests (REQ-CI-07).

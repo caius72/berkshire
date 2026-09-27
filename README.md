@@ -105,7 +105,7 @@ State lives in `~/.berkshire/`: `runs/<TICKER>/<DATE>/` (state, prompts, outputs
 ```bash
 uv run --all-extras pytest --cov   # offline, ~8 s; coverage floor and traceability check included
 cd webui && npm test               # web view unit tests
-uvx ruff@0.16.5 check .            # lint, same pinned version as CI
+uvx ruff@0.16.5 check . && uvx ruff@0.16.5 format --check .   # lint and layout, pinned as in CI
 ```
 
 ## CI
@@ -116,7 +116,7 @@ uvx ruff@0.16.5 check .            # lint, same pinned version as CI
 |---|---|
 | `test` | The full suite with every extra, under branch coverage. It fails below the floor in `pyproject.toml`, which only ratchets up. Publishes `coverage.xml` and a summary. |
 | `core` | Without the optional `tui` extra: textual is absent, the suite passes, and `berkshire tui` explains the extra. |
-| `lint` | Pinned ruff with the explicit rules in `ruff.toml`, including bandit security checks. |
+| `lint` | Pinned ruff with the explicit rules in `ruff.toml`, including bandit security checks, and `ruff format --check`. |
 | `webui` | `npm ci`, the node unit tests, and `vite build`. |
 | `secrets` | gitleaks over the full git history. `secrets.yml` runs the same scan on every push to other branches. |
 | `sast` | CodeQL for Python and JavaScript (security-extended). |
