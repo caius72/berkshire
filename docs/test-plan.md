@@ -100,7 +100,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-OUT-10 | TraderProposal accepts target_price like the other levels and renders the engine's R/R line | REQ-OUT-01, REQ-OUT-03, REQ-OUT-07 | T | "$100" and "130.0" are coerced; a percentage target becomes null and R/R says why. |
 | TST-MEM-01 | A decision is appended in the TradingAgents pending format | REQ-MEM-01 | T | Exact tag/body/separator text. |
 | TST-MEM-02 | A second decision for the same ticker+date is a no-op, pending or settled | REQ-MEM-02 | T | Store twice before and after settlement. |
-| TST-MEM-03 | Benchmark by override/suffix/default; returns need the full window | REQ-MEM-03 | T | Suffix map, dotted US ticker → SPY, override; hand-computed raw/alpha; short series → None. |
+| TST-MEM-03 | Benchmark by override/suffix/default; returns need the full window | REQ-MEM-03 | T | Suffix map, dotted US ticker → SPY, override; the default map for European and Asian venues with no suffix shadowing a longer one; hand-computed raw/alpha; short series → None. |
 | TST-MEM-04 | Due entries settle with a reflection and resolved tag; not-yet-traded stay pending | REQ-MEM-03, REQ-MEM-04 | T | Three entries (due, too recent, other ticker); resolved tag format; no temp file. |
 | TST-MEM-05 | 5 same-ticker + 3 cross-ticker, newest first, point-in-time filtered | REQ-MEM-05 | T | 7 same + 4 cross entries; count/order; `as_of` cut-off includes only lessons resolved by then. |
 | TST-MEM-06 | Rotation drops oldest resolved entries only | REQ-MEM-06 | T | max 2, three resolved + one pending. |
@@ -161,7 +161,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-EXE-04 | pending -> approved -> placed; invalid transitions rejected; expiry and supersede | REQ-EXE-04 | T | State-transition table incl. TTL and supersede. |
 | TST-EXE-05 | pending is never re-placed; unknown retries once with the same token | REQ-EXE-05 | I | approve outcome mapping text. |
 | TST-EXE-06 | The eToro portfolio summary maps to equity, cash and direct positions | REQ-EXE-06 | T | Fixture shaped like `get-my-portfolio-summary`; CLI conversion; raw summary accepted as `--portfolio`. |
-| TST-EXE-07 | eToro symbols map to Yahoo symbols; unmappable ones return None | REQ-EXE-07 | T | 10-row table over asset types from the live watchlist. |
+| TST-EXE-07 | eToro symbols map to Yahoo symbols; unmappable ones return None | REQ-EXE-07 | T | 14-row table over asset types from the live watchlist, incl. `.ZU`, `.NV` and `.RTH` venue spellings. |
 | TST-EXE-08 | The approval confirmation names the account (DEMO/REAL) | REQ-EXE-03 | I | approve text. |
 | TST-EXE-09 | Demo order end-to-end through /berkshire:approve | REQ-EXE-02, REQ-EXE-03 | D | Manual procedure M2. |
 | TST-EXE-10 | eToro asset type 6 (ETF) becomes the etf asset mode without a network call | REQ-FLOW-10, REQ-EXE-07 | T | asset_kind for types 5, 6 and 10; a universe with SPY and EIMI.L. |

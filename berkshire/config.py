@@ -22,7 +22,11 @@ DEFAULTS: dict = {
     "benchmark_map": {
         ".NS": "^NSEI", ".BO": "^BSESN", ".T": "^N225", ".HK": "^HSI", ".L": "^FTSE",
         ".TO": "^GSPTSE", ".AX": "^AXJO", ".SS": "000001.SS", ".SZ": "399001.SZ",
-        ".SA": "^BVSP", ".DE": "^GDAXI", ".PA": "^FCHI", ".AS": "^AEX", "": "SPY",
+        ".SA": "^BVSP", ".DE": "^GDAXI", ".PA": "^FCHI", ".AS": "^AEX",
+        # TradingAgents #1392, plus the other European venues eToro lists (Yahoo symbols checked 2026-09-27)
+        ".TW": "^TWII", ".TWO": "^TWII", ".KS": "^KS11", ".KQ": "^KQ11", ".SI": "^STI",
+        ".SW": "^SSMI", ".MI": "FTSEMIB.MI", ".MC": "^IBEX", ".ST": "^OMX", ".OL": "OSEBX.OL",
+        ".CO": "^OMXC25", ".HE": "^OMXH25", ".BR": "^BFX", ".LS": "PSI20.LS", "": "SPY",
     },
     "news_article_limit": 20,
     "global_news_article_limit": 10,

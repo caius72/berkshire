@@ -43,6 +43,7 @@ def test_portfolio_from_summary(tmp_path, capsys):
 @pytest.mark.parametrize("sym,atype,expected", [
     ("NVDA", 5, "NVDA"), ("RHM.DE", 5, "RHM.DE"), ("EIMI.L", 6, "EIMI.L"), ("BRK.B", 5, "BRK-B"),
     ("BTC", 10, "BTC-USD"), ("EURUSD", 1, "EURUSD=X"), ("GOLD", 2, "GC=F"), ("SPX500", 4, "^GSPC"),
+    ("NESN.ZU", 5, "NESN.SW"), ("ASML.NV", 5, "ASML.AS"), ("ASML.RTH", 5, "ASML"), ("VOLV-A.ST", 5, "VOLV-A.ST"),
     ("NATGAS2", 2, None), ("MYSTERY", 4, None)])
 def test_symbol_mapping(sym, atype, expected):
     """TST-EXE-07: eToro symbols map to Yahoo symbols; unmappable ones return None [REQ-EXE-07]"""

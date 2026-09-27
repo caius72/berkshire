@@ -85,7 +85,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 |---|---|---|---|
 | REQ-MEM-01 | M | Every completed run shall append `[date \| ticker \| rating \| pending]` + `DECISION:` to the markdown decision log, in the TradingAgents format. | T |
 | REQ-MEM-02 | M | Storing a second decision for the same ticker and date shall be a no-op. | T |
-| REQ-MEM-03 | M | Settlement shall compute raw return and alpha over `holding_period_days` trading days against the benchmark. The benchmark is chosen by explicit override, then by exchange suffix, then SPY. An entry whose window has not fully traded stays pending. The same `holding_period_days` is the horizon the agents are told (REQ-CTX-08). | T |
+| REQ-MEM-03 | M | Settlement shall compute raw return and alpha over `holding_period_days` trading days against the benchmark. The benchmark is chosen by explicit override, then by exchange suffix (covering every exchange eToro lists stocks from), then SPY. An entry whose window has not fully traded stays pending. The same `holding_period_days` is the horizon the agents are told (REQ-CTX-08). | T |
 | REQ-MEM-04 | M | A settled entry shall get a 2–4 sentence Reflector reflection and the resolved tag `[date \| ticker \| rating \| raw \| alpha \| Nd \| resolved:YYYY-MM-DD]`, written atomically. | T |
 | REQ-MEM-05 | M | Past context shall contain up to 5 same-ticker entries (full) and 3 cross-ticker reflections, most recent first. For a historical run only lessons resolved on or before the trade date are included. | T |
 | REQ-MEM-06 | S | When `memory_log_max_entries` is set, the oldest resolved entries shall be rotated out. Pending entries are never pruned. | T |
@@ -173,7 +173,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-EXE-04 | M | Queue entries shall move pending → approved/rejected → placed/failed, or pending → expired (after `queue_ttl_hours`) or superseded (a newer intent for the same instrument). Only pending entries are offered for approval. | T |
 | REQ-EXE-05 | M | An `outcome: pending` or `unknown` from eToro shall be recorded as such and never re-placed automatically. A retry after `unknown` reuses the same token. | I |
 | REQ-EXE-06 | M | Portfolio and cash for sizing shall be read from `get-my-portfolio-summary` on the configured account. | T |
-| REQ-EXE-07 | M | eToro symbols shall map to yfinance symbols: stocks and ETFs as-is, crypto → `<SYM>-USD`, and the configured map for forex, commodities and indices. Unmappable instruments are skipped with a reason. | T |
+| REQ-EXE-07 | M | eToro symbols shall map to yfinance symbols: stocks and ETFs as-is except eToro's venue spellings (Zurich `.ZU` → `.SW`, Amsterdam `.NV` → `.AS`, an extended-hours `.RTH` listing → the plain ticker), crypto → `<SYM>-USD`, and the configured map for forex, commodities and indices. Unmappable instruments are skipped with a reason. | T |
 
 ## 13. Scheduling (REQ-SCHED)
 

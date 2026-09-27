@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 from conftest import bars
 
+from berkshire import config
 from berkshire.memory import DecisionLog, compute_returns, reflection_prompt, resolve_benchmark, settle_candidates
 
 
@@ -38,6 +39,11 @@ def test_benchmark_and_returns():
     assert resolve_benchmark("rhm.de", cfg) == "^GDAXI"
     assert resolve_benchmark("BRK.B", cfg) == "SPY"
     assert resolve_benchmark("7203.T", {**cfg, "benchmark_ticker": "QQQ"}) == "QQQ"
+    full = config.DEFAULTS
+    for ticker, bench in (("NESN.SW", "^SSMI"), ("ENEL.MI", "FTSEMIB.MI"), ("VOLV-A.ST", "^OMX"), ("GALP.LS", "PSI20.LS"),
+                          ("6488.TWO", "^TWII"), ("2330.TW", "^TWII"), ("RY.TO", "^GSPTSE"), ("ULVR.L", "^FTSE"),
+                          ("SAP.DE", "^GDAXI"), ("NVDA", "SPY")):
+        assert resolve_benchmark(ticker, full) == bench, ticker  # no suffix shadows a longer one
     idx = pd.bdate_range("2026-09-01", periods=6)
     stock = pd.Series([100, 101, 102, 103, 104, 110.0], index=idx)
     bench = pd.Series([400, 400, 400, 400, 400, 404.0], index=idx)
