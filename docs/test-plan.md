@@ -241,8 +241,8 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 
 ## 4. Manual procedures
 
-Load the plugin: `claude --plugin-dir /Users/kai/repos/ai/berkshire`, or
-`/plugin marketplace add /Users/kai/repos/ai/berkshire` then `/plugin install berkshire@berkshire-local`.
+Load the plugin: `claude --plugin-dir <path-to>/berkshire`, or
+`/plugin marketplace add <path-to>/berkshire` then `/plugin install berkshire@berkshire-local`.
 
 **M1 — interactive analysis (TST-IF-01, TST-IF-07).**
 1. `/berkshire:analyze` with no arguments. Expect the steps in order: ticker, date, language,

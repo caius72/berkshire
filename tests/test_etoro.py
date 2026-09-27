@@ -42,7 +42,7 @@ WATCHLISTS = {
                     {"itemId": 1, "itemType": "Instrument", "market": {"symbolName": "EURUSD", "assetTypeId": 1}},
                     {"itemId": 2587, "itemType": "Instrument", "market": {"symbolName": "RHM.DE", "assetTypeId": 5}},
                     {"itemId": 100063, "itemType": "Instrument", "market": {"symbolName": "SOL", "assetTypeId": 10}},
-                    {"itemId": 918269, "itemType": "User"},
+                    {"itemId": 900001, "itemType": "User"},
                 ],
             },
         ]

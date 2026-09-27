@@ -86,8 +86,8 @@ Long only, leverage 1, at most 5 orders per tick. Queue items expire after 24 h.
 
 ```bash
 # uv is required; the engine's environment is created on first use
-claude --plugin-dir /Users/kai/repos/ai/berkshire          # dev
-# or: /plugin marketplace add /Users/kai/repos/ai/berkshire ; /plugin install berkshire@berkshire-local
+claude --plugin-dir <path-to>/berkshire          # dev
+# or: /plugin marketplace add <path-to>/berkshire ; /plugin install berkshire@berkshire-local
 ```
 
 State lives in `~/.berkshire/`: `runs/<TICKER>/<DATE>/` (state, prompts, outputs, reports),
