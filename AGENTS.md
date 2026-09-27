@@ -10,6 +10,7 @@ schemas, memory, data, the risk gate and the approval queue. Orders are placed o
 | Document | What it holds |
 |---|---|
 | [docs/requirements.md](docs/requirements.md) | The contract: decisions D1–D12 and every `REQ-*` |
+| [docs/design.md](docs/design.md) | How the engine is built: modules, the run lifecycle, the home layout, the tick |
 | [docs/test-plan.md](docs/test-plan.md) | Test strategy and environment, every `TST-*`, the manual procedures (M1…) and the REQ→TST matrix |
 | [docs/tradingagents-analysis.md](docs/tradingagents-analysis.md) | How TradingAgents works, and how it maps into Berkshire (§7) |
 | [docs/upstream.md](docs/upstream.md) | The upstream ledger: what TradingAgents offers and what Berkshire took, with reports in [docs/upstream-reports/](docs/upstream-reports/) |

@@ -227,6 +227,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-SAFE-04 | Requirements, test plan and test code are mutually traceable | REQ-SAFE-04 | T | `tests/test_traceability.py`. |
 | TST-SAFE-05 | Every manual procedure id is defined once, and every manual test names one that exists | REQ-SAFE-04 | T | Procedure headings in §4 unique; each D row's design cell names an M-id defined there. |
 | TST-SAFE-06 | AGENTS.md links every ground-truth document and states the change discipline; CLAUDE.md forwards to it | REQ-SAFE-05 | I | Every `docs/*.md` linked; the gate commands named; CLAUDE.md names AGENTS.md. |
+| TST-SAFE-07 | The design document describes every engine module | REQ-SAFE-06 | I | One module-table row per `berkshire/*.py` (except `__init__`, `__main__`), so a new module cannot go undescribed. |
 
 ## 3. Entry and exit criteria
 
@@ -414,6 +415,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-SAFE-03 | TST-RPT-01 |
 | REQ-SAFE-04 | TST-SAFE-04, TST-SAFE-05 |
 | REQ-SAFE-05 | TST-SAFE-06 |
+| REQ-SAFE-06 | TST-SAFE-07 |
 | REQ-UI-01 | TST-UI-01, TST-UI-04, TST-UI-12, TST-UI-19 |
 | REQ-UI-02 | TST-UI-02, TST-UI-03, TST-UI-04, TST-UI-10, TST-WEB-02, TST-WEB-04 |
 | REQ-UI-03 | TST-UI-05, TST-UI-06, TST-UI-13 |

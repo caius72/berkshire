@@ -235,3 +235,11 @@ def test_agents_md_links_every_document():
         assert rule in agents, rule
     assert "AGENTS.md" in (ROOT / "CLAUDE.md").read_text()
 
+
+def test_design_describes_every_module():
+    """TST-SAFE-07: The design document describes every engine module [REQ-SAFE-06]"""
+    design = (ROOT / "docs" / "design.md").read_text()
+    for mod in sorted((ROOT / "berkshire").glob("*.py")):
+        if mod.stem not in ("__init__", "__main__"):
+            assert f"| `{mod.name}` |" in design, f"docs/design.md has no row for berkshire/{mod.name}"
+
