@@ -118,5 +118,5 @@ uvx ruff@0.16.5 check .            # lint, same pinned version as CI
 | `core` | Without the optional `tui` extra: textual is absent, the suite passes, and `berkshire tui` explains the extra. |
 | `lint` | Pinned ruff with the explicit rules in `ruff.toml`, including bandit security checks. |
 | `webui` | `npm ci`, the node unit tests, and `vite build`. |
-| `secrets` | gitleaks over the full git history. |
+| `secrets` | gitleaks over the full git history. `secrets.yml` runs the same scan on every push to other branches. |
 | `sast` | CodeQL for Python and JavaScript (security-extended). |
