@@ -231,6 +231,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-SAFE-07 | The design document describes every engine module | REQ-SAFE-06 | I | One module-table row per `berkshire/*.py` (except `__init__`, `__main__`), so a new module cannot go undescribed. |
 | TST-SAFE-08 | The test strategy names every test file, and the README states no requirement count that can drift | REQ-SAFE-07 | T | Every `tests/test_*.py` appears in §1; no `N requirements` in the README; the README links the ledger and names `/upstream-scout`. |
 | TST-SAFE-09 | Every manual procedure not yet run links its tracking issue, and AGENTS.md names the tracker and its labels | REQ-SAFE-08 | T | Results-table rows marked `not yet run` carry `#N`; AGENTS.md links the issues and names the six labels. |
+| TST-SAFE-10 | The requirements state the objective, its success criteria, the non-goals and the open questions | REQ-SAFE-09 | T | The three sections precede §1, and the non-goals name the recurring out-of-scope classes. |
 
 ## 3. Entry and exit criteria
 
@@ -421,6 +422,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-SAFE-06 | TST-SAFE-07 |
 | REQ-SAFE-07 | TST-SAFE-08 |
 | REQ-SAFE-08 | TST-SAFE-09 |
+| REQ-SAFE-09 | TST-SAFE-10 |
 | REQ-UI-01 | TST-UI-01, TST-UI-04, TST-UI-12, TST-UI-19 |
 | REQ-UI-02 | TST-UI-02, TST-UI-03, TST-UI-04, TST-UI-10, TST-WEB-02, TST-WEB-04 |
 | REQ-UI-03 | TST-UI-05, TST-UI-06, TST-UI-13 |
