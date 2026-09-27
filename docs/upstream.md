@@ -25,6 +25,7 @@ Berkshire way), `watch`, `decline`.
 | upstream | TauricResearch/TradingAgents |
 | last_reviewed_commit | 35543d0 |
 | last_reviewed_release | v0.5.1 |
+| last_reviewed_dev_commit | 9968bd8 |
 | last_run | 2026-09-27 |
 
 ## Features
@@ -68,6 +69,18 @@ rows come from new upstream commits and releases.
 | UP-032 | v0.5.1 | Multi-provider LLM registry and model catalog | not-applicable | | Berkshire runs on Claude subagents; model choice is REQ-ROLE-02. |
 | UP-033 | v0.5.1 | Provider reasoning/effort, temperature, retry and token knobs | not-applicable | | Handled by Claude Code. |
 | UP-034 | v0.5.1 | Docker images and compose | not-applicable | | A Claude Code plugin. |
+| UP-035 | v0.5.2-dev a94a411 | Carry the Portfolio Manager's typed rating through the run; a free-text rating is read from the decision's own rating line, not a rating it quotes (#1383) | planned | REQ-OUT-04 | Next: signal from the typed pm_decision rating; memory.store takes the rating; extract_rating prefers the decision's own rating line, word-start 'rating'; amend REQ-OUT-04; add upstream's cases. |
+| UP-036 | v0.5.2-dev 47ac1f2 | Benchmarks for Taiwan, Korea, Singapore, Switzerland and Milan (#1392) | planned | REQ-MEM-04 | Next: extend benchmark_map (.SW .MI .TW .TWO .KS .KQ .SI + eToro EU venues), verify each index on Yahoo, check eToro's Zurich/Amsterdam suffixes; extend the TST-MEM benchmark test. |
+| UP-037 | v0.5.2-dev 6ac7c6f | Report a Yahoo rate limit as a rate limit, not as missing data (#1387) | adapted | REQ-DATA-12, REQ-DATA-06 | Prices use Ticker.history (raises) with bounded backoff; an exhausted limit reaches the CLI's catch-all as DATA_UNAVAILABLE. `.info` has no retry; add one only if 429s show up there. |
+| UP-038 | v0.5.2-dev a1b3b5b | Report and state log record what produced a run: version, models, analysts, debate rounds (#752) | candidate | REQ-RPT-01 | Berkshire's complete_report header has analysis date and signal only; the models are aliases in state and not in the report. Helps REQ-BT-05 (which model generation ran). |
+| UP-039 | v0.5.2-dev 9968bd8 | Analysts run at the same time (#1255) | incorporated | REQ-FLOW-02 | Berkshire offers the selected analysts as one parallel batch. |
+| UP-040 | v0.5.2-dev 0c60284 | Run an analysis without questions from flags (#1127, #1133) | incorporated | REQ-IF-02 | /berkshire:analyze with arguments, and headless claude -p runs from the dashboard. |
+| UP-041 | v0.5.2-dev fc1ab1d | Cache files written whole through a temp file | incorporated | REQ-DATA-12 | The run-dir OHLCV cache uses config.atomic_write. |
+| UP-042 | v0.5.2-dev f9d6495 | FRED tool states the dates a macro change spans (#1397) | declined | | Berkshire has no FRED tool; the News Analyst cites FRED figures from the web with their own dates. |
+| UP-043 | v0.5.2-dev c50420f | Internal refactors and docs: memory module, as_of_date naming, one state key per decision, __version__ (cf960d6, 1d20780, 3f6ad5d, 674f108, 5ac5786, 5106693, d91d1f4, 73e0aa0) | not-applicable | | No behaviour change; upstream-internal naming. |
+| UP-044 | v0.5.2-dev 45391d0 | Docker keeps results in a host folder (#865) | not-applicable | | A Claude Code plugin. |
+| UP-045 | v0.5.2-dev ecd3404 | deepseek-flash treated as a thinking model (#1389) | not-applicable | | Provider plumbing (REQ-ROLE-02). |
+| UP-046 | v0.5.2-dev 05878c9 | Tests: vendor key kept out of errors, CLI selections kept out of the user's home (#1398, #1395) | not-applicable | | Test-only. Berkshire has no vendor keys, and its tests already isolate BERKSHIRE_HOME (conftest.py:64). |
 
 ## Pull requests
 
@@ -107,3 +120,16 @@ PR is re-analysed only when it changes. Reports: [upstream-reports/](upstream-re
 | #581 | Configurable metrics in report output | 9db0a0a04082 | 2026-09-27 | decline | declined |  | Toggles hide whole agent reports, not metrics (ignores #545); would weaken the REQ-RPT-01 audit trail; no tests. |
 | #1416 | Make Jev screening endpoint pluggable | 03239407f718 | 2026-09-27 | decline | declined |  | Plumbing for a vendor Berkshire doesn't call; UP-017 already judges with Claude. Judge exceptions escape screen() (post_screen.py:78,152). |
 | #813 | Per-model token attribution in StatsCallbackHandler | bc40785e1640 | 2026-09-27 | decline | declined |  | LangChain callback plumbing; the engine fixes each step's model and Claude Code logs usage per subagent. |
+| #806 | Route TradingAgents through Claude Code and Codex CLIs | 468401c356b2 | 2026-09-27 | adapt | planned | REQ-UI-06 | Next: headless argv gets --permission-mode dontAsk, --strict-mcp-config, WebSearch/WebFetch; amend REQ-UI-06, extend TST-UI-07; check by hand that claude.ai connectors are dropped. |
+| #1417 | Configurable LLM request timeout | 22427a487519 | 2026-09-27 | adapt | planned | REQ-UI-06, REQ-UI-13 | Next: job_timeout_minutes (180); Api.job() stops an overdue job via the REQ-UI-13 path and shows 'timed out'; new REQ-UI-14 + test. |
+| #667 | Ollama diagnostic check, CLI command, startup warning | e2f002b2b9e1 | 2026-09-27 | adapt | planned | REQ-SCHED-01 | Next: universe reports yahoo_reachable; tick aborts with a notification when eToro or Yahoo is down; new REQ-SCHED-06, amend REQ-SCHED-01; tests. |
+| #812 | Subscription CLI providers | 217e048aff13 | 2026-09-27 | decline | declined |  | Provider plumbing (D1). bind_tools returns self, so analysts silently lose their tools. #806 is the fuller take. |
+| #1136 | Anthropic prompt caching and token buffer for Claude 5 | fbbb727423c6 | 2026-09-27 | decline | declined |  | Caching declined with #1281; the token floor lowers max_tokens from 128k to 8-24k (worse truncation) and its own test fails. |
+| #1195 | openai_codex provider using ChatGPT subscription quota | 0ced629003d9 | 2026-09-27 | decline | declined |  | OpenAI-only provider on an undocumented endpoint the maintainer won't ship; conflicts with D1. |
+| #1422 | Fix LangGraph InjectedState compatibility | 005ef21d078d | 2026-09-27 | decline | declined |  | LangGraph import plumbing; its fallback leaves trade_date empty, silently disabling upstream's look-ahead clamp. |
+| #1423 | Polish CLI dashboard and add VS Code launch config | 1c134c223173 | 2026-09-27 | decline | declined |  | Rich restyle; team-only progress drops per-agent status that Berkshire's views keep (REQ-UI-05). |
+| #1424 | Aditya's dev | b097d367f34e | 2026-09-27 | decline | declined |  | Fork dump: truncated cli/run.py is a SyntaxError; unauthenticated /ws/run takes a client backend_url, leaking the API key. |
+| #941 | CONTRIBUTING.md | ee884105efa7 | 2026-09-27 | decline | declined |  | Generic guide with errors; Berkshire's REQ/TST traceability and CI already enforce the same. |
+| #1067 | AKShare vendor for Chinese A-share stocks | 21e904cecb26 | 2026-09-27 | decline | declined |  | Same as #1426: eToro sells no mainland A-shares. |
+| #1109 | AKShare vendor for China A-share market data | 67f332b95ea8 | 2026-09-27 | decline | declined |  | Same as #1426: eToro sells no mainland A-shares. |
+| #878 | Improve provider prompt caching across agents | 035d1cac55d8 | 2026-09-27 | decline | declined |  | Covered by the #1281 verdict: static persona already split from volatile context; Claude Code caches. |
