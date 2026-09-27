@@ -102,6 +102,24 @@ def test_open_work_is_tracked():
         assert f"`{label}`" in agents, label
 
 
+def test_requirements_state_scope():
+    """TST-SAFE-10: The requirements state the objective, its success criteria, the non-goals and the open questions [REQ-SAFE-09]"""
+    text = REQ_DOC.read_text()
+    head = text.split("## 1. Roles")[0]
+    for section in ("## Objective", "## Non-goals", "## Open questions"):
+        assert section in head, f"docs/requirements.md has no {section!r} section before the requirements"
+    goals = head.split("## Non-goals")[1].split("## ")[0]
+    for item in (
+        "non-Claude models",
+        "autonomous order placement",
+        "hosted or multi-user",
+        "A-shares",
+        "paid data vendors",
+        "Windows",
+    ):
+        assert item in goals, item
+
+
 if __name__ == "__main__" and "--write" in sys.argv:
     text = PLAN_DOC.read_text()
     head, rest = text.split(BEGIN)

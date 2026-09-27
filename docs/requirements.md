@@ -11,6 +11,29 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 **Priority:** M = must, S = should.
 **Verification:** T = automated test, I = inspection test (automated check of plugin files), D = manual demonstration (documented procedure).
 
+## Objective
+
+A Claude Code plugin that reproduces TradingAgents' multi-agent analysis for the user's eToro holdings and
+watchlist, and proposes orders that the user approves one by one.
+
+**Success is judged by:**
+- decisions scored against the instrument's regional benchmark over `holding_period_days` (REQ-MEM-03);
+- no order placed without the user's explicit approval (D2, REQ-EXE);
+- every data point an agent uses was available on the analysis date (REQ-DATA-01, REQ-DATA-07).
+
+## Non-goals
+
+- non-Claude models or LLM providers (D1);
+- autonomous order placement: every order is approved by a person (D2);
+- a hosted or multi-user service: Berkshire runs locally for one user;
+- markets eToro does not list, e.g. mainland A-shares;
+- paid data vendors;
+- Windows support.
+
+## Open questions
+
+None blocking. Open work and non-blocking questions are tracked as GitHub issues (see [AGENTS.md](../AGENTS.md)).
+
 ## Decisions recorded with the user (2026-09-24)
 
 | # | Decision |
@@ -199,6 +222,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-SAFE-06 | S | `docs/design.md` shall describe the engine: one row per module of `berkshire/` with its responsibility and requirement areas, the run lifecycle, the home layout and the tick. | I |
 | REQ-SAFE-07 | S | The documents shall not state facts that drift unchecked: the test plan's strategy names every test file, and the README states no requirement count and describes the upstream tracking (the ledger and `/upstream-scout`). | T |
 | REQ-SAFE-08 | S | Open work shall be tracked as GitHub issues with the labels `bug`, `enhancement`, `question`, `compliance`, `manual-run` and `needs-decision`, named in `AGENTS.md`. Every manual procedure not yet run links its issue in the test plan's results table. | T |
+| REQ-SAFE-09 | S | `docs/requirements.md` shall state, before the requirements, the objective and how success is judged, the non-goals, and the open questions (with which ones block). | T |
 
 ## 15. Web and terminal views (REQ-UI)
 
