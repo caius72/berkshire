@@ -90,6 +90,18 @@ def test_docs_not_stale():
     assert "](docs/upstream.md)" in readme and "/upstream-scout" in readme
 
 
+def test_open_work_is_tracked():
+    """TST-SAFE-09: Every manual procedure not yet run links its tracking issue, and AGENTS.md names the tracker and its labels [REQ-SAFE-08]"""
+    results = re.findall(r"^\| (M\d+) \|[^|]*\| not yet run \|([^|]*)\|$", PLAN_DOC.read_text(), re.MULTILINE)
+    assert results, "the results table lists no pending procedure; update this test if all have run"
+    for proc, notes in results:
+        assert re.search(r"#\d+", notes), f"{proc} is not yet run but links no issue"
+    agents = (ROOT / "AGENTS.md").read_text()
+    assert "/issues" in agents
+    for label in ("bug", "enhancement", "question", "compliance", "manual-run", "needs-decision"):
+        assert f"`{label}`" in agents, label
+
+
 if __name__ == "__main__" and "--write" in sys.argv:
     text = PLAN_DOC.read_text()
     head, rest = text.split(BEGIN)

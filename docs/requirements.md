@@ -198,6 +198,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-SAFE-05 | M | The repository root shall have an `AGENTS.md` that links every document in `docs/` and states the change discipline: requirement, test-plan row and tagged test in the same commit, the matrix regenerated, the local gates (tests with coverage, pinned ruff, web tests), the upstream ledger check, and the version bump. `CLAUDE.md` forwards to it. | I |
 | REQ-SAFE-06 | S | `docs/design.md` shall describe the engine: one row per module of `berkshire/` with its responsibility and requirement areas, the run lifecycle, the home layout and the tick. | I |
 | REQ-SAFE-07 | S | The documents shall not state facts that drift unchecked: the test plan's strategy names every test file, and the README states no requirement count and describes the upstream tracking (the ledger and `/upstream-scout`). | T |
+| REQ-SAFE-08 | S | Open work shall be tracked as GitHub issues with the labels `bug`, `enhancement`, `question`, `compliance`, `manual-run` and `needs-decision`, named in `AGENTS.md`. Every manual procedure not yet run links its issue in the test plan's results table. | T |
 
 ## 15. Web and terminal views (REQ-UI)
 

@@ -230,6 +230,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-SAFE-06 | AGENTS.md links every ground-truth document and states the change discipline; CLAUDE.md forwards to it | REQ-SAFE-05 | I | Every `docs/*.md` linked; the gate commands named; CLAUDE.md names AGENTS.md. |
 | TST-SAFE-07 | The design document describes every engine module | REQ-SAFE-06 | I | One module-table row per `berkshire/*.py` (except `__init__`, `__main__`), so a new module cannot go undescribed. |
 | TST-SAFE-08 | The test strategy names every test file, and the README states no requirement count that can drift | REQ-SAFE-07 | T | Every `tests/test_*.py` appears in §1; no `N requirements` in the README; the README links the ledger and names `/upstream-scout`. |
+| TST-SAFE-09 | Every manual procedure not yet run links its tracking issue, and AGENTS.md names the tracker and its labels | REQ-SAFE-08 | T | Results-table rows marked `not yet run` carry `#N`; AGENTS.md links the issues and names the six labels. |
 
 ## 3. Entry and exit criteria
 
@@ -301,11 +302,11 @@ once without and once with `--strict-mcp-config`. Without the flag it lists the 
 
 | Procedure | Date | Result | Notes |
 |---|---|---|---|
-| M1 | | not yet run | |
-| M2 | | not yet run | |
-| M3 | | not yet run | |
-| M4 | | not yet run | |
-| M6 | | not yet run | |
+| M1 | | not yet run | #28 |
+| M2 | | not yet run | #29 |
+| M3 | | not yet run | #30 |
+| M4 | | not yet run | #31 |
+| M6 | | not yet run | #32 |
 | M5 | 2026-09-25 | pass (run 36119571904) | The first three runs failed and were fixed: a clock mismatch, the Node 22 test glob, gitleaks-action on a first push, and CodeQL upload on a private repo. Coverage 87.7%. |
 | M7 | 2026-09-27 | pass | Claude Code 2.1.283: eToro tools listed without the flag, `NONE` with it. |
 
@@ -419,6 +420,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-SAFE-05 | TST-SAFE-06 |
 | REQ-SAFE-06 | TST-SAFE-07 |
 | REQ-SAFE-07 | TST-SAFE-08 |
+| REQ-SAFE-08 | TST-SAFE-09 |
 | REQ-UI-01 | TST-UI-01, TST-UI-04, TST-UI-12, TST-UI-19 |
 | REQ-UI-02 | TST-UI-02, TST-UI-03, TST-UI-04, TST-UI-10, TST-WEB-02, TST-WEB-04 |
 | REQ-UI-03 | TST-UI-05, TST-UI-06, TST-UI-13 |

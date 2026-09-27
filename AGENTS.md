@@ -39,6 +39,13 @@ uv run python tools/upstream.py check  # the upstream ledger, when docs/upstream
 gitleaks and CodeQL run only in CI. Never weaken a gate to get green: no lower coverage floor, new ruff ignore,
 or skipped test.
 
+## Open work
+
+Tracked as [GitHub issues](https://github.com/caius72/berkshire/issues), not in a TODO file. Labels:
+`bug` (with a repro), `enhancement`, `question`, `compliance` (a gap against the development standard),
+`manual-run` (a manual procedure or live check still to run; the test plan's results table links it) and
+`needs-decision` (waiting for the maintainer; the issue states the options and a recommendation).
+
 ## Releases and merges
 
 - Bump the version in `pyproject.toml`, `berkshire/__init__.py` and `.claude-plugin/plugin.json` (then `uv lock`)
