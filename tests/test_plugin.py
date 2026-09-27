@@ -224,3 +224,14 @@ def test_fundamentals_fund_branch():
     body = agent("fundamentals-analyst")[1]
     assert "call `etf_profile` instead of the statement, insider and earnings tools" in body
     assert "instead of inferring concentration" in body and "daily-reset decay" in body and "`valuation` does not apply to a fund" in body
+
+
+def test_agents_md_links_every_document():
+    """TST-SAFE-06: AGENTS.md links every ground-truth document and states the change discipline; CLAUDE.md forwards to it [REQ-SAFE-05]"""
+    agents = (ROOT / "AGENTS.md").read_text()
+    for doc in sorted((ROOT / "docs").glob("*.md")):
+        assert f"](docs/{doc.name})" in agents, f"AGENTS.md does not link docs/{doc.name}"
+    for rule in ("tests/test_traceability.py --write", "uvx ruff@", "npm test", "pyproject.toml", "tools/upstream.py check"):
+        assert rule in agents, rule
+    assert "AGENTS.md" in (ROOT / "CLAUDE.md").read_text()
+
