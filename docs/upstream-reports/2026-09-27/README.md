@@ -1,5 +1,7 @@
 # Upstream scout, 2026-09-27
 
+A second run the same day, the first to cover the upstream v0.5.2 development branch, is in [README-2.md](README-2.md).
+
 TauricResearch/TradingAgents `main` is still at `35543d0` (v0.5.1). Third run.
 
 ## Summary
