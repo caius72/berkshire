@@ -56,13 +56,22 @@ def test_coverage_floor():
 
 
 def test_secret_scanning_full_history():
-    """TST-CI-04: gitleaks scans the full history on every push and PR [REQ-CI-04]"""
+    """TST-CI-04: gitleaks scans the full history on every push to any branch and on every PR [REQ-CI-04]"""
     checkout = steps("secrets")[0]
     assert checkout["uses"].startswith("actions/checkout@") and checkout["with"]["fetch-depth"] == 0
     assert re.fullmatch(r"\d+\.\d+\.\d+", WF["jobs"]["secrets"]["env"]["GITLEAKS_VERSION"])
     scan = runs("secrets")
     # `gitleaks git .` with no --log-opts range scans every commit; a leak fails the job.
     assert "gitleaks git " in scan and "--log-opts" not in scan and "--exit-code 1" in scan
+    # Every push is scanned: ci.yml covers main (and PRs); secrets.yml covers every other branch,
+    # so a key pushed to a feature branch without a PR is caught too.
+    push = yaml.safe_load((ROOT / ".github" / "workflows" / "secrets.yml").read_text())
+    assert WF[True]["push"]["branches"] == ["main"] and push[True]["push"] == {"branches-ignore": ["main"]}
+    job = push["jobs"]["secrets"]
+    assert job["env"]["GITLEAKS_VERSION"] == WF["jobs"]["secrets"]["env"]["GITLEAKS_VERSION"]
+    assert job["steps"][0]["with"]["fetch-depth"] == 0
+    assert "\n".join(st.get("run", "") for st in job["steps"]) == scan  # the same install and full-history scan
+    assert push.get("permissions") == {"contents": "read"}
 
 
 def test_codeql_languages():
