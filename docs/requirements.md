@@ -184,6 +184,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-SCHED-03 | M | A tick shall be idempotent per trade date: an instrument already completed today is not re-analysed. | T |
 | REQ-SCHED-04 | S | `max_tickers_per_tick` shall cap the universe (holdings first). | T |
 | REQ-SCHED-05 | M | One instrument's failure shall not abort the tick. It is recorded and reported. | D |
+| REQ-SCHED-06 | M | A tick shall not analyse when reading the eToro portfolio or watchlist fails, or Yahoo Finance is unreachable. It settles what it can, then stops with a notification naming the cause. | T |
 
 ## 14. Safety and quality (REQ-SAFE)
 

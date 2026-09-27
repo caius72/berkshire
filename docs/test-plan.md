@@ -171,6 +171,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-SCHED-03 | A run's intent is queued once; a repeated tick does not double-order | REQ-SCHED-03 | T | Enqueue the same run twice. |
 | TST-SCHED-04 | max_tickers_per_tick caps the universe, holdings first | REQ-SCHED-04 | T | Cap 2. |
 | TST-SCHED-05 | /loop tick on the demo account, with one failing instrument | REQ-SCHED-01, REQ-SCHED-05 | D | Manual procedure M3. |
+| TST-SCHED-06 | universe reports whether Yahoo is reachable, and the tick stops before analysis with a notification when eToro or Yahoo is down | REQ-SCHED-06 | T | Probe None → yahoo_reachable false; True or False (no bars) → true; tick skill names both abort causes, settles first, and notifies. |
 | TST-SAFE-01 | Suffixes survive; path-escaping tickers and run ids are rejected | REQ-SAFE-01, REQ-IF-04 | T | 9-row table. |
 | TST-SAFE-02 | atomic_write replaces the file via rename, leaving no temp file | REQ-SAFE-02 | T | Two writes, directory listing. |
 | TST-UI-01 | `berkshire web` starts a real server when none runs, and reuses it next time | REQ-UI-11, REQ-UI-01 | T | Subprocess with an isolated home: two calls return the same URL/pid; SIGTERM removes the registry. |
@@ -401,6 +402,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-SCHED-03 | TST-CKPT-03, TST-SCHED-03 |
 | REQ-SCHED-04 | TST-SCHED-04 |
 | REQ-SCHED-05 | TST-ROLE-12, TST-SCHED-05 |
+| REQ-SCHED-06 | TST-SCHED-06 |
 | REQ-SAFE-01 | TST-SAFE-01 |
 | REQ-SAFE-02 | TST-CKPT-01, TST-SAFE-02 |
 | REQ-SAFE-03 | TST-RPT-01 |

@@ -247,7 +247,9 @@ def cmd_universe(a, cfg):
     portfolio = etoro.load_portfolio_file(a.portfolio_file) if a.portfolio_file else None
     items, skipped = etoro.universe(portfolio, _read_json(a.watchlists_file), a.watchlist or cfg["watchlist_name"],
                                     cfg["symbol_map"], int(cfg["max_tickers_per_tick"]))
-    _print({"date": a.date or data.today(), "trading_day": is_trading_day(a.date or data.today()),
+    date = a.date or data.today()
+    # REQ-SCHED-06: None means Yahoo did not answer at all; False (no bars) still means it is reachable.
+    _print({"date": date, "trading_day": is_trading_day(date), "yahoo_reachable": data.check_listed("SPY", date) is not None,
             "instruments": items, "skipped": skipped})
 
 
