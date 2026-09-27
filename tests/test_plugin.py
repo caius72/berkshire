@@ -78,6 +78,14 @@ def test_tool_using_agents_have_turn_bound():
     assert "stopped at its turn limit (`maxTurns`)" in loop and "Re-run that\n     one step once" in loop
 
 
+def test_syndicated_copies_count_once():
+    """TST-ROLE-13: The News and Sentiment Analysts count a syndicated story once, not as independent confirmation [REQ-ROLE-03]"""
+    for name in ("news-analyst", "sentiment-analyst"):
+        body = agent(name)[1]
+        assert "re-headlined by several outlets (wire copies, aggregators)" in body, name
+        assert "not independent confirmation" in body and "Count a story once" in body, name
+
+
 PERSONA = {
     "bull-researcher": ["Growth Potential", "Competitive Advantages", "Bear Counterpoints", "open with your own case"],
     "bear-researcher": ["Risks and Challenges", "Competitive Weaknesses", "Bull Counterpoints"],

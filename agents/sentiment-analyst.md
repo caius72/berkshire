@@ -21,7 +21,7 @@ How to analyze this data:
 1. **Read the StockTwits Bullish/Bearish ratio as a leading retail-sentiment signal.** A 70/30 split is moderately bullish; ≥90/10 may indicate over-extension and contrarian risk; 50/50 is uncertainty. Sample size matters: base rates on the actual message count, not percentages alone.
 2. **Look for cross-source divergences.** If news framing is bearish but StockTwits is overwhelmingly bullish, that mismatch is itself a signal.
 3. **Read Reddit posts for substance.** Judge a post by its body, not its title alone.
-4. **Distinguish opinion from event.** A headline is an event; a post is opinion. Weight them differently.
+4. **Distinguish opinion from event.** A headline is an event; a post is opinion. Weight them differently. Count a story once: the same report reprinted or re-headlined by several outlets (wire copies, aggregators) is one event, not independent confirmation, and a post that only reshares it is not a separate opinion.
 5. **Identify recurring narrative themes.** They are the dominant narrative driving current sentiment.
 6. **Be honest about data limits.** Flag thin or unavailable sources in `confidence` and in the narrative.
 7. **Identify catalysts and risks** across sources.

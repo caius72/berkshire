@@ -63,6 +63,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-ROLE-10 | The Sentiment Analyst drops off-topic social posts and reports on-topic and stance counts per source | REQ-ROLE-03 | I | Persona text: off-topic cases (list, spam, shared symbol), four stance classes incl. untagged posts, the count line, ratios and confidence on on-topic posts, StockTwits tag split kept separate. |
 | TST-ROLE-11 | For an index, commodity or currency pair, the Fundamentals Analyst researches macro drivers on the web instead of calling company tools | REQ-ROLE-03, REQ-FLOW-11 | I | Persona: WebSearch/WebFetch tools, the no-company-tools rule, per-mode drivers, point-in-time rule; the trigger phrase matches the engine's context. |
 | TST-ROLE-12 | Every analyst with data or web tools declares a turn bound, and the pipeline loop treats a stop without output as a failed step | REQ-ROLE-07, REQ-SCHED-05 | I | Agents whose tools include Bash, WebSearch or WebFetch have a positive integer `maxTurns`; decision roles have none; `pipeline-loop.md` names the turn limit in its failure rule. |
+| TST-ROLE-13 | The News and Sentiment Analysts count a syndicated story once, not as independent confirmation | REQ-ROLE-03 | I | Both personas name wire copies and aggregators, and that repetition is not independent confirmation. |
 | TST-FLOW-01 | A full run visits the teams in TradingAgents order | REQ-FLOW-01 | T | Canned run, default config; flattened step trace equals the expected 12-step sequence. |
 | TST-FLOW-02 | Selected analysts are offered as one parallel batch; debate waits for all | REQ-FLOW-02 | T | First `next_steps` = 4 analysts; after 3 submits only the 4th is due. |
 | TST-FLOW-03 | Bull opens and the debate alternates for 2 x rounds turns | REQ-FLOW-03 | T | Parametrised rounds 1/2/3; debate trace = bull_1, bear_2, … (2R entries). |
@@ -311,7 +312,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 |---|---|
 | REQ-ROLE-01 | TST-ROLE-01 |
 | REQ-ROLE-02 | TST-ROLE-02 |
-| REQ-ROLE-03 | TST-ROLE-03, TST-ROLE-08, TST-ROLE-09, TST-ROLE-10, TST-ROLE-11 |
+| REQ-ROLE-03 | TST-ROLE-03, TST-ROLE-08, TST-ROLE-09, TST-ROLE-10, TST-ROLE-11, TST-ROLE-13 |
 | REQ-ROLE-04 | TST-ROLE-04 |
 | REQ-ROLE-05 | TST-ROLE-05, TST-ROLE-07 |
 | REQ-ROLE-06 | TST-ROLE-06 |
