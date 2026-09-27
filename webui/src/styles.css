@@ -131,7 +131,7 @@ main { flex: 1; padding: 20px 24px; }
 .status { font-weight: 600; }
 .status-placed, .status-done { color: var(--buy); }
 .status-pending, .status-running, .status-pending_fill { color: var(--hold); }
-.status-failed, .status-rejected { color: var(--sell); }
+.status-failed, .status-rejected, .status-timed { color: var(--sell); }
 .status-expired, .status-superseded, .status-exited, .status-stopped { color: var(--ink-soft); }
 button.stop { background: none; border: 1px solid var(--sell); color: var(--sell); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 13px; font-weight: 600; }
 button.stop.armed { background: var(--sell); color: #fff; }

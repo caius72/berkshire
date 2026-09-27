@@ -179,7 +179,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-UI-04 | The registry holds port, token and pid with 0600 permissions | REQ-UI-01, REQ-UI-02 | T | Stat the registry file; URL format. |
 | TST-UI-05 | Runs list with progress summary; run detail with floor, sections, timeline, orders | REQ-UI-03, REQ-UI-05 | T | One complete + one partial run; detail payload; 404 and path-traversal inputs. |
 | TST-UI-06 | Decision log, order queue and backtest summaries are exposed read-only | REQ-UI-03, REQ-UI-07 | T | Seed log/queue/backtest dir; every order-writing POST path is 404. |
-| TST-UI-07 | POST /api/jobs validates input and spawns a headless /berkshire:analyze | REQ-UI-06 | T | Fake spawner records argv; four invalid inputs rejected before any spawn; exit code → status. |
+| TST-UI-07 | POST /api/jobs validates input and spawns a headless /berkshire:analyze with an explicit boundary | REQ-UI-06 | T | Fake spawner records argv: `--permission-mode dontAsk`, `--strict-mcp-config`, web tools allowed, no `mcp__` or order tool; four invalid inputs rejected before any spawn; exit code → status. |
 | TST-UI-08 | Snapshots detect new runs, submitted steps, log and queue changes | REQ-UI-04 | T | Pure `changed()` over snapshots before/after init, submit (mtime bumped), removal. |
 | TST-UI-09 | /api/events sends hello, then a change event when a run appears | REQ-UI-04 | T | Real SSE stream via the client, 50 ms poll. |
 | TST-UI-10 | Static files resolve inside dist only; traversal falls back to index.html | REQ-UI-02 | T | Plain, encoded and nested `..` paths. |
@@ -213,6 +213,8 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-UI-23 | 's' asks first, then stops the selected running analysis; a finished one is refused | REQ-UI-13, REQ-UI-08 | T | Pilot: cancel keeps it running, confirm stops it via the API, a stopped run gets no dialog. |
 | TST-UI-24 | The pipeline loop stops dispatching when the run was stopped | REQ-UI-13 | I | pipeline-loop.md text. |
 | TST-UI-25 | A second start for a (ticker, date) whose job is still running is refused | REQ-UI-06 | T | Same ticker via its eToro alias → 400 naming the job, nothing spawned; another date spawns; after the job exits a restart spawns. |
+| TST-UI-26 | A dashboard job past job_timeout_minutes is ended once, its run marked stopped, and a restart is accepted | REQ-UI-14 | T | Backdated job: fake killer called once, run stopped with the timeout reason, status timed out; a fresh job untouched; restart of the same ticker/date spawns. |
+| TST-UI-27 | A headless claude -p with --strict-mcp-config loads no eToro tools | REQ-UI-06 | D | Manual procedure M5. |
 | TST-UP-01 | The ledger is consistent and records the v0.5.1 baseline | REQ-UP-01, REQ-UP-05 | T | `tools/upstream.py check` on the real ledger; ≥ 30 baseline rows across statuses. |
 | TST-UP-02 | The ledger check rejects bad statuses, missing or unknown requirements, duplicates and bad PR rows | REQ-UP-01 | T | Eleven single mutations of the real ledger, each named in the problems. |
 | TST-UP-03 | The worklist splits open PRs into new, head-moved and unchanged, and flags PRs that left the open list | REQ-UP-02 | T | Four ledger rows × three open PRs; a declined PR is not revisited. |
@@ -269,6 +271,11 @@ Load the plugin: `claude --plugin-dir /Users/kai/repos/ai/berkshire`, or
 5. The Orders view and the TUI Orders tab list the queue read-only, and point to `/berkshire:approve`.
 6. Start a second analysis and stop it with **Stop analysis** (web, two clicks) or `s` (TUI). The job ends
    within seconds, the run shows Stopped with its reason, and no further agents are started.
+
+**M5 — headless job boundary (TST-UI-27).** From `$HOME`, with the eToro connector enabled, run
+`claude -p "Reply with only the names of your available tools that contain 'eToro', or NONE." --permission-mode dontAsk`
+once without and once with `--strict-mcp-config`. Without the flag it lists the eToro tools; with it,
+`NONE`. Checked on Claude Code 2.1.283, 2026-09-27.
 
 **M5 — first CI run (TST-CI-09).**
 1. Push to the GitHub `main` branch. All six jobs pass.
@@ -403,7 +410,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-UI-03 | TST-UI-05, TST-UI-06, TST-UI-13 |
 | REQ-UI-04 | TST-UI-08, TST-UI-09, TST-UI-14, TST-UI-20, TST-WEB-03 |
 | REQ-UI-05 | TST-UI-05, TST-UI-20, TST-WEB-01, TST-WEB-02 |
-| REQ-UI-06 | TST-UI-07, TST-UI-15, TST-UI-22, TST-UI-25 |
+| REQ-UI-06 | TST-UI-07, TST-UI-15, TST-UI-22, TST-UI-25, TST-UI-27 |
 | REQ-UI-07 | TST-UI-06, TST-UI-18, TST-UI-19 |
 | REQ-UI-08 | TST-UI-13, TST-UI-14, TST-UI-15, TST-UI-20, TST-UI-23 |
 | REQ-UI-09 | TST-UI-16 |
@@ -411,6 +418,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-UI-11 | TST-UI-01 |
 | REQ-UI-12 | TST-UI-17 |
 | REQ-UI-13 | TST-FLOW-11, TST-UI-20, TST-UI-21, TST-UI-23, TST-UI-24 |
+| REQ-UI-14 | TST-UI-26 |
 | REQ-CI-01 | TST-CI-01, TST-CI-09 |
 | REQ-CI-02 | TST-CI-02 |
 | REQ-CI-03 | TST-CI-03, TST-CI-09 |

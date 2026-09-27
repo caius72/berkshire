@@ -214,7 +214,7 @@ state, and every view is a client of its HTTP + SSE API. Recorded with the user 
 | REQ-UI-03 | M | Both views shall show the runs (signal and progress), the decision log, the order queue and backtest summaries. | T |
 | REQ-UI-04 | M | Both views shall update live: the server emits an SSE `change` event within about 1 s of a run, log, queue or job changing. The web view reconnects with backoff. | T |
 | REQ-UI-05 | M | A run's detail view shall show what the TradingAgents live panel shows: every agent's status by team, the report of each finished agent (latest by default), the step timeline, and the order proposal with the risk gate's reasons. | T |
-| REQ-UI-06 | M | Both views shall let the user start an analysis (ticker, date, analysts, depth). Input is validated by the engine's rules, and a headless `claude -p /berkshire:analyze …` job is started, unless a job for the same resolved ticker and date is still running. Job status and log tail are shown. | T |
+| REQ-UI-06 | M | Both views shall let the user start an analysis (ticker, date, analysts, depth). Input is validated by the engine's rules, and a headless `claude -p /berkshire:analyze …` job is started, unless a job for the same resolved ticker and date is still running. The job runs with permission mode `dontAsk` and no MCP servers (`--strict-mcp-config`), so its allowlist (the engine CLI, `date`, Read, Write, Agent, WebSearch, WebFetch) is its whole boundary whatever the user's permission mode, and it cannot reach eToro's order tools. Job status and log tail are shown. | T |
 | REQ-UI-07 | M | The API shall have no endpoint that places, approves, rejects or modifies orders. The views state that orders are placed with `/berkshire:approve`. | T |
 | REQ-UI-08 | M | `berkshire tui` shall provide the terminal view (runs, progress, reports, decisions, orders, jobs), with keys n (new analysis), r (refresh) and q (quit). | T |
 | REQ-UI-09 | M | Textual shall be optional. The engine, server and web view work without it, and `berkshire tui` without it prints how to install the extra (exit code 3) instead of a traceback. | T |
@@ -222,6 +222,7 @@ state, and every view is a client of its HTTP + SSE API. Recorded with the user 
 | REQ-UI-11 | M | `berkshire web` and `berkshire tui` shall start the server in the background when none is running, then print the URL or attach. | T |
 | REQ-UI-12 | S | `/berkshire:dashboard` shall start the server if needed and give the user the web URL and the TUI command. | I |
 | REQ-UI-13 | M | Both views shall let the user stop an unfinished analysis after a confirmation. The run is marked stopped (with time and reason), the engine then offers and accepts no further steps, and the pipeline loop reports it. A running dashboard job for that run has its process group ended. Stopped runs show as Stopped; `--checkpoint` resumes one. | T |
+| REQ-UI-14 | M | A dashboard job still running `job_timeout_minutes` (default 180) after it started shall be ended as in REQ-UI-13, with the reason "timed out after N min". It shows as timed out, no longer blocks a restart of its ticker and date, and `--checkpoint` resumes the run. | T |
 
 ## 16. Continuous integration (REQ-CI)
 
