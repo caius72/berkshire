@@ -91,7 +91,8 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-OUT-02 | With several JSON blocks the last one is used | REQ-OUT-01 | T | Draft + final block. |
 | TST-OUT-03 | Missing, malformed or invalid JSON falls back to free text with an error | REQ-OUT-02 | T | Three negative inputs (none, broken JSON, enum violation). |
 | TST-OUT-04 | Prices coerce; placeholders, percentages, ranges and hedges become null | REQ-OUT-03 | T | 12-row equivalence-class table. |
-| TST-OUT-05 | Rating parser: last label, legend skipped, bare word only if unique | REQ-OUT-04, REQ-OUT-05 | T | 9-row table incl. fullwidth colon, legend, two labels, two bare ratings, "Buyers/holding". |
+| TST-OUT-05 | Rating parser: the decision's own rating line, not a quoted one; legend skipped; bare word only if unique | REQ-OUT-04, REQ-OUT-05 | T | 15-row table incl. fullwidth colon, legend, two disagreeing rating lines → none, a label in prose, ratings quoted in a sentence, list, table and quote (TradingAgents #1383), "Operating margin: Sell-side", "Buyers/holding". |
+| TST-OUT-11 | The Portfolio Manager's typed rating is the run signal and the logged rating; a rating its text quotes never replaces it | REQ-OUT-04 | T | Canned run: PM JSON Hold with "Street consensus rating: Buy" in the thesis → signal Hold, memory log Hold. |
 | TST-OUT-06 | Sentiment score bounded 0-10; band and confidence restricted | REQ-OUT-06 | T | Out-of-range score, unknown band/confidence, N/A score; case-normalised valid payload. |
 | TST-OUT-07 | Structured outputs render to TradingAgents markdown and the signal is parsed | REQ-OUT-01, REQ-OUT-04 | T | Full canned run: signal Buy, rendered headers, "$290.00" stop coerced, no warnings. |
 | TST-OUT-08 | A final decision without a rating yields REVIEW and is logged as REVIEW | REQ-OUT-05, REQ-OUT-02 | T | PM emits prose without rating/JSON; signal and log tag REVIEW; warning recorded. |
@@ -99,7 +100,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-OUT-10 | TraderProposal accepts target_price like the other levels and renders the engine's R/R line | REQ-OUT-01, REQ-OUT-03, REQ-OUT-07 | T | "$100" and "130.0" are coerced; a percentage target becomes null and R/R says why. |
 | TST-MEM-01 | A decision is appended in the TradingAgents pending format | REQ-MEM-01 | T | Exact tag/body/separator text. |
 | TST-MEM-02 | A second decision for the same ticker+date is a no-op, pending or settled | REQ-MEM-02 | T | Store twice before and after settlement. |
-| TST-MEM-03 | Benchmark by override/suffix/default; returns need the full window | REQ-MEM-03 | T | Suffix map, dotted US ticker → SPY, override; hand-computed raw/alpha; short series → None. |
+| TST-MEM-03 | Benchmark by override/suffix/default; returns need the full window | REQ-MEM-03 | T | Suffix map, dotted US ticker → SPY, override; the default map for European and Asian venues with no suffix shadowing a longer one; hand-computed raw/alpha; short series → None. |
 | TST-MEM-04 | Due entries settle with a reflection and resolved tag; not-yet-traded stay pending | REQ-MEM-03, REQ-MEM-04 | T | Three entries (due, too recent, other ticker); resolved tag format; no temp file. |
 | TST-MEM-05 | 5 same-ticker + 3 cross-ticker, newest first, point-in-time filtered | REQ-MEM-05 | T | 7 same + 4 cross entries; count/order; `as_of` cut-off includes only lessons resolved by then. |
 | TST-MEM-06 | Rotation drops oldest resolved entries only | REQ-MEM-06 | T | max 2, three resolved + one pending. |
@@ -160,7 +161,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-EXE-04 | pending -> approved -> placed; invalid transitions rejected; expiry and supersede | REQ-EXE-04 | T | State-transition table incl. TTL and supersede. |
 | TST-EXE-05 | pending is never re-placed; unknown retries once with the same token | REQ-EXE-05 | I | approve outcome mapping text. |
 | TST-EXE-06 | The eToro portfolio summary maps to equity, cash and direct positions | REQ-EXE-06 | T | Fixture shaped like `get-my-portfolio-summary`; CLI conversion; raw summary accepted as `--portfolio`. |
-| TST-EXE-07 | eToro symbols map to Yahoo symbols; unmappable ones return None | REQ-EXE-07 | T | 10-row table over asset types from the live watchlist. |
+| TST-EXE-07 | eToro symbols map to Yahoo symbols; unmappable ones return None | REQ-EXE-07 | T | 14-row table over asset types from the live watchlist, incl. `.ZU`, `.NV` and `.RTH` venue spellings. |
 | TST-EXE-08 | The approval confirmation names the account (DEMO/REAL) | REQ-EXE-03 | I | approve text. |
 | TST-EXE-09 | Demo order end-to-end through /berkshire:approve | REQ-EXE-02, REQ-EXE-03 | D | Manual procedure M2. |
 | TST-EXE-10 | eToro asset type 6 (ETF) becomes the etf asset mode without a network call | REQ-FLOW-10, REQ-EXE-07 | T | asset_kind for types 5, 6 and 10; a universe with SPY and EIMI.L. |
@@ -170,6 +171,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-SCHED-03 | A run's intent is queued once; a repeated tick does not double-order | REQ-SCHED-03 | T | Enqueue the same run twice. |
 | TST-SCHED-04 | max_tickers_per_tick caps the universe, holdings first | REQ-SCHED-04 | T | Cap 2. |
 | TST-SCHED-05 | /loop tick on the demo account, with one failing instrument | REQ-SCHED-01, REQ-SCHED-05 | D | Manual procedure M3. |
+| TST-SCHED-06 | universe reports whether Yahoo is reachable, and the tick stops before analysis with a notification when eToro or Yahoo is down | REQ-SCHED-06 | T | Probe None → yahoo_reachable false; True or False (no bars) → true; tick skill names both abort causes, settles first, and notifies. |
 | TST-SAFE-01 | Suffixes survive; path-escaping tickers and run ids are rejected | REQ-SAFE-01, REQ-IF-04 | T | 9-row table. |
 | TST-SAFE-02 | atomic_write replaces the file via rename, leaving no temp file | REQ-SAFE-02 | T | Two writes, directory listing. |
 | TST-UI-01 | `berkshire web` starts a real server when none runs, and reuses it next time | REQ-UI-11, REQ-UI-01 | T | Subprocess with an isolated home: two calls return the same URL/pid; SIGTERM removes the registry. |
@@ -178,7 +180,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-UI-04 | The registry holds port, token and pid with 0600 permissions | REQ-UI-01, REQ-UI-02 | T | Stat the registry file; URL format. |
 | TST-UI-05 | Runs list with progress summary; run detail with floor, sections, timeline, orders | REQ-UI-03, REQ-UI-05 | T | One complete + one partial run; detail payload; 404 and path-traversal inputs. |
 | TST-UI-06 | Decision log, order queue and backtest summaries are exposed read-only | REQ-UI-03, REQ-UI-07 | T | Seed log/queue/backtest dir; every order-writing POST path is 404. |
-| TST-UI-07 | POST /api/jobs validates input and spawns a headless /berkshire:analyze | REQ-UI-06 | T | Fake spawner records argv; four invalid inputs rejected before any spawn; exit code → status. |
+| TST-UI-07 | POST /api/jobs validates input and spawns a headless /berkshire:analyze with an explicit boundary | REQ-UI-06 | T | Fake spawner records argv: `--permission-mode dontAsk`, `--strict-mcp-config`, web tools allowed, no `mcp__` or order tool; four invalid inputs rejected before any spawn; exit code → status. |
 | TST-UI-08 | Snapshots detect new runs, submitted steps, log and queue changes | REQ-UI-04 | T | Pure `changed()` over snapshots before/after init, submit (mtime bumped), removal. |
 | TST-UI-09 | /api/events sends hello, then a change event when a run appears | REQ-UI-04 | T | Real SSE stream via the client, 50 ms poll. |
 | TST-UI-10 | Static files resolve inside dist only; traversal falls back to index.html | REQ-UI-02 | T | Plain, encoded and nested `..` paths. |
@@ -212,6 +214,8 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-UI-23 | 's' asks first, then stops the selected running analysis; a finished one is refused | REQ-UI-13, REQ-UI-08 | T | Pilot: cancel keeps it running, confirm stops it via the API, a stopped run gets no dialog. |
 | TST-UI-24 | The pipeline loop stops dispatching when the run was stopped | REQ-UI-13 | I | pipeline-loop.md text. |
 | TST-UI-25 | A second start for a (ticker, date) whose job is still running is refused | REQ-UI-06 | T | Same ticker via its eToro alias → 400 naming the job, nothing spawned; another date spawns; after the job exits a restart spawns. |
+| TST-UI-26 | A dashboard job past job_timeout_minutes is ended once, its run marked stopped, and a restart is accepted | REQ-UI-14 | T | Backdated job: fake killer called once, run stopped with the timeout reason, status timed out; a fresh job untouched; restart of the same ticker/date spawns. |
+| TST-UI-27 | A headless claude -p with --strict-mcp-config loads no eToro tools | REQ-UI-06 | D | Manual procedure M5. |
 | TST-UP-01 | The ledger is consistent and records the v0.5.1 baseline | REQ-UP-01, REQ-UP-05 | T | `tools/upstream.py check` on the real ledger; ≥ 30 baseline rows across statuses. |
 | TST-UP-02 | The ledger check rejects bad statuses, missing or unknown requirements, duplicates and bad PR rows | REQ-UP-01 | T | Eleven single mutations of the real ledger, each named in the problems. |
 | TST-UP-03 | The worklist splits open PRs into new, head-moved and unchanged, and flags PRs that left the open list | REQ-UP-02 | T | Four ledger rows × three open PRs; a declined PR is not revisited. |
@@ -268,6 +272,11 @@ Load the plugin: `claude --plugin-dir /Users/kai/repos/ai/berkshire`, or
 5. The Orders view and the TUI Orders tab list the queue read-only, and point to `/berkshire:approve`.
 6. Start a second analysis and stop it with **Stop analysis** (web, two clicks) or `s` (TUI). The job ends
    within seconds, the run shows Stopped with its reason, and no further agents are started.
+
+**M5 — headless job boundary (TST-UI-27).** From `$HOME`, with the eToro connector enabled, run
+`claude -p "Reply with only the names of your available tools that contain 'eToro', or NONE." --permission-mode dontAsk`
+once without and once with `--strict-mcp-config`. Without the flag it lists the eToro tools; with it,
+`NONE`. Checked on Claude Code 2.1.283, 2026-09-27.
 
 **M5 — first CI run (TST-CI-09).**
 1. Push to the GitHub `main` branch. All six jobs pass.
@@ -328,7 +337,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-OUT-01 | TST-OUT-01, TST-OUT-02, TST-OUT-07, TST-OUT-10 |
 | REQ-OUT-02 | TST-OUT-03, TST-OUT-08 |
 | REQ-OUT-03 | TST-OUT-04, TST-OUT-10 |
-| REQ-OUT-04 | TST-OUT-05, TST-OUT-07 |
+| REQ-OUT-04 | TST-OUT-05, TST-OUT-07, TST-OUT-11 |
 | REQ-OUT-05 | TST-OUT-05, TST-OUT-08 |
 | REQ-OUT-06 | TST-OUT-06 |
 | REQ-OUT-07 | TST-OUT-09, TST-OUT-10 |
@@ -393,6 +402,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-SCHED-03 | TST-CKPT-03, TST-SCHED-03 |
 | REQ-SCHED-04 | TST-SCHED-04 |
 | REQ-SCHED-05 | TST-ROLE-12, TST-SCHED-05 |
+| REQ-SCHED-06 | TST-SCHED-06 |
 | REQ-SAFE-01 | TST-SAFE-01 |
 | REQ-SAFE-02 | TST-CKPT-01, TST-SAFE-02 |
 | REQ-SAFE-03 | TST-RPT-01 |
@@ -402,7 +412,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-UI-03 | TST-UI-05, TST-UI-06, TST-UI-13 |
 | REQ-UI-04 | TST-UI-08, TST-UI-09, TST-UI-14, TST-UI-20, TST-WEB-03 |
 | REQ-UI-05 | TST-UI-05, TST-UI-20, TST-WEB-01, TST-WEB-02 |
-| REQ-UI-06 | TST-UI-07, TST-UI-15, TST-UI-22, TST-UI-25 |
+| REQ-UI-06 | TST-UI-07, TST-UI-15, TST-UI-22, TST-UI-25, TST-UI-27 |
 | REQ-UI-07 | TST-UI-06, TST-UI-18, TST-UI-19 |
 | REQ-UI-08 | TST-UI-13, TST-UI-14, TST-UI-15, TST-UI-20, TST-UI-23 |
 | REQ-UI-09 | TST-UI-16 |
@@ -410,6 +420,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-UI-11 | TST-UI-01 |
 | REQ-UI-12 | TST-UI-17 |
 | REQ-UI-13 | TST-FLOW-11, TST-UI-20, TST-UI-21, TST-UI-23, TST-UI-24 |
+| REQ-UI-14 | TST-UI-26 |
 | REQ-CI-01 | TST-CI-01, TST-CI-09 |
 | REQ-CI-02 | TST-CI-02 |
 | REQ-CI-03 | TST-CI-03, TST-CI-09 |

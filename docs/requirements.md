@@ -74,7 +74,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-OUT-01 | M | The Research Manager, Trader, Portfolio Manager and Sentiment Analyst shall emit a JSON block matching their schema (ResearchPlan, TraderProposal, PortfolioDecision, SentimentReport). The engine renders it to the same markdown as TradingAgents. | T |
 | REQ-OUT-02 | M | If the JSON block is missing or invalid, the engine shall fall back to the free-text output instead of failing the run. | T |
 | REQ-OUT-03 | M | Optional price fields (entry, stop, target, price target) shall accept numbers and formatted prices (`"$1,234.50"` → 1234.5). Placeholders (`"N/A"`, `"none"`), percentages, ranges and hedged values become null. | T |
-| REQ-OUT-04 | M | The run signal shall be one of Buy/Overweight/Hold/Underweight/Sell, parsed from the final decision. The parser prefers the last labelled `Rating:` line, ignores scale-legend lines, and accepts a bare rating word only when exactly one distinct rating appears. | T |
+| REQ-OUT-04 | M | The run signal shall be one of Buy/Overweight/Hold/Underweight/Sell, taken from the Portfolio Manager's typed rating, which is also the rating in the decision log. Only a free-text decision is parsed: a `Rating:` label that opens its own line (after emphasis or heading marks and at most one word, e.g. `**Rating**:`, `Final Rating -`) is the call, and two such lines that disagree give no rating. A label quoted in a sentence, list, table or quote, or a word merely ending in "rating", is not. Without such a line the last label anywhere counts. Scale-legend lines are ignored, and a bare rating word counts only when exactly one distinct rating appears. | T |
 | REQ-OUT-05 | M | A final decision with no parseable rating shall produce the non-tradeable signal `REVIEW`, never Hold. | T |
 | REQ-OUT-06 | M | The Sentiment score shall be bounded to 0–10, and band and confidence restricted to their enums. | T |
 | REQ-OUT-07 | M | The Trader's proposal shall carry an optional target price. The engine shall compute reward/risk from entry, stop and target only when they are ordered correctly for the action (Buy: stop < entry < target; Sell: target < entry < stop). Missing, inverted or zero-risk levels are named as such, and Hold has none. The model never states the ratio itself. | T |
@@ -85,7 +85,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 |---|---|---|---|
 | REQ-MEM-01 | M | Every completed run shall append `[date \| ticker \| rating \| pending]` + `DECISION:` to the markdown decision log, in the TradingAgents format. | T |
 | REQ-MEM-02 | M | Storing a second decision for the same ticker and date shall be a no-op. | T |
-| REQ-MEM-03 | M | Settlement shall compute raw return and alpha over `holding_period_days` trading days against the benchmark. The benchmark is chosen by explicit override, then by exchange suffix, then SPY. An entry whose window has not fully traded stays pending. The same `holding_period_days` is the horizon the agents are told (REQ-CTX-08). | T |
+| REQ-MEM-03 | M | Settlement shall compute raw return and alpha over `holding_period_days` trading days against the benchmark. The benchmark is chosen by explicit override, then by exchange suffix (covering every exchange eToro lists stocks from), then SPY. An entry whose window has not fully traded stays pending. The same `holding_period_days` is the horizon the agents are told (REQ-CTX-08). | T |
 | REQ-MEM-04 | M | A settled entry shall get a 2–4 sentence Reflector reflection and the resolved tag `[date \| ticker \| rating \| raw \| alpha \| Nd \| resolved:YYYY-MM-DD]`, written atomically. | T |
 | REQ-MEM-05 | M | Past context shall contain up to 5 same-ticker entries (full) and 3 cross-ticker reflections, most recent first. For a historical run only lessons resolved on or before the trade date are included. | T |
 | REQ-MEM-06 | S | When `memory_log_max_entries` is set, the oldest resolved entries shall be rotated out. Pending entries are never pruned. | T |
@@ -173,7 +173,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-EXE-04 | M | Queue entries shall move pending → approved/rejected → placed/failed, or pending → expired (after `queue_ttl_hours`) or superseded (a newer intent for the same instrument). Only pending entries are offered for approval. | T |
 | REQ-EXE-05 | M | An `outcome: pending` or `unknown` from eToro shall be recorded as such and never re-placed automatically. A retry after `unknown` reuses the same token. | I |
 | REQ-EXE-06 | M | Portfolio and cash for sizing shall be read from `get-my-portfolio-summary` on the configured account. | T |
-| REQ-EXE-07 | M | eToro symbols shall map to yfinance symbols: stocks and ETFs as-is, crypto → `<SYM>-USD`, and the configured map for forex, commodities and indices. Unmappable instruments are skipped with a reason. | T |
+| REQ-EXE-07 | M | eToro symbols shall map to yfinance symbols: stocks and ETFs as-is except eToro's venue spellings (Zurich `.ZU` → `.SW`, Amsterdam `.NV` → `.AS`, an extended-hours `.RTH` listing → the plain ticker), crypto → `<SYM>-USD`, and the configured map for forex, commodities and indices. Unmappable instruments are skipped with a reason. | T |
 
 ## 13. Scheduling (REQ-SCHED)
 
@@ -184,6 +184,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-SCHED-03 | M | A tick shall be idempotent per trade date: an instrument already completed today is not re-analysed. | T |
 | REQ-SCHED-04 | S | `max_tickers_per_tick` shall cap the universe (holdings first). | T |
 | REQ-SCHED-05 | M | One instrument's failure shall not abort the tick. It is recorded and reported. | D |
+| REQ-SCHED-06 | M | A tick shall not analyse when reading the eToro portfolio or watchlist fails, or Yahoo Finance is unreachable. It settles what it can, then stops with a notification naming the cause. | T |
 
 ## 14. Safety and quality (REQ-SAFE)
 
@@ -214,7 +215,7 @@ state, and every view is a client of its HTTP + SSE API. Recorded with the user 
 | REQ-UI-03 | M | Both views shall show the runs (signal and progress), the decision log, the order queue and backtest summaries. | T |
 | REQ-UI-04 | M | Both views shall update live: the server emits an SSE `change` event within about 1 s of a run, log, queue or job changing. The web view reconnects with backoff. | T |
 | REQ-UI-05 | M | A run's detail view shall show what the TradingAgents live panel shows: every agent's status by team, the report of each finished agent (latest by default), the step timeline, and the order proposal with the risk gate's reasons. | T |
-| REQ-UI-06 | M | Both views shall let the user start an analysis (ticker, date, analysts, depth). Input is validated by the engine's rules, and a headless `claude -p /berkshire:analyze …` job is started, unless a job for the same resolved ticker and date is still running. Job status and log tail are shown. | T |
+| REQ-UI-06 | M | Both views shall let the user start an analysis (ticker, date, analysts, depth). Input is validated by the engine's rules, and a headless `claude -p /berkshire:analyze …` job is started, unless a job for the same resolved ticker and date is still running. The job runs with permission mode `dontAsk` and no MCP servers (`--strict-mcp-config`), so its allowlist (the engine CLI, `date`, Read, Write, Agent, WebSearch, WebFetch) is its whole boundary whatever the user's permission mode, and it cannot reach eToro's order tools. Job status and log tail are shown. | T |
 | REQ-UI-07 | M | The API shall have no endpoint that places, approves, rejects or modifies orders. The views state that orders are placed with `/berkshire:approve`. | T |
 | REQ-UI-08 | M | `berkshire tui` shall provide the terminal view (runs, progress, reports, decisions, orders, jobs), with keys n (new analysis), r (refresh) and q (quit). | T |
 | REQ-UI-09 | M | Textual shall be optional. The engine, server and web view work without it, and `berkshire tui` without it prints how to install the extra (exit code 3) instead of a traceback. | T |
@@ -222,6 +223,7 @@ state, and every view is a client of its HTTP + SSE API. Recorded with the user 
 | REQ-UI-11 | M | `berkshire web` and `berkshire tui` shall start the server in the background when none is running, then print the URL or attach. | T |
 | REQ-UI-12 | S | `/berkshire:dashboard` shall start the server if needed and give the user the web URL and the TUI command. | I |
 | REQ-UI-13 | M | Both views shall let the user stop an unfinished analysis after a confirmation. The run is marked stopped (with time and reason), the engine then offers and accepts no further steps, and the pipeline loop reports it. A running dashboard job for that run has its process group ended. Stopped runs show as Stopped; `--checkpoint` resumes one. | T |
+| REQ-UI-14 | M | A dashboard job still running `job_timeout_minutes` (default 180) after it started shall be ended as in REQ-UI-13, with the reason "timed out after N min". It shows as timed out, no longer blocks a restart of its ticker and date, and `--checkpoint` resumes the run. | T |
 
 ## 16. Continuous integration (REQ-CI)
 

@@ -1,10 +1,11 @@
 """eToro adapters: portfolio snapshot, symbol mapping, universe."""
 
 import json
+from pathlib import Path
 
 import pytest
 
-from berkshire import config, etoro
+from berkshire import config, data, etoro
 from berkshire.cli import main
 
 SUMMARY = {"account": "demo", "accountCurrency": "USD",
@@ -43,6 +44,7 @@ def test_portfolio_from_summary(tmp_path, capsys):
 @pytest.mark.parametrize("sym,atype,expected", [
     ("NVDA", 5, "NVDA"), ("RHM.DE", 5, "RHM.DE"), ("EIMI.L", 6, "EIMI.L"), ("BRK.B", 5, "BRK-B"),
     ("BTC", 10, "BTC-USD"), ("EURUSD", 1, "EURUSD=X"), ("GOLD", 2, "GC=F"), ("SPX500", 4, "^GSPC"),
+    ("NESN.ZU", 5, "NESN.SW"), ("ASML.NV", 5, "ASML.AS"), ("ASML.RTH", 5, "ASML"), ("VOLV-A.ST", 5, "VOLV-A.ST"),
     ("NATGAS2", 2, None), ("MYSTERY", 4, None)])
 def test_symbol_mapping(sym, atype, expected):
     """TST-EXE-07: eToro symbols map to Yahoo symbols; unmappable ones return None [REQ-EXE-07]"""
@@ -76,6 +78,17 @@ def test_weekend_is_settle_only(tmp_path, capsys):
     assert is_trading_day("2026-09-25") and not is_trading_day("2026-09-26") and not is_trading_day("2026-09-27")
     main(["universe", "--date", "2026-09-26"])
     assert json.loads(capsys.readouterr().out)["trading_day"] is False
+
+
+def test_tick_preflight(capsys, monkeypatch):
+    """TST-SCHED-06: universe reports whether Yahoo is reachable, and the tick stops before analysis with a notification when eToro or Yahoo is down [REQ-SCHED-06]"""
+    for probe, reachable in ((None, False), (True, True), (False, True)):
+        monkeypatch.setattr(data, "check_listed", lambda sym, date, probe=probe: probe)
+        main(["universe", "--date", "2026-09-25"])
+        assert json.loads(capsys.readouterr().out)["yahoo_reachable"] is reachable
+    tick = (Path(__file__).resolve().parents[1] / "skills" / "tick" / "SKILL.md").read_text()
+    assert 'ABORT = "eToro unreachable: <cause>"' in tick and 'ABORT = "Yahoo Finance unreachable"' in tick
+    assert tick.index("**Settle and reflect**") < tick.index("analysis skipped: ABORT") < tick.index("**Analyze**")
 
 
 def test_account_default_demo():

@@ -22,7 +22,11 @@ DEFAULTS: dict = {
     "benchmark_map": {
         ".NS": "^NSEI", ".BO": "^BSESN", ".T": "^N225", ".HK": "^HSI", ".L": "^FTSE",
         ".TO": "^GSPTSE", ".AX": "^AXJO", ".SS": "000001.SS", ".SZ": "399001.SZ",
-        ".SA": "^BVSP", ".DE": "^GDAXI", ".PA": "^FCHI", ".AS": "^AEX", "": "SPY",
+        ".SA": "^BVSP", ".DE": "^GDAXI", ".PA": "^FCHI", ".AS": "^AEX",
+        # TradingAgents #1392, plus the other European venues eToro lists (Yahoo symbols checked 2026-09-27)
+        ".TW": "^TWII", ".TWO": "^TWII", ".KS": "^KS11", ".KQ": "^KQ11", ".SI": "^STI",
+        ".SW": "^SSMI", ".MI": "FTSEMIB.MI", ".MC": "^IBEX", ".ST": "^OMX", ".OL": "OSEBX.OL",
+        ".CO": "^OMXC25", ".HE": "^OMXH25", ".BR": "^BFX", ".LS": "PSI20.LS", "": "SPY",
     },
     "news_article_limit": 20,
     "global_news_article_limit": 10,
@@ -39,6 +43,7 @@ DEFAULTS: dict = {
     "watchlist_name": "My Watchlist",
     "max_tickers_per_tick": 10,
     "queue_ttl_hours": 24,
+    "job_timeout_minutes": 180,  # a dashboard job still running after this is ended (REQ-UI-14)
     # Risk gate (REQ-RISK-08)
     "target_weight": 0.05,
     "max_order_pct": 0.05,
@@ -109,7 +114,7 @@ def validate(cfg: dict) -> dict:
     if not 0 <= float(cfg["min_cash_pct"]) < 1:
         raise ValueError(f"min_cash_pct must be in [0, 1), got {cfg['min_cash_pct']!r}")
     for key in ("max_orders_per_run", "min_order_amount", "atr_stop_multiple",
-                "holding_period_days", "max_tickers_per_tick", "queue_ttl_hours"):
+                "holding_period_days", "max_tickers_per_tick", "queue_ttl_hours", "job_timeout_minutes"):
         if float(cfg[key]) <= 0:
             raise ValueError(f"{key} must be positive, got {cfg[key]!r}")
     for key in ("max_debate_rounds", "max_risk_discuss_rounds"):

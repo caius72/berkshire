@@ -13,6 +13,8 @@ from pathlib import Path
 
 ASSET_FOREX, ASSET_COMMODITY, ASSET_INDEX, ASSET_STOCK, ASSET_ETF, ASSET_CRYPTO = 1, 2, 4, 5, 6, 10
 _CLASS_SHARE = {"A", "B", "C"}  # BRK.B -> BRK-B on Yahoo
+# eToro venue suffixes Yahoo spells differently: Zurich, Amsterdam, and US extended-hours listings.
+_VENUE = {"ZU": ".SW", "NV": ".AS", "RTH": ""}
 
 
 def _get(d: dict, *keys, default=None):
@@ -108,6 +110,8 @@ def yf_symbol(etoro_symbol: str, asset_type: int | None, symbol_map: dict) -> st
     head, dot, tail = s.rpartition(".")
     if dot and tail in _CLASS_SHARE:
         return f"{head}-{tail}"
+    if dot and tail in _VENUE:
+        return head + _VENUE[tail]
     return s
 
 

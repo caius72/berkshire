@@ -2,6 +2,7 @@
 
 import json
 import threading
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -140,6 +141,8 @@ def test_start_job(api, spawned):
     argv = spawned[0]
     assert argv[:2] == ["claude", "-p"] and argv[2].startswith("/berkshire:analyze NVDA 2026-09-18 --analysts market,news --depth medium")
     assert "place-trade" not in " ".join(argv) and "Bash(berkshire *)" in argv[-1]
+    assert argv[argv.index("--permission-mode") + 1] == "dontAsk" and "--strict-mcp-config" in argv
+    assert {"WebSearch", "WebFetch"} <= set(argv[-1].split()) and "mcp__" not in " ".join(argv)
     assert server.route("GET", f"/api/jobs/{job['id']}", None, api)[1]["ticker"] == "NVDA"
     assert server.route("GET", "/api/jobs", None, api)[1][0]["id"] == job["id"]
     for bad, msg in (({"ticker": "../x"}, "unsafe"), ({"ticker": "NVDA", "date": "2099-01-01"}, "future"),
@@ -261,4 +264,18 @@ def test_duplicate_running_job_refused(api, spawned):
     assert server.route("POST", "/api/jobs", {"ticker": "BZ=F", "date": "2026-09-17"}, api)[0] == 201
     api._procs[first["id"]] = FakeProc(code=0)
     assert server.route("POST", "/api/jobs", {"ticker": "BZ=F", "date": "2026-09-18"}, api)[0] == 201
+    assert len(spawned) == 3
+
+
+def test_job_timeout(api, spawned, killed, cfg, log):
+    """TST-UI-26: A dashboard job past job_timeout_minutes is ended once, its run marked stopped, and a restart is accepted [REQ-UI-14]"""
+    new_run(cfg, log)  # NVDA 2026-09-18, unfinished
+    old = server.route("POST", "/api/jobs", {"ticker": "NVDA", "date": "2026-09-18"}, api)[1]
+    fresh = server.route("POST", "/api/jobs", {"ticker": "NVDA", "date": "2026-09-17"}, api)[1]
+    api._jobs[old["id"]]["started"] = (datetime.now() - api.timeout - timedelta(minutes=1)).isoformat(timespec="seconds")
+    assert {j["id"]: j["status"] for j in api.jobs()} == {old["id"]: "timed out", fresh["id"]: "running"}
+    assert api.job(old["id"])["status"] == "timed out" and killed == [old["id"]]  # killed once
+    stopped = server.route("GET", "/api/runs/NVDA/2026-09-18", None, api)[1]["stopped"]
+    assert stopped["reason"] == f"timed out after {config.load()['job_timeout_minutes']} min"
+    assert server.route("POST", "/api/jobs", {"ticker": "NVDA", "date": "2026-09-18"}, api)[0] == 201
     assert len(spawned) == 3

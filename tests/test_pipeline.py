@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
-from conftest import CANNED, canned, new_run, run_all
+from conftest import CANNED, canned, js, new_run, run_all
 
 from berkshire import config, pipeline
 
@@ -236,6 +236,17 @@ def test_signal_and_structured_render(cfg, log):
     assert state["sentiment_report"].startswith("**Overall Sentiment:** **Mildly Bullish** (Score: 6.0/10)")
     assert state["structured"]["pm_decision"]["price_target"] == 340.0
     assert state["warnings"] == []
+
+
+def test_typed_rating_is_the_signal(cfg, log):
+    """TST-OUT-11: The Portfolio Manager's typed rating is the run signal and the logged rating; a rating its text quotes never replaces it [REQ-OUT-04]"""
+    pm = js({"rating": "Hold", "executive_summary": "Wait for margins.",
+             "investment_thesis": "Street consensus rating: Buy (28 of 35 analysts), but margins are rolling over.",
+             "price_target": None, "time_horizon": "3 months"})
+    out = lambda sid: pm if sid == "portfolio_manager" else canned(sid)
+    state = run_all(new_run(cfg, log), log, outputs=out)
+    assert "consensus rating: Buy" in state["final_trade_decision"]
+    assert state["signal"] == "Hold" and log.entries()[-1]["rating"] == "Hold"
 
 
 def test_pm_without_rating_is_review(cfg, log):

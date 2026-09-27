@@ -28,7 +28,7 @@ import subprocess
 import threading
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -95,8 +95,9 @@ class Api:
     """Read model over BERKSHIRE_HOME plus the job runner. `spawn(argv, log_path)`
     is injectable so tests never start Claude."""
 
-    def __init__(self, home: Path | None = None, spawn=None, kill=None):
+    def __init__(self, home: Path | None = None, spawn=None, kill=None, timeout_minutes: float | None = None):
         self.home = Path(home or config.home())
+        self.timeout = timedelta(minutes=float(timeout_minutes or config.load()["job_timeout_minutes"]))
         self.spawn = spawn or _spawn_detached
         self.kill = kill or _kill_job
         self._jobs: dict[str, dict] = {}
@@ -176,8 +177,10 @@ class Api:
         log = self.home / "jobs" / f"{job_id}.log"
         log.parent.mkdir(parents=True, exist_ok=True)
         prompt = "/berkshire:analyze " + " ".join(args) + " (headless: do not ask questions; skip step 5)"
-        argv = ["claude", "-p", prompt, "--allowedTools",
-                "Bash(berkshire *) Bash(date *) Read Write Agent"]
+        # REQ-UI-06: the allowlist is the whole boundary, whatever the user's permission mode, and no MCP
+        # server is loaded, so the job cannot reach eToro's order tools (D2). Analysts need the web tools.
+        argv = ["claude", "-p", prompt, "--permission-mode", "dontAsk", "--strict-mcp-config", "--allowedTools",
+                "Bash(berkshire *) Bash(date *) Read Write Agent WebSearch WebFetch"]
         proc = self.spawn(argv, log)
         job = {"id": job_id, "ticker": ticker, "date": date, "args": args, "log": str(log),
                "started": datetime.now().isoformat(timespec="seconds"), "pid": getattr(proc, "pid", None)}
@@ -197,11 +200,29 @@ class Api:
             status = "running" if _job_process_alive(job) else "exited"
         else:
             status = "running" if code is None else ("done" if code == 0 else f"failed ({code})")
+        if job.get("timed_out"):
+            status = "timed out"
+        elif status == "running" and datetime.now() - datetime.fromisoformat(job["started"]) > self.timeout:
+            # ponytail: checked when jobs are listed, not by a timer; a hung job nobody looks at blocks nothing.
+            job, status = self._time_out(job), "timed out"
         try:
             tail = Path(job["log"]).read_text(encoding="utf-8", errors="replace")[-4000:]
         except OSError:
             tail = ""
         return {**job, "status": status, "log_tail": tail}
+
+    def _time_out(self, job: dict) -> dict:
+        """End an overdue job as REQ-UI-13 would, and mark its run stopped so --checkpoint resumes it (REQ-UI-14)."""
+        self.kill(job)
+        minutes = round(self.timeout.total_seconds() / 60)
+        rdir = self.runs_dir / config.safe_component(job["ticker"]) / config.safe_component(job["date"])
+        state = _read_json(rdir / "state.json")
+        if state and not state["complete"] and not state.get("stopped"):
+            pipeline.stop_run(state, f"timed out after {minutes} min")
+        record = {**job, "stopped": datetime.now().isoformat(timespec="seconds"), "timed_out": True}
+        self._jobs[job["id"]] = record
+        config.atomic_write(Path(job["log"]).with_suffix(".json"), json.dumps(record, indent=2))
+        return record
 
     def jobs(self) -> list[dict]:
         ids = set(self._jobs)

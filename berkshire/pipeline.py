@@ -398,6 +398,8 @@ def submit(state: dict, step_id: str, text: str, memory_log: DecisionLog | None 
         md, parsed, err = structured(text, schema)
         if parsed is not None:
             state["structured"][schema] = parsed
+        else:  # never let an earlier attempt's typed answer stand in for this one
+            state["structured"].pop(schema, None)
         if err:
             state["warnings"].append(f"{step_id}: {err}; used free text")
         return md
@@ -433,7 +435,10 @@ def submit(state: dict, step_id: str, text: str, memory_log: DecisionLog | None 
         state["final_trade_decision"] = decision
         state["risk_debate_state"]["judge_decision"] = decision
         state["risk_debate_state"]["latest_speaker"] = "Judge"
-        state["signal"] = parse_rating(decision)  # REQ-OUT-04/05
+        # REQ-OUT-04/05: the typed rating is the call. Read back from the rendered text, a rating the
+        # thesis quotes ("consensus rating: Buy") could replace it (TradingAgents #1383).
+        typed = state["structured"].get("pm_decision")
+        state["signal"] = typed["rating"] if typed else parse_rating(decision)
     state["completed"].append(step_id)
     # Timeline for the web/terminal views (REQ-UI-05); absent in runs made before it existed.
     state.setdefault("timeline", []).append({"step": step_id, "at": datetime.now().isoformat(timespec="seconds"),
@@ -508,7 +513,8 @@ def finalize(state: dict, memory_log: DecisionLog | None) -> None:
     atomic_write(rdir / f"full_states_log_{state['trade_date']}.json",
                  json.dumps(full_states_log(state), indent=4, ensure_ascii=False))
     if memory_log is not None:
-        memory_log.store(state["company_of_interest"], state["trade_date"], state["final_trade_decision"])
+        memory_log.store(state["company_of_interest"], state["trade_date"], state["final_trade_decision"],
+                         rating=state["signal"])
     state["complete"] = True
 
 
