@@ -19,6 +19,7 @@ Covers every requirement in [requirements.md](requirements.md). Test ids are
 | **Inspection (I)** | Plugin artefacts: 13 role subagents, persona directives, tool boundaries, execution guardrails in the skills | pytest over the markdown and frontmatter | `tests/test_plugin.py` |
 | **Traceability (T)** | REQ ↔ TST consistency | pytest parses both docs and all test docstrings | `tests/test_traceability.py` |
 | **Views (T)** | The API server (guard, routes, SSE, jobs), the client, the Textual TUI (driven by Textual's pilot against a real server thread), and the web view's pure modules | pytest; `node --test` | `tests/test_server.py`, `test_tui.py`, `webui/test/web.test.js` |
+| **Upstream ledger (T)** | The ledger in `docs/upstream.md`: fixed statuses, requirement ids that exist, the PR worklist, and the skill's ordering rules | pytest over the ledger and `tools/upstream.py` | `tests/test_upstream.py` |
 | **CI config (I)** | The workflow, lint rules and coverage floor | pytest over the parsed YAML/TOML | `tests/test_ci.py` |
 | **Manual (D)** | Behaviour that depends on live LLM agents, the Claude Code UI, or the eToro account | Documented procedures (§4), run against the **eToro demo account** | this document |
 
@@ -202,11 +203,11 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-WEB-04 | The ?t= token moves to sessionStorage and leaves the address bar | REQ-UI-02 | T | Fake location/storage/history. |
 | TST-CI-01 | CI runs on push and PR to main with test, core, lint, webui, secrets and sast jobs | REQ-CI-01 | I | Parse ci.yml. |
 | TST-CI-02 | ruff is pinned in CI and the rule set includes bandit security checks | REQ-CI-02 | I | ci.yml env + ruff.toml. |
-| TST-CI-03 | The test job runs every extra under branch coverage with a ratcheting floor and publishes the report | REQ-CI-03 | I | ci.yml + [tool.coverage]. |
+| TST-CI-03 | The test job runs every extra under branch coverage with a ratcheting floor and publishes the report | REQ-CI-03 | I | ci.yml + [tool.coverage]. Floor ≥ 89 and the step that fails when coverage is ≥ 2 points above it. |
 | TST-CI-04 | gitleaks scans the full history on every push and PR | REQ-CI-04 | I | fetch-depth 0, pinned gitleaks binary, `gitleaks git .` with no commit range. |
 | TST-CI-05 | CodeQL analyses Python and JavaScript with security-extended queries | REQ-CI-05 | I | sast matrix, permissions, and a gate step that fails on any SARIF result. |
 | TST-CI-06 | The core job installs no extras, asserts textual is absent and checks the tui hint | REQ-CI-06 | I | core job commands; textual only in the extra. |
-| TST-CI-07 | The webui job runs npm ci, the node tests and the vite build | REQ-CI-07 | I | webui job + package.json + lockfile. |
+| TST-CI-07 | The webui job runs npm ci, the pinned linter, the node tests and the vite build | REQ-CI-07 | I | webui job + package.json (exact Biome version, `lint` script) + biome.json (recommended + hook rules as errors) + lockfile. |
 | TST-CI-08 | Read-only default permissions, versioned actions, locked installs | REQ-CI-08 | I | Every `uses:` ends in `@vN`. |
 | TST-CI-09 | First push to GitHub: every job green, coverage and CodeQL results published | REQ-CI-01, REQ-CI-03, REQ-CI-04, REQ-CI-05 | D | Manual procedure M5. |
 | TST-FLOW-11 | A stopped run offers and accepts no steps; --checkpoint resumes it | REQ-UI-13 | T | Stop after one step; next/submit/CLI `next`; resume clears the flag; a complete run cannot be stopped. |
@@ -228,6 +229,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-SAFE-05 | Every manual procedure id is defined once, and every manual test names one that exists | REQ-SAFE-04 | T | Procedure headings in §4 unique; each D row's design cell names an M-id defined there. |
 | TST-SAFE-06 | AGENTS.md links every ground-truth document and states the change discipline; CLAUDE.md forwards to it | REQ-SAFE-05 | I | Every `docs/*.md` linked; the gate commands named; CLAUDE.md names AGENTS.md. |
 | TST-SAFE-07 | The design document describes every engine module | REQ-SAFE-06 | I | One module-table row per `berkshire/*.py` (except `__init__`, `__main__`), so a new module cannot go undescribed. |
+| TST-SAFE-08 | The test strategy names every test file, and the README states no requirement count that can drift | REQ-SAFE-07 | T | Every `tests/test_*.py` appears in §1; no `N requirements` in the README; the README links the ledger and names `/upstream-scout`. |
 
 ## 3. Entry and exit criteria
 
@@ -416,6 +418,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-SAFE-04 | TST-SAFE-04, TST-SAFE-05 |
 | REQ-SAFE-05 | TST-SAFE-06 |
 | REQ-SAFE-06 | TST-SAFE-07 |
+| REQ-SAFE-07 | TST-SAFE-08 |
 | REQ-UI-01 | TST-UI-01, TST-UI-04, TST-UI-12, TST-UI-19 |
 | REQ-UI-02 | TST-UI-02, TST-UI-03, TST-UI-04, TST-UI-10, TST-WEB-02, TST-WEB-04 |
 | REQ-UI-03 | TST-UI-05, TST-UI-06, TST-UI-13 |

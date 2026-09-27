@@ -25,7 +25,7 @@ test('TST-WEB-02: Inline markup becomes runs, never HTML; tags stay literal text
 test('TST-WEB-03: The SSE parser handles split chunks, comments and multi-event buffers [REQ-UI-04]', () => {
   let out = parseSSE('event: hello\ndata: {"keys":[]}\n\n: keep-alive\n\nevent: change\ndata: {"ke')
   assert.deepEqual(out.events, [{ event: 'hello', data: { keys: [] } }])
-  out = parseSSE(out.rest + 'ys":["queue"]}\n\n')
+  out = parseSSE(`${out.rest}ys":["queue"]}\n\n`)
   assert.deepEqual(out.events, [{ event: 'change', data: { keys: ['queue'] } }])
   assert.equal(out.rest, '')
 })

@@ -50,7 +50,8 @@ def test_coverage_floor():
     """TST-CI-03: The test job runs every extra under branch coverage with a ratcheting floor and publishes the report [REQ-CI-03]"""
     assert "--all-extras" in runs("test") and "--cov" in runs("test") and "--cov-report=xml" in runs("test")
     cov = PYPROJECT["tool"]["coverage"]
-    assert cov["run"]["branch"] is True and cov["report"]["fail_under"] >= 80
+    assert cov["run"]["branch"] is True and cov["report"]["fail_under"] >= 89
+    assert "coverage report --format=total" in runs("test") and "raise fail_under" in runs("test")  # the ratchet
     assert "actions/upload-artifact@v4" in uses("test") and "GITHUB_STEP_SUMMARY" in runs("test")
 
 
@@ -88,11 +89,17 @@ def test_core_job_proves_optional_tui():
 
 
 def test_webui_job():
-    """TST-CI-07: The webui job runs npm ci, the node tests and the vite build [REQ-CI-07]"""
+    """TST-CI-07: The webui job runs npm ci, the pinned linter, the node tests and the vite build [REQ-CI-07]"""
     r = runs("webui")
-    for cmd in ("npm ci", "npm test", "npm run build", "test -f dist/index.html"):
+    for cmd in ("npm ci", "npm run lint", "npm test", "npm run build", "test -f dist/index.html"):
         assert cmd in r
     pkg = json.loads((ROOT / "webui" / "package.json").read_text())
+    # A pinned linter (exact version, no range) with an explicit, checked-in rule set.
+    assert re.fullmatch(r"\d+\.\d+\.\d+", pkg["devDependencies"]["@biomejs/biome"]) and "biome lint" in pkg["scripts"]["lint"]
+    biome = json.loads((ROOT / "webui" / "biome.json").read_text())
+    assert biome["linter"]["rules"]["recommended"] is True
+    assert biome["linter"]["rules"]["correctness"]["useExhaustiveDependencies"] == "error"
+    assert biome["linter"]["rules"]["correctness"]["useHookAtTopLevel"] == "error"
     assert pkg["scripts"]["test"].startswith("node --test") and (ROOT / "webui" / "package-lock.json").is_file()
 
 

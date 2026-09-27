@@ -79,6 +79,16 @@ def test_manual_procedures_resolve():
         assert named and set(named) <= set(defined), f"{tid} names no existing manual procedure: {design.strip()}"
 
 
+def test_docs_not_stale():
+    """TST-SAFE-08: The test strategy names every test file, and the README states no requirement count that can drift [REQ-SAFE-07]"""
+    strategy = PLAN_DOC.read_text().split("## 2. Test cases")[0]
+    for f in sorted(ROOT.glob("tests/test_*.py")):
+        assert f.name in strategy or f.stem in strategy, f"docs/test-plan.md §1 does not name {f.name}"
+    readme = (ROOT / "README.md").read_text()
+    assert not re.search(r"\d+ requirements", readme), "README.md hard-codes a requirement count"
+    assert "](docs/upstream.md)" in readme and "/upstream-scout" in readme
+
+
 if __name__ == "__main__" and "--write" in sys.argv:
     text = PLAN_DOC.read_text()
     head, rest = text.split(BEGIN)

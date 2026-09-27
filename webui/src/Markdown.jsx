@@ -1,6 +1,9 @@
 import React from 'react'
 import { parseBlocks, parseInline } from './md.js'
 
+// Blocks and inline runs are parsed fresh from immutable text and hold no state, so their
+// position is their identity: index keys are correct here (noArrayIndexKey is off for this file).
+
 const Inline = ({ text }) =>
   parseInline(text).map((r, i) =>
     r.t === 'b' ? <strong key={i}>{r.v}</strong>
