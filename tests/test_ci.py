@@ -40,10 +40,10 @@ def test_workflow_triggers_and_jobs():
 def test_lint_pinned_with_security_rules():
     """TST-CI-02: ruff is pinned in CI and the rule set includes bandit security checks [REQ-CI-02]"""
     pinned = WF["env"]["RUFF_VERSION"]
-    assert re.fullmatch(r"\d+\.\d+\.\d+", pinned) and 'ruff@${RUFF_VERSION}' in runs("lint")
+    assert re.fullmatch(r"\d+\.\d+\.\d+", pinned) and "ruff@${RUFF_VERSION}" in runs("lint")
     ruff = tomllib.loads((ROOT / "ruff.toml").read_text())
     assert {"E9", "F", "B", "S"} <= set(ruff["lint"]["select"])
-    assert pinned in (ROOT / "ruff.toml").read_text()   # the comment names the same version
+    assert pinned in (ROOT / "ruff.toml").read_text()  # the comment names the same version
 
 
 def test_coverage_floor():
@@ -149,7 +149,7 @@ def test_auto_start(tmp_path):
             if not (tmp_path / "home" / "server.json").exists():
                 break
             time.sleep(0.1)
-    assert not (tmp_path / "home" / "server.json").exists()   # the registry is removed on shutdown
+    assert not (tmp_path / "home" / "server.json").exists()  # the registry is removed on shutdown
 
 
 @pytest.mark.parametrize("path", ["berkshire/server.py", "berkshire/client.py"])

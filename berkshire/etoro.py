@@ -35,12 +35,15 @@ def _get(d: dict, *keys, default=None):
 
 # --- portfolio context -----------------------------------------------------
 
+
 def render_portfolio(p: dict | None, ticker: str) -> str:
     """Block for Trader / risk team / PM. None = not provided, never flat (REQ-CTX-04)."""
     if p is None:
-        return ("Portfolio context: not provided. You do not know the caller's current holdings or cash, "
-                "so do not assume a flat book; give direction and sizing guidance in terms the caller can "
-                "apply to their own position.")
+        return (
+            "Portfolio context: not provided. You do not know the caller's current holdings or cash, "
+            "so do not assume a flat book; give direction and sizing guidance in terms the caller can "
+            "apply to their own position."
+        )
     sym = ticker.strip().upper()
     held = position_in(p, sym)
     if held is None:
@@ -87,13 +90,19 @@ def load_portfolio_file(path: str | Path) -> dict:
     for q in data.get("positions", []):
         if "ticker" not in q or "quantity" not in q:
             raise ValueError(f"portfolio file {path}: each position needs ticker and quantity")
-        positions.append({"ticker": str(q["ticker"]).upper(), "quantity": float(q["quantity"]),
-                          "average_price": q.get("average_price"), "value": q.get("value")})
-    return {"cash": data.get("cash"), "currency": data.get("currency"), "equity": data.get("equity"),
-            "positions": positions}
+        positions.append(
+            {
+                "ticker": str(q["ticker"]).upper(),
+                "quantity": float(q["quantity"]),
+                "average_price": q.get("average_price"),
+                "value": q.get("value"),
+            }
+        )
+    return {"cash": data.get("cash"), "currency": data.get("currency"), "equity": data.get("equity"), "positions": positions}
 
 
 # --- eToro mapping ---------------------------------------------------------
+
 
 def yf_symbol(etoro_symbol: str, asset_type: int | None, symbol_map: dict) -> str | None:
     """eToro symbol -> Yahoo symbol, or None if unmappable (REQ-EXE-07)."""
@@ -115,8 +124,7 @@ def yf_symbol(etoro_symbol: str, asset_type: int | None, symbol_map: dict) -> st
     return s
 
 
-_KINDS = {ASSET_CRYPTO: "crypto", ASSET_ETF: "etf", ASSET_INDEX: "index", ASSET_COMMODITY: "commodity",
-          ASSET_FOREX: "fx"}
+_KINDS = {ASSET_CRYPTO: "crypto", ASSET_ETF: "etf", ASSET_INDEX: "index", ASSET_COMMODITY: "commodity", ASSET_FOREX: "fx"}
 
 
 def asset_kind(asset_type: int | None, yf: str) -> str:
@@ -140,24 +148,33 @@ def from_etoro_summary(summary: dict) -> dict:
             continue
         rows = [r for r in (h.get("positions") or []) if not _get(r, "mirrorId", "isMirror")]
         units = _get(h, "units", "totalUnits")
-        positions.append({
-            "ticker": str(sym).upper(), "etoro_symbol": str(sym).upper(),
-            "instrument_id": _get(h, "instrumentId", "instrumentID"),
-            "asset_type": _get(h, "assetTypeId", "instrumentTypeId", "instrumentTypeID"),
-            "quantity": float(units if units is not None else sum(float(_get(r, "units", default=0)) for r in rows)),
-            "average_price": _get(h, "averageOpenRate", "avgOpenRate", "openRate"),
-            "value": _get(h, "currentValue", "value", "totalValue"),
-            "position_ids": [{"id": int(_get(r, "positionId", "positionID")), "units": float(_get(r, "units", default=0))}
-                             for r in rows if _get(r, "positionId", "positionID") is not None],
-        })
-    return {"cash": _get(totals, "availableCash", "credit"),
-            "currency": summary.get("accountCurrency"),
-            "equity": _get(totals, "totalValue", "equity"),
-            "positions": positions}
+        positions.append(
+            {
+                "ticker": str(sym).upper(),
+                "etoro_symbol": str(sym).upper(),
+                "instrument_id": _get(h, "instrumentId", "instrumentID"),
+                "asset_type": _get(h, "assetTypeId", "instrumentTypeId", "instrumentTypeID"),
+                "quantity": float(units if units is not None else sum(float(_get(r, "units", default=0)) for r in rows)),
+                "average_price": _get(h, "averageOpenRate", "avgOpenRate", "openRate"),
+                "value": _get(h, "currentValue", "value", "totalValue"),
+                "position_ids": [
+                    {"id": int(_get(r, "positionId", "positionID")), "units": float(_get(r, "units", default=0))}
+                    for r in rows
+                    if _get(r, "positionId", "positionID") is not None
+                ],
+            }
+        )
+    return {
+        "cash": _get(totals, "availableCash", "credit"),
+        "currency": summary.get("accountCurrency"),
+        "equity": _get(totals, "totalValue", "equity"),
+        "positions": positions,
+    }
 
 
-def universe(portfolio: dict | None, watchlists: dict | None, watchlist_name: str,
-             symbol_map: dict, limit: int) -> tuple[list[dict], list[str]]:
+def universe(
+    portfolio: dict | None, watchlists: dict | None, watchlist_name: str, symbol_map: dict, limit: int
+) -> tuple[list[dict], list[str]]:
     """Holdings first, then the named watchlist; de-duplicated and capped (REQ-SCHED-01/04).
 
     Returns (instruments, skipped_reasons).
@@ -174,13 +191,20 @@ def universe(portfolio: dict | None, watchlists: dict | None, watchlist_name: st
         if y in seen:
             return
         seen.add(y)
-        items.append({"etoro_symbol": str(sym).upper(), "instrument_id": iid, "ticker": y,
-                      "asset_type": asset_kind(atype, y), "source": source})
+        items.append(
+            {
+                "etoro_symbol": str(sym).upper(),
+                "instrument_id": iid,
+                "ticker": y,
+                "asset_type": asset_kind(atype, y),
+                "source": source,
+            }
+        )
 
     for q in (portfolio or {}).get("positions", []):
         add(q.get("etoro_symbol") or q["ticker"], q.get("instrument_id"), q.get("asset_type"), "holding")
 
-    lists = ((watchlists or {}).get("watchlists") or {})
+    lists = (watchlists or {}).get("watchlists") or {}
     lists = lists.get("watchlists", []) if isinstance(lists, dict) else lists
     chosen = next((w for w in lists if w.get("name") == watchlist_name), None)
     if watchlists is not None and chosen is None:

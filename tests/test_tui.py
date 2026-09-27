@@ -26,7 +26,9 @@ def served(tmp_path):
 
             def poll(self):
                 return None
+
         return P()
+
     api = server.Api(config.home(), spawn=spawn)
     httpd, info = server.serve(port=0, api=api, poll=0.05, dist=tmp_path, register=False)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()

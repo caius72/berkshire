@@ -18,8 +18,14 @@ from .memory import DecisionLog, reflection_prompt, settle_candidates
 
 def _paths(cfg):
     h = config.home()
-    return {"home": h, "runs": h / "runs", "log": h / "memory" / "trading_memory.md",
-            "queue": h / "queue.json", "settle": h / "settlements", "prefs": h / "last_run.json"}
+    return {
+        "home": h,
+        "runs": h / "runs",
+        "log": h / "memory" / "trading_memory.md",
+        "queue": h / "queue.json",
+        "settle": h / "settlements",
+        "prefs": h / "last_run.json",
+    }
 
 
 def _log(cfg):
@@ -37,10 +43,13 @@ def _read_json(path):
 def depth_overrides(depth, debate_rounds=None, risk_rounds=None) -> dict:
     """Research depth sets both round counts; an explicit env var or flag wins (REQ-FLOW-07)."""
     import os
+
     rounds = None if depth is None else (pipeline.DEPTH.get(str(depth).lower()) or int(depth))
     out = {}
-    for key, env, flag in (("max_debate_rounds", "BERKSHIRE_MAX_DEBATE_ROUNDS", debate_rounds),
-                           ("max_risk_discuss_rounds", "BERKSHIRE_MAX_RISK_ROUNDS", risk_rounds)):
+    for key, env, flag in (
+        ("max_debate_rounds", "BERKSHIRE_MAX_DEBATE_ROUNDS", debate_rounds),
+        ("max_risk_discuss_rounds", "BERKSHIRE_MAX_RISK_ROUNDS", risk_rounds),
+    ):
         if flag:
             out[key] = flag
         elif rounds and not os.environ.get(env):
@@ -50,6 +59,7 @@ def depth_overrides(depth, debate_rounds=None, risk_rounds=None) -> dict:
 
 def _find_quote(overview: dict, symbol: str, instrument_id) -> float | None:
     """Ask price for one instrument in a get-instruments-overview response."""
+
     def walk(node):
         if isinstance(node, dict):
             sym = etoro._get(node, "symbol", "symbolName")
@@ -68,29 +78,47 @@ def _find_quote(overview: dict, symbol: str, instrument_id) -> float | None:
                 if r is not None:
                     return r
         return None
+
     return walk(overview)
 
 
 def cmd_init(a, cfg):
-    cfg = config.load(depth_overrides(a.depth, a.debate_rounds, a.risk_rounds)
-                      | {"output_language": a.language, "deep_think_llm": a.deep_model, "quick_think_llm": a.quick_model})
+    cfg = config.load(
+        depth_overrides(a.depth, a.debate_rounds, a.risk_rounds)
+        | {"output_language": a.language, "deep_think_llm": a.deep_model, "quick_think_llm": a.quick_model}
+    )
     portfolio = None
     if a.portfolio:
         portfolio = etoro.load_portfolio_file(a.portfolio)
     p = _paths(cfg)
-    res = pipeline.init_run(a.ticker, a.date or data.today(), cfg, results_dir=p["runs"], memory_log=_log(cfg),
-                            analysts=a.analysts.split(",") if a.analysts else None, asset_type=a.asset_type,
-                            portfolio=portfolio, checkpoint=a.checkpoint or cfg["checkpoint_enabled"],
-                            skip_if_complete=a.skip_if_complete, etoro_symbol=a.etoro_symbol,
-                            instrument_id=a.instrument_id)
+    res = pipeline.init_run(
+        a.ticker,
+        a.date or data.today(),
+        cfg,
+        results_dir=p["runs"],
+        memory_log=_log(cfg),
+        analysts=a.analysts.split(",") if a.analysts else None,
+        asset_type=a.asset_type,
+        portfolio=portfolio,
+        checkpoint=a.checkpoint or cfg["checkpoint_enabled"],
+        skip_if_complete=a.skip_if_complete,
+        etoro_symbol=a.etoro_symbol,
+        instrument_id=a.instrument_id,
+    )
     _print(res)
 
 
 def cmd_next(a, cfg):
     state = pipeline.load_state(a.run_dir)
     steps = pipeline.write_prompts(state)
-    _print({"done": state["complete"] or bool(state.get("stopped")), "stopped": state.get("stopped"),
-            "signal": state.get("signal"), "steps": steps})
+    _print(
+        {
+            "done": state["complete"] or bool(state.get("stopped")),
+            "stopped": state.get("stopped"),
+            "signal": state.get("signal"),
+            "steps": steps,
+        }
+    )
 
 
 def cmd_submit(a, cfg):
@@ -102,9 +130,16 @@ def cmd_submit(a, cfg):
     if not path.is_file():
         raise ValueError(f"no output file for step {a.step!r} at {path}")
     state = pipeline.submit(state, a.step, path.read_text(encoding="utf-8"), _log(cfg))
-    _print({"completed": a.step, "complete": state["complete"], "signal": state.get("signal"),
-            "report": state.get("report"), "warnings": state["warnings"],
-            "next": [s["id"] for s in pipeline.next_steps(state)]})
+    _print(
+        {
+            "completed": a.step,
+            "complete": state["complete"],
+            "signal": state.get("signal"),
+            "report": state.get("report"),
+            "warnings": state["warnings"],
+            "next": [s["id"] for s in pipeline.next_steps(state)],
+        }
+    )
 
 
 def cmd_stop(a, cfg):
@@ -141,8 +176,9 @@ def cmd_data(a, cfg):
             elif a.tool == "insider":
                 out = data.tool_insider(x[0], td)
             elif a.tool == "news":
-                out = data.tool_news(x[0], x[1] if len(x) > 1 else None, x[2] if len(x) > 2 else td, td,
-                                     cfg["news_article_limit"])
+                out = data.tool_news(
+                    x[0], x[1] if len(x) > 1 else None, x[2] if len(x) > 2 else td, td, cfg["news_article_limit"]
+                )
             elif a.tool == "global_news":
                 out = data.tool_global_news(x[0] if x else td, td, cfg, a.look_back)
             else:
@@ -177,11 +213,18 @@ def cmd_settle(a, cfg):
         c["id"] = f"{c['ticker']}_{c['trade_date']}"
         c["prompt_file"] = str(p["settle"] / f"{c['id']}.prompt.md")
         c["output_file"] = str(p["settle"] / f"{c['id']}.reflection.md")
-        config.atomic_write(Path(c["prompt_file"]), reflection_prompt(c)
-                            + f"\n\nWrite your reflection to this file with the Write tool: `{c['output_file']}`")
+        config.atomic_write(
+            Path(c["prompt_file"]),
+            reflection_prompt(c) + f"\n\nWrite your reflection to this file with the Write tool: `{c['output_file']}`",
+        )
     config.atomic_write(work, json.dumps(cands, indent=2, default=str))
-    _print({"to_reflect": [{k: c[k] for k in ("id", "prompt_file", "output_file")} for c in cands],
-            "agent": "berkshire:reflector", "model": cfg["quick_think_llm"]})
+    _print(
+        {
+            "to_reflect": [{k: c[k] for k in ("id", "prompt_file", "output_file")} for c in cands],
+            "agent": "berkshire:reflector",
+            "model": cfg["quick_think_llm"],
+        }
+    )
 
 
 def cmd_gate(a, cfg):
@@ -193,10 +236,18 @@ def cmd_gate(a, cfg):
     ask = a.ask if a.ask is not None else _find_quote(_read_json(a.quote_file) or {}, sym, state.get("instrument_id"))
     with data.run_cache(state["run_dir"], state["trade_date"]):
         atr = a.atr if a.atr is not None else data.latest_atr(state["company_of_interest"], state["trade_date"])
-    res = orders.gate(ticker=state["company_of_interest"], etoro_symbol=sym, instrument_id=state.get("instrument_id"),
-                      rating=state["signal"], portfolio=portfolio or {}, ask=ask,
-                      trader=state["structured"].get("trader_proposal"), pm=state["structured"].get("pm_decision"),
-                      atr=atr, cfg=cfg)
+    res = orders.gate(
+        ticker=state["company_of_interest"],
+        etoro_symbol=sym,
+        instrument_id=state.get("instrument_id"),
+        rating=state["signal"],
+        portfolio=portfolio or {},
+        ask=ask,
+        trader=state["structured"].get("trader_proposal"),
+        pm=state["structured"].get("pm_decision"),
+        atr=atr,
+        cfg=cfg,
+    )
     config.atomic_write(Path(a.run_dir) / "orders.json", json.dumps(res, indent=2))  # REQ-RISK-09
     _print(res)
 
@@ -245,12 +296,24 @@ def cmd_etoro_portfolio(a, cfg):
 
 def cmd_universe(a, cfg):
     portfolio = etoro.load_portfolio_file(a.portfolio_file) if a.portfolio_file else None
-    items, skipped = etoro.universe(portfolio, _read_json(a.watchlists_file), a.watchlist or cfg["watchlist_name"],
-                                    cfg["symbol_map"], int(cfg["max_tickers_per_tick"]))
+    items, skipped = etoro.universe(
+        portfolio,
+        _read_json(a.watchlists_file),
+        a.watchlist or cfg["watchlist_name"],
+        cfg["symbol_map"],
+        int(cfg["max_tickers_per_tick"]),
+    )
     date = a.date or data.today()
     # REQ-SCHED-06: None means Yahoo did not answer at all; False (no bars) still means it is reachable.
-    _print({"date": date, "trading_day": is_trading_day(date), "yahoo_reachable": data.check_listed("SPY", date) is not None,
-            "instruments": items, "skipped": skipped})
+    _print(
+        {
+            "date": date,
+            "trading_day": is_trading_day(date),
+            "yahoo_reachable": data.check_listed("SPY", date) is not None,
+            "instruments": items,
+            "skipped": skipped,
+        }
+    )
 
 
 def is_trading_day(date: str) -> bool:
@@ -263,6 +326,7 @@ def cmd_clear(a, cfg):
     for sf in runs.glob("*/*/state.json") if runs.exists() else []:
         if not json.loads(sf.read_text(encoding="utf-8")).get("complete"):
             import shutil
+
             shutil.rmtree(sf.parent)
             removed.append(str(sf.parent))
     _print({"removed": removed})
@@ -294,15 +358,18 @@ def cmd_config(a, cfg):
 
 def cmd_serve(a, cfg):
     from .server import run_forever
+
     run_forever(a.port)
 
 
 def cmd_web(a, cfg):
     """Print (and optionally open) the web view's URL, starting the server if needed."""
     from .client import ensure_server
+
     info = ensure_server()
     if a.open:
         import webbrowser
+
         webbrowser.open(info["url"])
     _print({"url": info["url"], "pid": info["pid"]})
 
@@ -311,9 +378,11 @@ def cmd_tui(a, cfg):
     try:
         from .tui import main as tui_main
     except ImportError:  # REQ-UI-09: optional extra, explain instead of a traceback
-        print("The terminal view needs the optional 'tui' extra: uv sync --extra tui "
-              "(or pip install 'berkshire[tui]'). The web view works without it: berkshire web --open",
-              file=sys.stderr)
+        print(
+            "The terminal view needs the optional 'tui' extra: uv sync --extra tui "
+            "(or pip install 'berkshire[tui]'). The web view works without it: berkshire web --open",
+            file=sys.stderr,
+        )
         raise SystemExit(3) from None
     tui_main()
 
@@ -323,61 +392,107 @@ def build_parser() -> argparse.ArgumentParser:
     sp = ap.add_subparsers(dest="cmd", required=True)
 
     s = sp.add_parser("init", help="create or resume a run")
-    s.add_argument("ticker"); s.add_argument("date", nargs="?")
-    s.add_argument("--analysts"); s.add_argument("--depth"); s.add_argument("--language")
-    s.add_argument("--debate-rounds", type=int); s.add_argument("--risk-rounds", type=int)
-    s.add_argument("--asset-type", choices=pipeline.ASSET_TYPES); s.add_argument("--portfolio")
-    s.add_argument("--checkpoint", action="store_true"); s.add_argument("--skip-if-complete", action="store_true")
-    s.add_argument("--etoro-symbol"); s.add_argument("--instrument-id", type=int)
-    s.add_argument("--deep-model"); s.add_argument("--quick-model")
+    s.add_argument("ticker")
+    s.add_argument("date", nargs="?")
+    s.add_argument("--analysts")
+    s.add_argument("--depth")
+    s.add_argument("--language")
+    s.add_argument("--debate-rounds", type=int)
+    s.add_argument("--risk-rounds", type=int)
+    s.add_argument("--asset-type", choices=pipeline.ASSET_TYPES)
+    s.add_argument("--portfolio")
+    s.add_argument("--checkpoint", action="store_true")
+    s.add_argument("--skip-if-complete", action="store_true")
+    s.add_argument("--etoro-symbol")
+    s.add_argument("--instrument-id", type=int)
+    s.add_argument("--deep-model")
+    s.add_argument("--quick-model")
     s.set_defaults(fn=cmd_init)
 
     for name, fn in (("next", cmd_next), ("status", cmd_status)):
-        s = sp.add_parser(name); s.add_argument("run_dir"); s.set_defaults(fn=fn)
-    s = sp.add_parser("stop", help="stop an unfinished run"); s.add_argument("run_dir")
-    s.add_argument("--reason", default="stopped by the user"); s.set_defaults(fn=cmd_stop)
-    s = sp.add_parser("submit"); s.add_argument("run_dir"); s.add_argument("step"); s.add_argument("--file")
+        s = sp.add_parser(name)
+        s.add_argument("run_dir")
+        s.set_defaults(fn=fn)
+    s = sp.add_parser("stop", help="stop an unfinished run")
+    s.add_argument("run_dir")
+    s.add_argument("--reason", default="stopped by the user")
+    s.set_defaults(fn=cmd_stop)
+    s = sp.add_parser("submit")
+    s.add_argument("run_dir")
+    s.add_argument("step")
+    s.add_argument("--file")
     s.set_defaults(fn=cmd_submit)
 
     s = sp.add_parser("data", help="point-in-time data tools for analysts")
-    s.add_argument("--run", required=True); s.add_argument("tool"); s.add_argument("args", nargs="*")
-    s.add_argument("--look-back", type=int); s.add_argument("--freq", default="quarterly", choices=["quarterly", "annual"])
+    s.add_argument("--run", required=True)
+    s.add_argument("tool")
+    s.add_argument("args", nargs="*")
+    s.add_argument("--look-back", type=int)
+    s.add_argument("--freq", default="quarterly", choices=["quarterly", "annual"])
     s.set_defaults(fn=cmd_data)
 
-    s = sp.add_parser("settle"); s.add_argument("tickers", nargs="*"); s.add_argument("--all", action="store_true")
-    s.add_argument("--apply", action="store_true"); s.set_defaults(fn=cmd_settle)
+    s = sp.add_parser("settle")
+    s.add_argument("tickers", nargs="*")
+    s.add_argument("--all", action="store_true")
+    s.add_argument("--apply", action="store_true")
+    s.set_defaults(fn=cmd_settle)
 
     s = sp.add_parser("gate", help="risk gate for a completed run")
-    s.add_argument("run_dir"); s.add_argument("--quote-file"); s.add_argument("--portfolio-file")
-    s.add_argument("--ask", type=float); s.add_argument("--atr", type=float); s.set_defaults(fn=cmd_gate)
+    s.add_argument("run_dir")
+    s.add_argument("--quote-file")
+    s.add_argument("--portfolio-file")
+    s.add_argument("--ask", type=float)
+    s.add_argument("--atr", type=float)
+    s.set_defaults(fn=cmd_gate)
 
-    s = sp.add_parser("enqueue"); s.add_argument("run_dirs", nargs="*"); s.add_argument("--tag", required=True)
+    s = sp.add_parser("enqueue")
+    s.add_argument("run_dirs", nargs="*")
+    s.add_argument("--tag", required=True)
     s.set_defaults(fn=cmd_enqueue)
 
-    s = sp.add_parser("queue"); s.add_argument("action", choices=["list", "mark", "expire"])
-    s.add_argument("id", nargs="?"); s.add_argument("status", nargs="?"); s.add_argument("--result-file")
-    s.add_argument("--all", action="store_true"); s.set_defaults(fn=cmd_queue)
+    s = sp.add_parser("queue")
+    s.add_argument("action", choices=["list", "mark", "expire"])
+    s.add_argument("id", nargs="?")
+    s.add_argument("status", nargs="?")
+    s.add_argument("--result-file")
+    s.add_argument("--all", action="store_true")
+    s.set_defaults(fn=cmd_queue)
 
-    s = sp.add_parser("etoro-portfolio"); s.add_argument("summary_file"); s.add_argument("--out", required=True)
+    s = sp.add_parser("etoro-portfolio")
+    s.add_argument("summary_file")
+    s.add_argument("--out", required=True)
     s.set_defaults(fn=cmd_etoro_portfolio)
 
-    s = sp.add_parser("universe"); s.add_argument("--portfolio-file"); s.add_argument("--watchlists-file")
-    s.add_argument("--watchlist"); s.add_argument("--date"); s.set_defaults(fn=cmd_universe)
+    s = sp.add_parser("universe")
+    s.add_argument("--portfolio-file")
+    s.add_argument("--watchlists-file")
+    s.add_argument("--watchlist")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_universe)
 
     sp.add_parser("clear-checkpoints").set_defaults(fn=cmd_clear)
 
-    s = sp.add_parser("backtest"); s.add_argument("action", choices=["plan", "summary"])
-    s.add_argument("tickers", nargs="?"); s.add_argument("--start"); s.add_argument("--end")
-    s.add_argument("--every", type=int, default=7); s.add_argument("--run-id"); s.add_argument("--json", action="store_true")
+    s = sp.add_parser("backtest")
+    s.add_argument("action", choices=["plan", "summary"])
+    s.add_argument("tickers", nargs="?")
+    s.add_argument("--start")
+    s.add_argument("--end")
+    s.add_argument("--every", type=int, default=7)
+    s.add_argument("--run-id")
+    s.add_argument("--json", action="store_true")
     s.set_defaults(fn=cmd_backtest)
 
-    s = sp.add_parser("prefs"); s.add_argument("action", choices=["get", "set"]); s.add_argument("value", nargs="?")
+    s = sp.add_parser("prefs")
+    s.add_argument("action", choices=["get", "set"])
+    s.add_argument("value", nargs="?")
     s.set_defaults(fn=cmd_prefs)
     sp.add_parser("config").set_defaults(fn=cmd_config)
     s = sp.add_parser("serve", help="run the local API + web view server")
-    s.add_argument("--port", type=int, default=8787); s.set_defaults(fn=cmd_serve)
+    s.add_argument("--port", type=int, default=8787)
+    s.set_defaults(fn=cmd_serve)
     s = sp.add_parser("web", help="start the server if needed and print the web view URL")
-    s.add_argument("--open", action="store_true"); s.set_defaults(fn=cmd_web)
+    s.add_argument("--open", action="store_true")
+    s.set_defaults(fn=cmd_web)
     sp.add_parser("tui", help="terminal view (needs the tui extra)").set_defaults(fn=cmd_tui)
     return ap
 

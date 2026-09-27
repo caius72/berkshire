@@ -10,14 +10,26 @@ from berkshire import config, pipeline
 
 # --- Flow -------------------------------------------------------------------
 
+
 def test_full_run_order(cfg, log):
     """TST-FLOW-01: A full run visits the teams in TradingAgents order [REQ-FLOW-01]"""
     trace = []
     run_all(new_run(cfg, log), log, trace=trace)
     flat = [s for batch in trace for s in batch]
-    assert flat == ["analyst_market", "analyst_social", "analyst_news", "analyst_fundamentals",
-                    "bull_1", "bear_2", "research_manager", "trader",
-                    "aggressive_1", "conservative_2", "neutral_3", "portfolio_manager"]
+    assert flat == [
+        "analyst_market",
+        "analyst_social",
+        "analyst_news",
+        "analyst_fundamentals",
+        "bull_1",
+        "bear_2",
+        "research_manager",
+        "trader",
+        "aggressive_1",
+        "conservative_2",
+        "neutral_3",
+        "portfolio_manager",
+    ]
 
 
 def test_analysts_offered_together(cfg, log):
@@ -70,6 +82,7 @@ def test_crypto_drops_fundamentals(cfg, log):
 def test_depth_mapping_and_override(monkeypatch):
     """TST-FLOW-07: Depth maps to 1/3/5 rounds; explicit flags and env vars win [REQ-FLOW-07]"""
     from berkshire.cli import depth_overrides
+
     assert depth_overrides("shallow") == {"max_debate_rounds": 1, "max_risk_discuss_rounds": 1}
     assert depth_overrides("medium")["max_debate_rounds"] == 3
     assert depth_overrides("deep")["max_risk_discuss_rounds"] == 5
@@ -113,10 +126,14 @@ def test_models_per_role(cfg, log):
 
 # --- Context ----------------------------------------------------------------
 
+
 def test_identity_injected_everywhere(cfg, log):
     """TST-CTX-01: Resolved identity + exact-ticker rule reach every prompt; past-date caveat; fail-open [REQ-CTX-01]"""
-    state = new_run(cfg, log, identity={"company_name": "NVIDIA Corporation", "sector": "Technology",
-                                        "industry": "Semiconductors", "exchange": "NMS"})
+    state = new_run(
+        cfg,
+        log,
+        identity={"company_name": "NVIDIA Corporation", "sector": "Technology", "industry": "Semiconductors", "exchange": "NMS"},
+    )
     ctx = state["instrument_context"]
     assert "Company: NVIDIA Corporation" in ctx and "Technology / Semiconductors" in ctx
     assert "not necessarily on 2026-09-18" in ctx
@@ -135,6 +152,7 @@ def test_identity_injected_everywhere(cfg, log):
 def test_profile_failure_falls_back(cfg, log, monkeypatch):
     """TST-CTX-08: An identity lookup error does not fail the run [REQ-CTX-01]"""
     from berkshire import data
+
     monkeypatch.setattr(data, "_ticker", lambda s: (_ for _ in ()).throw(RuntimeError("rate limited")))
     res = pipeline.init_run("NVDA", "2026-09-18", cfg, results_dir=config.home() / "runs", memory_log=log)
     assert "Resolved identity" not in pipeline.load_state(Path(res["run_dir"]))["instrument_context"]
@@ -165,6 +183,7 @@ def test_opening_marker(cfg, log):
 def test_portfolio_three_states(cfg, log):
     """TST-CTX-04: Position held, flat book and not-provided render differently [REQ-CTX-04]"""
     from berkshire.etoro import render_portfolio
+
     none = render_portfolio(None, "NVDA")
     flat = render_portfolio({"cash": 1000.0, "currency": "USD", "positions": []}, "NVDA")
     held = render_portfolio({"cash": 1000.0, "positions": [{"ticker": "NVDA", "quantity": 10, "average_price": 150.0}]}, "NVDA")
@@ -204,11 +223,28 @@ def test_run_lessons_point_in_time(cfg, log):
     """TST-CTX-09: A historical run only sees lessons resolved by its trade date; a live run sees all [REQ-MEM-05, REQ-CTX-06]"""
     log.store("AMD", "2026-09-01", "Rating: Buy")
     log.store("INTC", "2026-09-02", "Rating: Sell")
-    log.apply_outcomes([
-        {"ticker": "AMD", "trade_date": "2026-09-01", "raw_return": 0.01, "alpha_return": 0.01, "holding_days": 5,
-         "resolution_date": "2026-09-08", "reflection": "EARLY-LESSON"},
-        {"ticker": "INTC", "trade_date": "2026-09-02", "raw_return": 0.01, "alpha_return": 0.01, "holding_days": 5,
-         "resolution_date": "2026-09-20", "reflection": "LATE-LESSON"}])
+    log.apply_outcomes(
+        [
+            {
+                "ticker": "AMD",
+                "trade_date": "2026-09-01",
+                "raw_return": 0.01,
+                "alpha_return": 0.01,
+                "holding_days": 5,
+                "resolution_date": "2026-09-08",
+                "reflection": "EARLY-LESSON",
+            },
+            {
+                "ticker": "INTC",
+                "trade_date": "2026-09-02",
+                "raw_return": 0.01,
+                "alpha_return": 0.01,
+                "holding_days": 5,
+                "resolution_date": "2026-09-20",
+                "reflection": "LATE-LESSON",
+            },
+        ]
+    )
     hist = new_run(cfg, log, date="2026-09-18")["past_context"]
     assert "EARLY-LESSON" in hist and "LATE-LESSON" not in hist
     live = new_run(cfg, log, ticker="MSFT", date="2026-09-24")["past_context"]
@@ -227,6 +263,7 @@ def test_language_instruction(cfg, log):
 
 # --- Output handling in the pipeline ------------------------------------------
 
+
 def test_signal_and_structured_render(cfg, log):
     """TST-OUT-07: Structured outputs render to TradingAgents markdown and the signal is parsed [REQ-OUT-01, REQ-OUT-04]"""
     state = run_all(new_run(cfg, log), log)
@@ -240,9 +277,15 @@ def test_signal_and_structured_render(cfg, log):
 
 def test_typed_rating_is_the_signal(cfg, log):
     """TST-OUT-11: The Portfolio Manager's typed rating is the run signal and the logged rating; a rating its text quotes never replaces it [REQ-OUT-04]"""
-    pm = js({"rating": "Hold", "executive_summary": "Wait for margins.",
-             "investment_thesis": "Street consensus rating: Buy (28 of 35 analysts), but margins are rolling over.",
-             "price_target": None, "time_horizon": "3 months"})
+    pm = js(
+        {
+            "rating": "Hold",
+            "executive_summary": "Wait for margins.",
+            "investment_thesis": "Street consensus rating: Buy (28 of 35 analysts), but margins are rolling over.",
+            "price_target": None,
+            "time_horizon": "3 months",
+        }
+    )
     out = lambda sid: pm if sid == "portfolio_manager" else canned(sid)
     state = run_all(new_run(cfg, log), log, outputs=out)
     assert "consensus rating: Buy" in state["final_trade_decision"]
@@ -259,6 +302,7 @@ def test_pm_without_rating_is_review(cfg, log):
 
 
 # --- Checkpoint -------------------------------------------------------------
+
 
 def test_state_persisted_each_step(cfg, log):
     """TST-CKPT-01: Each submit is on disk before the next step is offered [REQ-CKPT-01, REQ-SAFE-02]"""
@@ -296,6 +340,7 @@ def test_fresh_without_checkpoint_or_after_complete(cfg, log):
 def test_clear_checkpoints(cfg, log, capsys):
     """TST-CKPT-04: clear-checkpoints removes incomplete runs and keeps completed ones [REQ-CKPT-04]"""
     from berkshire.cli import main
+
     run_all(new_run(cfg, log, ticker="AAPL"), log)
     new_run(cfg, log, ticker="MSFT")
     assert main(["clear-checkpoints"]) == 0
@@ -306,17 +351,34 @@ def test_clear_checkpoints(cfg, log, capsys):
 
 # --- Reports ----------------------------------------------------------------
 
+
 def test_report_tree(cfg, log):
     """TST-RPT-01: A completed run writes the TradingAgents report tree and complete_report sections I-V [REQ-RPT-01, REQ-SAFE-03]"""
     state = run_all(new_run(cfg, log), log)
     root = Path(state["run_dir"]) / "reports"
-    for rel in ("1_analysts/market.md", "1_analysts/sentiment.md", "1_analysts/news.md", "1_analysts/fundamentals.md",
-                "2_research/bull.md", "2_research/bear.md", "2_research/manager.md", "3_trading/trader.md",
-                "4_risk/aggressive.md", "4_risk/conservative.md", "4_risk/neutral.md", "5_portfolio/decision.md"):
+    for rel in (
+        "1_analysts/market.md",
+        "1_analysts/sentiment.md",
+        "1_analysts/news.md",
+        "1_analysts/fundamentals.md",
+        "2_research/bull.md",
+        "2_research/bear.md",
+        "2_research/manager.md",
+        "3_trading/trader.md",
+        "4_risk/aggressive.md",
+        "4_risk/conservative.md",
+        "4_risk/neutral.md",
+        "5_portfolio/decision.md",
+    ):
         assert (root / rel).is_file(), rel
     report = (root / "complete_report.md").read_text()
-    for header in ("## I. Analyst Team Reports", "## II. Research Team Decision", "## III. Trading Team Plan",
-                   "## IV. Risk Management Team Decision", "## V. Portfolio Manager Decision"):
+    for header in (
+        "## I. Analyst Team Reports",
+        "## II. Research Team Decision",
+        "## III. Trading Team Plan",
+        "## IV. Risk Management Team Decision",
+        "## V. Portfolio Manager Decision",
+    ):
         assert header in report
     assert "not financial, investment, or trading advice" in report
     assert state["report"] == str(root / "complete_report.md")
@@ -326,24 +388,43 @@ def test_full_states_log(cfg, log):
     """TST-RPT-02: full_states_log_<date>.json has the TradingAgents keys [REQ-RPT-02]"""
     state = run_all(new_run(cfg, log), log)
     entry = json.loads((Path(state["run_dir"]) / "full_states_log_2026-09-18.json").read_text())
-    assert set(entry) == {"company_of_interest", "trade_date", "market_report", "sentiment_report", "news_report",
-                          "fundamentals_report", "investment_debate_state", "trader_investment_decision",
-                          "risk_debate_state", "investment_plan", "final_trade_decision", "run_settings"}
+    assert set(entry) == {
+        "company_of_interest",
+        "trade_date",
+        "market_report",
+        "sentiment_report",
+        "news_report",
+        "fundamentals_report",
+        "investment_debate_state",
+        "trader_investment_decision",
+        "risk_debate_state",
+        "investment_plan",
+        "final_trade_decision",
+        "run_settings",
+    }
     assert entry["final_trade_decision"].startswith("**Rating**: Buy")
 
 
 def test_run_provenance(cfg, log):
     """TST-RPT-03: The report header and the states log record what produced the run [REQ-RPT-03]"""
     from berkshire import __version__
+
     state = run_all(new_run(cfg, log, analysts=["market", "news"]), log)
     head = (Path(state["run_dir"]) / "reports" / "complete_report.md").read_text().split("## I.")[0]
     assert "Analysis date: 2026-09-18" in head
     assert f"Berkshire {__version__} · deep model opus, quick model sonnet · analysts: market, news" in head
     assert "debate rounds 1, risk rounds 1 · horizon 5 trading days" in head
     settings = json.loads((Path(state["run_dir"]) / "full_states_log_2026-09-18.json").read_text())["run_settings"]
-    assert settings == {"version": __version__, "deep_think_llm": "opus", "quick_think_llm": "sonnet",
-                        "analysts": ["market", "news"], "max_debate_rounds": 1, "max_risk_discuss_rounds": 1,
-                        "output_language": "English", "holding_period_days": 5}
+    assert settings == {
+        "version": __version__,
+        "deep_think_llm": "opus",
+        "quick_think_llm": "sonnet",
+        "analysts": ["market", "news"],
+        "max_debate_rounds": 1,
+        "max_risk_discuss_rounds": 1,
+        "output_language": "English",
+        "holding_period_days": 5,
+    }
 
 
 def test_progress_table(cfg, log):
@@ -359,9 +440,11 @@ def test_progress_table(cfg, log):
 
 # --- Stopping and instrument resolution ------------------------------------------
 
+
 def test_stop_run(cfg, log, capsys):
     """TST-FLOW-11: A stopped run offers and accepts no steps; --checkpoint resumes it [REQ-UI-13]"""
     from berkshire.cli import main
+
     state = new_run(cfg, log)
     state = pipeline.submit(state, "analyst_market", CANNED["analyst_market"])
     state = pipeline.stop_run(state, "wrong instrument")
@@ -371,8 +454,9 @@ def test_stop_run(cfg, log, capsys):
     assert main(["next", state["run_dir"]]) == 0
     out = json.loads(capsys.readouterr().out)
     assert out["done"] is True and out["stopped"]["reason"] == "wrong instrument" and out["steps"] == []
-    res = pipeline.init_run("NVDA", "2026-09-18", cfg, results_dir=config.home() / "runs", memory_log=log,
-                            identity={}, checkpoint=True)
+    res = pipeline.init_run(
+        "NVDA", "2026-09-18", cfg, results_dir=config.home() / "runs", memory_log=log, identity={}, checkpoint=True
+    )
     resumed = pipeline.load_state(Path(res["run_dir"]))
     assert res["resumed"] and "stopped" not in resumed and resumed["completed"] == ["analyst_market"]
     done = run_all(resumed, log)
@@ -386,6 +470,7 @@ def test_etoro_symbols_and_unlisted(cfg, log):
     from conftest import FakeTicker
 
     from berkshire import data
+
     assert pipeline.resolve_ticker("eurooil", cfg) == ("BZ=F", "EUROOIL")
     assert pipeline.resolve_ticker("NVDA", cfg) == ("NVDA", None)
     state = new_run(cfg, log, ticker="EUROOIL")
@@ -396,6 +481,7 @@ def test_etoro_symbols_and_unlisted(cfg, log):
     assert not (config.home() / "runs" / "NOPE").exists()
     FakeTicker.frames["OFFLINE"] = None
     import berkshire.data as d
+
     real = d.ohlcv
     d.ohlcv = lambda *a: (_ for _ in ()).throw(ConnectionError("down"))
     try:
@@ -413,20 +499,25 @@ def test_horizon_in_every_prompt(cfg, log):
     while steps := pipeline.next_steps(state):
         for s in steps:
             prompt = pipeline.build_prompt(state, s)
-            assert "Decision horizon: this decision is scored on its return and alpha versus the benchmark over the " \
-                   "7 trading days after 2026-09-18." in prompt, s["id"]
+            assert (
+                "Decision horizon: this decision is scored on its return and alpha versus the benchmark over the "
+                "7 trading days after 2026-09-18." in prompt
+            ), s["id"]
             assert "If your call rests on a longer horizon, say so explicitly." in prompt
             seen += 1
             state = pipeline.submit(state, s["id"], canned(s["id"]), log)
     assert seen == 12
     other = pipeline.signature(state["analysts"], {**cfg, "holding_period_days": 5}, "stock", None)
-    assert other != state["signature"]                      # a resumed run cannot mix horizons
-    legacy = {**new_run(cfg, log, ticker="AMD"), "config": {k: v for k, v in state["config"].items()
-                                                              if k != "holding_period_days"}}
+    assert other != state["signature"]  # a resumed run cannot mix horizons
+    legacy = {
+        **new_run(cfg, log, ticker="AMD"),
+        "config": {k: v for k, v in state["config"].items() if k != "holding_period_days"},
+    }
     assert "over the 5 trading days after" in pipeline.build_prompt(legacy, pipeline.next_steps(legacy)[0])
 
 
 # --- ETF mode (REQ-FLOW-10) ---------------------------------------------------
+
 
 def test_etf_mode(cfg, log):
     """TST-FLOW-12: A fund is detected from quoteType (or --asset-type etf), keeps its fund analyst, and its debates use fund wording and ETF risk axes [REQ-FLOW-10]"""
@@ -463,13 +554,17 @@ def test_etf_instrument_context():
     assert "Company: NVIDIA" in stock and "Fund" not in stock
 
 
-@pytest.mark.parametrize("ticker,identity,mode", [
-    ("^GSPC", {"company_name": "S&P 500", "quote_type": "INDEX"}, "index"),
-    ("GC=F", {"company_name": "Gold Dec 26", "quote_type": "FUTURE"}, "commodity"),
-    ("EURUSD=X", {"company_name": "EUR/USD", "quote_type": "CURRENCY"}, "fx"),
-    ("BZ=F", {}, "commodity"),                        # identity unavailable: the suffix decides
-    ("^GDAXI", {}, "index"),
-    ("DX-Y.NYB", {"company_name": "US Dollar Index", "quote_type": "INDEX"}, "index")])   # only quoteType tells
+@pytest.mark.parametrize(
+    "ticker,identity,mode",
+    [
+        ("^GSPC", {"company_name": "S&P 500", "quote_type": "INDEX"}, "index"),
+        ("GC=F", {"company_name": "Gold Dec 26", "quote_type": "FUTURE"}, "commodity"),
+        ("EURUSD=X", {"company_name": "EUR/USD", "quote_type": "CURRENCY"}, "fx"),
+        ("BZ=F", {}, "commodity"),  # identity unavailable: the suffix decides
+        ("^GDAXI", {}, "index"),
+        ("DX-Y.NYB", {"company_name": "US Dollar Index", "quote_type": "INDEX"}, "index"),
+    ],
+)  # only quoteType tells
 def test_macro_modes(cfg, log, ticker, identity, mode):
     """TST-FLOW-13: Indices, commodities and currency pairs are detected, keep the Fundamentals Analyst, and their debates use the right noun, the macro drivers report and their own risk axes [REQ-FLOW-11]"""
     state = new_run(cfg, log, ticker=ticker, identity=identity)

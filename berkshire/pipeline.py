@@ -22,17 +22,28 @@ from .etoro import fingerprint, render_portfolio
 from .memory import DecisionLog
 
 ANALYSTS = ("market", "social", "news", "fundamentals")
-ANALYST_AGENT = {"market": "market-analyst", "social": "sentiment-analyst",
-                 "news": "news-analyst", "fundamentals": "fundamentals-analyst"}
-REPORT_KEY = {"market": "market_report", "social": "sentiment_report",
-              "news": "news_report", "fundamentals": "fundamentals_report"}
+ANALYST_AGENT = {
+    "market": "market-analyst",
+    "social": "sentiment-analyst",
+    "news": "news-analyst",
+    "fundamentals": "fundamentals-analyst",
+}
+REPORT_KEY = {
+    "market": "market_report",
+    "social": "sentiment_report",
+    "news": "news_report",
+    "fundamentals": "fundamentals_report",
+}
 DEPTH = {"shallow": 1, "medium": 3, "deep": 5}
 DEEP_AGENTS = ("research-manager", "portfolio-manager")
-DISCLAIMER = ("> Research output from a multi-agent LLM system. It is not financial, investment, or trading "
-              "advice. Every order requires explicit human approval.")
+DISCLAIMER = (
+    "> Research output from a multi-agent LLM system. It is not financial, investment, or trading "
+    "advice. Every order requires explicit human approval."
+)
 
 
 # --- validation (REQ-IF-03/04, REQ-FLOW-05/06) ------------------------------
+
 
 def validate_date(value: str) -> str:
     try:
@@ -47,7 +58,7 @@ def validate_date(value: str) -> str:
 
 
 ASSET_TYPES = ("stock", "etf", "crypto", "index", "commodity", "fx")
-MACRO_TYPES = ("index", "commodity", "fx")   # no company behind the price (REQ-FLOW-11)
+MACRO_TYPES = ("index", "commodity", "fx")  # no company behind the price (REQ-FLOW-11)
 # ponytail: every Yahoo FUTURE counts as a commodity; an equity-index future (ES=F) would need its own rule.
 _QUOTE_TYPES = {"ETF": "etf", "INDEX": "index", "FUTURE": "commodity", "CURRENCY": "fx", "CRYPTOCURRENCY": "crypto"}
 
@@ -78,36 +89,47 @@ def select_analysts(selection, asset_type: str) -> list[str]:
 
 # --- context helpers (REQ-CTX) ----------------------------------------------
 
+
 def is_leveraged_fund(identity: dict) -> bool:
     cat = (identity.get("category") or "").lower()
     return "leveraged" in cat or "inverse" in cat
 
 
-NOUN = {"stock": "stock", "etf": "fund", "crypto": "asset", "index": "index", "commodity": "commodity",
-        "fx": "currency pair"}
-FUNDAMENTALS_LABEL = {"stock": "Company fundamentals report", "etf": "Fund profile report",
-                      "crypto": "Asset fundamentals report (may be unavailable for crypto)",
-                      **dict.fromkeys(MACRO_TYPES, "Macro drivers report")}
+NOUN = {"stock": "stock", "etf": "fund", "crypto": "asset", "index": "index", "commodity": "commodity", "fx": "currency pair"}
+FUNDAMENTALS_LABEL = {
+    "stock": "Company fundamentals report",
+    "etf": "Fund profile report",
+    "crypto": "Asset fundamentals report (may be unavailable for crypto)",
+    **dict.fromkeys(MACRO_TYPES, "Macro drivers report"),
+}
 MACRO_CONTEXT = {
-    "index": (" Treat it as a stock market index, not a company: analyse what drives it (constituent earnings and "
-              "valuation, sector weights and concentration in its largest members, breadth, rates, liquidity and "
-              "macro data). It has no statements, earnings or insiders of its own, and it is traded through a "
-              "contract that tracks it, not bought directly."),
-    "commodity": (" Treat it as a commodity, not a company: analyse supply and demand, inventories, producer policy, "
-                  "seasonality, the US dollar and positioning. Its price history is the front-month futures "
-                  "contract, so it jumps at contract rolls and can differ from the broker's spot or non-expiry price."),
-    "fx": (" Treat it as a currency pair, not a company: analyse the interest-rate differential and central-bank "
-           "policy of both currencies, inflation and growth data, risk sentiment and capital flows. A rising price "
-           "means the first currency strengthens against the second."),
+    "index": (
+        " Treat it as a stock market index, not a company: analyse what drives it (constituent earnings and "
+        "valuation, sector weights and concentration in its largest members, breadth, rates, liquidity and "
+        "macro data). It has no statements, earnings or insiders of its own, and it is traded through a "
+        "contract that tracks it, not bought directly."
+    ),
+    "commodity": (
+        " Treat it as a commodity, not a company: analyse supply and demand, inventories, producer policy, "
+        "seasonality, the US dollar and positioning. Its price history is the front-month futures "
+        "contract, so it jumps at contract rolls and can differ from the broker's spot or non-expiry price."
+    ),
+    "fx": (
+        " Treat it as a currency pair, not a company: analyse the interest-rate differential and central-bank "
+        "policy of both currencies, inflation and growth data, risk sentiment and capital flows. A rising price "
+        "means the first currency strengthens against the second."
+    ),
 }
 
 
 def instrument_context(ticker: str, asset_type: str, identity: dict, trade_date: str) -> str:
     crypto, etf = asset_type == "crypto", asset_type == "etf"
     noun = "instrument" if asset_type == "stock" else NOUN.get(asset_type, "instrument")
-    ctx = (f"The {noun} to analyze is `{ticker}`. Use this exact "
-           "ticker in every tool call, report, and recommendation, preserving any exchange suffix (e.g. `.TO`, "
-           "`.L`, `.HK`, `.T`, `-USD`).")
+    ctx = (
+        f"The {noun} to analyze is `{ticker}`. Use this exact "
+        "ticker in every tool call, report, and recommendation, preserving any exchange suffix (e.g. `.TO`, "
+        "`.L`, `.HK`, `.T`, `-USD`)."
+    )
     details = []
     if identity.get("company_name"):
         label = "Fund" if etf else "Company" if asset_type == "stock" else "Name"
@@ -122,38 +144,54 @@ def instrument_context(ticker: str, asset_type: str, identity: dict, trade_date:
     if identity.get("exchange"):
         details.append(f"Exchange: {identity['exchange']}")
     if details:
-        ctx += (f" Resolved identity: {'; '.join(details)}. Do not substitute a different company or ticker "
-                "unless a tool result explicitly disproves this resolved identity.")
+        ctx += (
+            f" Resolved identity: {'; '.join(details)}. Do not substitute a different company or ticker "
+            "unless a tool result explicitly disproves this resolved identity."
+        )
         if trade_date < data_mod.today():
-            ctx += (f" This identity is how the vendor describes the instrument today, not necessarily on "
-                    f"{trade_date}: a name or classification changed since then would read as the current one.")
+            ctx += (
+                f" This identity is how the vendor describes the instrument today, not necessarily on "
+                f"{trade_date}: a name or classification changed since then would read as the current one."
+            )
     if crypto:
         ctx += " Treat it as a crypto asset rather than a company, and do not assume company fundamentals are available."
     ctx += MACRO_CONTEXT.get(asset_type, "")
     if etf:  # REQ-FLOW-10, TradingAgents #819 adapted
-        ctx += (" Treat it as an exchange-traded fund, not a company: analyse its strategy and underlying exposure, "
-                "holdings concentration, expense ratio, assets and liquidity, and structure. It has no earnings, "
-                "income statement or insiders of its own.")
+        ctx += (
+            " Treat it as an exchange-traded fund, not a company: analyse its strategy and underlying exposure, "
+            "holdings concentration, expense ratio, assets and liquidity, and structure. It has no earnings, "
+            "income statement or insiders of its own."
+        )
         if is_leveraged_fund(identity):
-            ctx += (" It is a leveraged or inverse fund that resets daily: over more than one day its return diverges "
-                    "from the multiple of its index (volatility decay), so it is not a buy-and-hold proxy for the index.")
+            ctx += (
+                " It is a leveraged or inverse fund that resets daily: over more than one day its return diverges "
+                "from the multiple of its index (volatility decay), so it is not a buy-and-hold proxy for the index."
+            )
     return ctx
 
 
-ETF_RISK_AXES = ("This is an exchange-traded fund. Weigh fund-specific risks alongside the market view: tracking "
-                 "error and premium or discount to net asset value, liquidity and bid-ask spread, expense drag, "
-                 "concentration in its largest holdings, and for leveraged or inverse funds the daily-reset decay.")
+ETF_RISK_AXES = (
+    "This is an exchange-traded fund. Weigh fund-specific risks alongside the market view: tracking "
+    "error and premium or discount to net asset value, liquidity and bid-ask spread, expense drag, "
+    "concentration in its largest holdings, and for leveraged or inverse funds the daily-reset decay."
+)
 RISK_AXES = {
     "etf": ETF_RISK_AXES,
-    "index": ("This is a stock index. Weigh index risks alongside the market view: concentration in its largest "
-              "constituents, valuation against interest rates, breadth, and event risk around central-bank meetings "
-              "and macro releases; it moves with the economic cycle, not with one company's news."),
-    "commodity": ("This is a commodity. Weigh commodity risks alongside the market view: supply shocks and producer "
-                  "decisions, inventory surprises, demand swings with the economic cycle, US dollar moves, overnight "
-                  "gaps, and the roll or financing cost of holding the position."),
-    "fx": ("This is a currency pair. Weigh currency risks alongside the market view: central-bank decisions and "
-           "shifts in rate expectations, carry and overnight financing, official intervention, and gap risk around "
-           "macro releases."),
+    "index": (
+        "This is a stock index. Weigh index risks alongside the market view: concentration in its largest "
+        "constituents, valuation against interest rates, breadth, and event risk around central-bank meetings "
+        "and macro releases; it moves with the economic cycle, not with one company's news."
+    ),
+    "commodity": (
+        "This is a commodity. Weigh commodity risks alongside the market view: supply shocks and producer "
+        "decisions, inventory surprises, demand swings with the economic cycle, US dollar moves, overnight "
+        "gaps, and the roll or financing cost of holding the position."
+    ),
+    "fx": (
+        "This is a currency pair. Weigh currency risks alongside the market view: central-bank decisions and "
+        "shifts in rate expectations, carry and overnight financing, official intervention, and gap risk around "
+        "macro releases."
+    ),
 }
 
 
@@ -174,13 +212,16 @@ def language_instruction(lang: str) -> str:
 def horizon_instruction(days: int, trade_date: str) -> str:
     """The window this decision is scored on (REQ-CTX-08, TradingAgents #673 adapted): the same
     holding_period_days that settlement measures, so what agents are told cannot drift from it."""
-    return (f"\n\nDecision horizon: this decision is scored on its return and alpha versus the benchmark over the "
-            f"{days} trading days after {trade_date}. Separate what can move the price within that window from what "
-            f"matters only over a longer horizon, and name the catalysts that fall inside it. If your call rests on "
-            f"a longer horizon, say so explicitly.")
+    return (
+        f"\n\nDecision horizon: this decision is scored on its return and alpha versus the benchmark over the "
+        f"{days} trading days after {trade_date}. Separate what can move the price within that window from what "
+        f"matters only over a longer horizon, and name the catalysts that fall inside it. If your call rests on "
+        f"a longer horizon, say so explicitly."
+    )
 
 
 # --- state ------------------------------------------------------------------
+
 
 def run_dir(results_dir: str | Path, ticker: str, trade_date: str) -> Path:
     return Path(results_dir).expanduser() / safe_component(ticker) / safe_component(trade_date)
@@ -195,10 +236,17 @@ def save_state(state: dict) -> None:
 
 
 def signature(analysts, cfg, asset_type, portfolio) -> str:
-    return "|".join([f"analysts={','.join(analysts)}", f"debate={cfg['max_debate_rounds']}",
-                     f"risk={cfg['max_risk_discuss_rounds']}", f"asset={asset_type}",
-                     f"portfolio={fingerprint(portfolio)}", f"language={cfg['output_language']}",
-                     f"horizon={cfg['holding_period_days']}"])
+    return "|".join(
+        [
+            f"analysts={','.join(analysts)}",
+            f"debate={cfg['max_debate_rounds']}",
+            f"risk={cfg['max_risk_discuss_rounds']}",
+            f"asset={asset_type}",
+            f"portfolio={fingerprint(portfolio)}",
+            f"language={cfg['output_language']}",
+            f"horizon={cfg['holding_period_days']}",
+        ]
+    )
 
 
 def resolve_ticker(ticker: str, cfg: dict) -> tuple[str, str | None]:
@@ -212,22 +260,35 @@ def require_listed(ticker: str, trade_date: str) -> None:
     """Refuse an instrument Yahoo has no prices for, before any agent runs (REQ-IF-10).
     Fail-open when Yahoo is unreachable, like the identity lookup."""
     if data_mod.check_listed(ticker, trade_date) is False:
-        raise ValueError(f"no price data for {ticker} on Yahoo Finance up to {trade_date}. An eToro-only symbol "
-                         f"needs a Yahoo mapping in symbol_map (~/.berkshire/config.json), e.g. \"EUROOIL\": \"BZ=F\".")
+        raise ValueError(
+            f"no price data for {ticker} on Yahoo Finance up to {trade_date}. An eToro-only symbol "
+            f'needs a Yahoo mapping in symbol_map (~/.berkshire/config.json), e.g. "EUROOIL": "BZ=F".'
+        )
 
 
-def init_run(ticker: str, trade_date: str, cfg: dict, *, results_dir, memory_log: DecisionLog,
-             analysts=None, asset_type: str | None = None, portfolio: dict | None = None,
-             checkpoint: bool = False, skip_if_complete: bool = False,
-             etoro_symbol: str | None = None, instrument_id=None, identity: dict | None = None) -> dict:
+def init_run(
+    ticker: str,
+    trade_date: str,
+    cfg: dict,
+    *,
+    results_dir,
+    memory_log: DecisionLog,
+    analysts=None,
+    asset_type: str | None = None,
+    portfolio: dict | None = None,
+    checkpoint: bool = False,
+    skip_if_complete: bool = False,
+    etoro_symbol: str | None = None,
+    instrument_id=None,
+    identity: dict | None = None,
+) -> dict:
     """Create (or resume) a run. Returns a summary dict (REQ-CKPT-02/03)."""
     ticker, alias = resolve_ticker(ticker, cfg)
     ticker, etoro_symbol = safe_component(ticker), etoro_symbol or alias
     trade_date = validate_date(trade_date)
     # Identity first (fail-open): an ETF is recognised by the vendor's quoteType (REQ-FLOW-10).
     identity = data_mod.profile(ticker) if identity is None else identity
-    asset_type = (asset_type or _QUOTE_TYPES.get(str(identity.get("quote_type", "")).upper())
-                  or detect_asset_type(ticker))
+    asset_type = asset_type or _QUOTE_TYPES.get(str(identity.get("quote_type", "")).upper()) or detect_asset_type(ticker)
     chosen = select_analysts(analysts, asset_type)
     sig = signature(chosen, cfg, asset_type, portfolio)
     rdir = run_dir(results_dir, ticker, trade_date)
@@ -245,25 +306,61 @@ def init_run(ticker: str, trade_date: str, cfg: dict, *, results_dir, memory_log
     require_listed(ticker, trade_date)
     as_of = trade_date if trade_date < data_mod.today() else None  # REQ-MEM-05
     state = {
-        "run_dir": str(rdir), "company_of_interest": ticker, "trade_date": trade_date,
-        "asset_type": asset_type, "etoro_symbol": etoro_symbol, "instrument_id": instrument_id,
-        "analysts": chosen, "signature": sig, "config": {k: cfg[k] for k in (
-            "max_debate_rounds", "max_risk_discuss_rounds", "output_language",
-            "deep_think_llm", "quick_think_llm", "holding_period_days")},
+        "run_dir": str(rdir),
+        "company_of_interest": ticker,
+        "trade_date": trade_date,
+        "asset_type": asset_type,
+        "etoro_symbol": etoro_symbol,
+        "instrument_id": instrument_id,
+        "analysts": chosen,
+        "signature": sig,
+        "config": {
+            k: cfg[k]
+            for k in (
+                "max_debate_rounds",
+                "max_risk_discuss_rounds",
+                "output_language",
+                "deep_think_llm",
+                "quick_think_llm",
+                "holding_period_days",
+            )
+        },
         "instrument_context": instrument_context(ticker, asset_type, identity, trade_date),
         "past_context": memory_log.past_context(ticker, as_of=as_of),
         "portfolio": portfolio,
         "portfolio_context": render_portfolio(portfolio, etoro_symbol or ticker),
-        "market_report": "", "sentiment_report": "", "news_report": "", "fundamentals_report": "",
-        "investment_debate_state": {"bull_history": "", "bear_history": "", "history": "",
-                                    "current_response": "", "judge_decision": "", "count": 0},
-        "investment_plan": "", "trader_investment_plan": "",
-        "risk_debate_state": {"aggressive_history": "", "conservative_history": "", "neutral_history": "",
-                              "history": "", "latest_speaker": "", "current_aggressive_response": "",
-                              "current_conservative_response": "", "current_neutral_response": "",
-                              "judge_decision": "", "count": 0},
-        "final_trade_decision": "", "structured": {}, "warnings": [],
-        "completed": [], "complete": False, "signal": None,
+        "market_report": "",
+        "sentiment_report": "",
+        "news_report": "",
+        "fundamentals_report": "",
+        "investment_debate_state": {
+            "bull_history": "",
+            "bear_history": "",
+            "history": "",
+            "current_response": "",
+            "judge_decision": "",
+            "count": 0,
+        },
+        "investment_plan": "",
+        "trader_investment_plan": "",
+        "risk_debate_state": {
+            "aggressive_history": "",
+            "conservative_history": "",
+            "neutral_history": "",
+            "history": "",
+            "latest_speaker": "",
+            "current_aggressive_response": "",
+            "current_conservative_response": "",
+            "current_neutral_response": "",
+            "judge_decision": "",
+            "count": 0,
+        },
+        "final_trade_decision": "",
+        "structured": {},
+        "warnings": [],
+        "completed": [],
+        "complete": False,
+        "signal": None,
     }
     save_state(state)
     return {"run_dir": str(rdir), "skipped": False, "resumed": False, "completed": []}
@@ -271,13 +368,17 @@ def init_run(ticker: str, trade_date: str, cfg: dict, *, results_dir, memory_log
 
 # --- routing (REQ-FLOW-01..04, 08) ------------------------------------------
 
+
 def _step(state: dict, step_id: str, agent: str) -> dict:
     cfg = state["config"]
     rdir = Path(state["run_dir"])
-    return {"id": step_id, "agent": f"berkshire:{agent}",
-            "model": cfg["deep_think_llm"] if agent in DEEP_AGENTS else cfg["quick_think_llm"],
-            "prompt_file": str(rdir / "prompts" / f"{step_id}.md"),
-            "output_file": str(rdir / "outputs" / f"{step_id}.md")}
+    return {
+        "id": step_id,
+        "agent": f"berkshire:{agent}",
+        "model": cfg["deep_think_llm"] if agent in DEEP_AGENTS else cfg["quick_think_llm"],
+        "prompt_file": str(rdir / "prompts" / f"{step_id}.md"),
+        "output_file": str(rdir / "outputs" / f"{step_id}.md"),
+    }
 
 
 def next_steps(state: dict) -> list[dict]:
@@ -304,6 +405,7 @@ def next_steps(state: dict) -> list[dict]:
 
 # --- per-step context (REQ-CTX, REQ-DATA-07) ---------------------------------
 
+
 def _reports(state: dict) -> dict:
     return {k: report_or_absent(state[f"{k}_report"], k) for k in ("market", "sentiment", "news", "fundamentals")}
 
@@ -311,20 +413,27 @@ def _reports(state: dict) -> dict:
 def build_prompt(state: dict, step: dict) -> str:
     sid, rdir, date = step["id"], state["run_dir"], state["trade_date"]
     # Runs created before the horizon existed fall back to the default window.
-    lang = horizon_instruction(state["config"].get("holding_period_days", 5), date) + \
-        language_instruction(state["config"]["output_language"])
+    lang = horizon_instruction(state["config"].get("holding_period_days", 5), date) + language_instruction(
+        state["config"]["output_language"]
+    )
     ic = state["instrument_context"]
     out = f"\n\nWrite your complete answer to this file with the Write tool: `{step['output_file']}`"
     historical = date < data_mod.today()
-    pit = (f"\n\nPoint-in-time rule: this run is dated {date}. Web search, social feeds and the company profile "
-           "describe the present, not that date; label any such evidence as current and prefer dated items "
-           f"published on or before {date}." if historical else "")
+    pit = (
+        f"\n\nPoint-in-time rule: this run is dated {date}. Web search, social feeds and the company profile "
+        "describe the present, not that date; label any such evidence as current and prefer dated items "
+        f"published on or before {date}."
+        if historical
+        else ""
+    )
 
     if sid.startswith("analyst_"):
-        return (f"Today's date is {date}; treat it as 'now' for all analysis and tool-call date ranges. {ic}\n\n"
-                f"Run your data tools with Bash as `berkshire data --run {rdir} <tool> ...` (dates after {date} "
-                f"are clamped automatically). Report what your tools support; another agent decides the trade."
-                f"{pit}{lang}{out}")
+        return (
+            f"Today's date is {date}; treat it as 'now' for all analysis and tool-call date ranges. {ic}\n\n"
+            f"Run your data tools with Bash as `berkshire data --run {rdir} <tool> ...` (dates after {date} "
+            f"are clamped automatically). Report what your tools support; another agent decides the trade."
+            f"{pit}{lang}{out}"
+        )
 
     r = _reports(state)
     inv, risk = state["investment_debate_state"], state["risk_debate_state"]
@@ -333,46 +442,62 @@ def build_prompt(state: dict, step: dict) -> str:
         target = NOUN.get(state["asset_type"], "asset")
         flabel = FUNDAMENTALS_LABEL.get(state["asset_type"], FUNDAMENTALS_LABEL["crypto"])
         opp = opponent_or_opening(inv["current_response"], "bear analyst" if bull else "bull analyst")
-        return (f"Resources available:\n\n{ic}\nMarket research report: {r['market']}\n"
-                f"Social media sentiment report: {r['sentiment']}\nLatest world affairs news: {r['news']}\n"
-                f"{flabel}: {r['fundamentals']}\nConversation history of the debate: {inv['history']}\n"
-                f"Last {'bear' if bull else 'bull'} argument: {opp}\n\nUse this information to deliver a "
-                f"compelling {'bull' if bull else 'bear'} argument about the {target}.{lang}{out}")
+        return (
+            f"Resources available:\n\n{ic}\nMarket research report: {r['market']}\n"
+            f"Social media sentiment report: {r['sentiment']}\nLatest world affairs news: {r['news']}\n"
+            f"{flabel}: {r['fundamentals']}\nConversation history of the debate: {inv['history']}\n"
+            f"Last {'bear' if bull else 'bull'} argument: {opp}\n\nUse this information to deliver a "
+            f"compelling {'bull' if bull else 'bear'} argument about the {target}.{lang}{out}"
+        )
 
     if sid == "research_manager":
         return f"{ic}\n\n**Debate History:**\n{inv['history']}{lang}{out}"
 
     if sid == "trader":
         mr = (state["market_report"] or "").strip()
-        grounding = ("Ground concrete price levels (entry, stop-loss, position sizing) in the technical market "
-                     "report's price structure -- current price, support/resistance, ATR, and volatility -- and "
-                     "use the research plan for direction and strategy.\n\n"
-                     f"Technical Market Report:\n{mr}\n\n") if mr else ""
-        return (f"Here is the research team's investment plan for {state['company_of_interest']}. {ic}\n\n"
-                f"{grounding}{state['portfolio_context']}\n\nProposed Investment Plan:\n{state['investment_plan']}"
-                f"\n\nMake an informed, strategic trading decision.{lang}{out}")
+        grounding = (
+            (
+                "Ground concrete price levels (entry, stop-loss, position sizing) in the technical market "
+                "report's price structure -- current price, support/resistance, ATR, and volatility -- and "
+                "use the research plan for direction and strategy.\n\n"
+                f"Technical Market Report:\n{mr}\n\n"
+            )
+            if mr
+            else ""
+        )
+        return (
+            f"Here is the research team's investment plan for {state['company_of_interest']}. {ic}\n\n"
+            f"{grounding}{state['portfolio_context']}\n\nProposed Investment Plan:\n{state['investment_plan']}"
+            f"\n\nMake an informed, strategic trading decision.{lang}{out}"
+        )
 
     if sid.startswith(("aggressive_", "conservative_", "neutral_")):
         me = sid.split("_")[0]
         others = [o for o in ("aggressive", "conservative", "neutral") if o != me]
-        last = "\n".join(f"Here are the last arguments from the {o} analyst: "
-                         f"{opponent_or_opening(risk[f'current_{o}_response'], o + ' analyst')}" for o in others)
-        return (f"Here is the trader's decision:\n\n{state['trader_investment_plan']}\n\n{ic}\n"
-                f"{state['portfolio_context']}\nMarket Research Report: {r['market']}\n"
-                f"Social Media Sentiment Report: {r['sentiment']}\nLatest World Affairs Report: {r['news']}\n"
-                f"{FUNDAMENTALS_LABEL.get(state['asset_type'], 'Company fundamentals report').split(' (')[0].title()}: "
-                f"{r['fundamentals']}\nHere is the current conversation history: "
-                f"{risk['history']}\n{last}\nIf there are no responses from the other viewpoints yet, present "
-                f"your own argument based on the available data."
-                f"{' ' + RISK_AXES[state['asset_type']] if state['asset_type'] in RISK_AXES else ''}{lang}{out}")
+        last = "\n".join(
+            f"Here are the last arguments from the {o} analyst: "
+            f"{opponent_or_opening(risk[f'current_{o}_response'], o + ' analyst')}"
+            for o in others
+        )
+        return (
+            f"Here is the trader's decision:\n\n{state['trader_investment_plan']}\n\n{ic}\n"
+            f"{state['portfolio_context']}\nMarket Research Report: {r['market']}\n"
+            f"Social Media Sentiment Report: {r['sentiment']}\nLatest World Affairs Report: {r['news']}\n"
+            f"{FUNDAMENTALS_LABEL.get(state['asset_type'], 'Company fundamentals report').split(' (')[0].title()}: "
+            f"{r['fundamentals']}\nHere is the current conversation history: "
+            f"{risk['history']}\n{last}\nIf there are no responses from the other viewpoints yet, present "
+            f"your own argument based on the available data."
+            f"{' ' + RISK_AXES[state['asset_type']] if state['asset_type'] in RISK_AXES else ''}{lang}{out}"
+        )
 
     if sid == "portfolio_manager":
-        lessons = (f"- Lessons from prior decisions and outcomes:\n{state['past_context']}\n"
-                   if state["past_context"] else "")
-        return (f"{ic}\n\n{state['portfolio_context']}\n\n---\n\n**Context:**\n"
-                f"- Research Manager's investment plan: **{state['investment_plan']}**\n"
-                f"- Trader's transaction proposal: **{state['trader_investment_plan']}**\n{lessons}\n"
-                f"**Risk Analysts Debate History:**\n{risk['history']}{lang}{out}")
+        lessons = f"- Lessons from prior decisions and outcomes:\n{state['past_context']}\n" if state["past_context"] else ""
+        return (
+            f"{ic}\n\n{state['portfolio_context']}\n\n---\n\n**Context:**\n"
+            f"- Research Manager's investment plan: **{state['investment_plan']}**\n"
+            f"- Trader's transaction proposal: **{state['trader_investment_plan']}**\n{lessons}\n"
+            f"**Risk Analysts Debate History:**\n{risk['history']}{lang}{out}"
+        )
     raise ValueError(f"unknown step {sid!r}")
 
 
@@ -384,6 +509,7 @@ def write_prompts(state: dict) -> list[dict]:
 
 
 # --- submit (REQ-FLOW-09, REQ-OUT, REQ-CKPT-01) -----------------------------
+
 
 def submit(state: dict, step_id: str, text: str, memory_log: DecisionLog | None = None) -> dict:
     if state.get("stopped"):
@@ -442,8 +568,9 @@ def submit(state: dict, step_id: str, text: str, memory_log: DecisionLog | None 
         state["signal"] = typed["rating"] if typed else parse_rating(decision)
     state["completed"].append(step_id)
     # Timeline for the web/terminal views (REQ-UI-05); absent in runs made before it existed.
-    state.setdefault("timeline", []).append({"step": step_id, "at": datetime.now().isoformat(timespec="seconds"),
-                                             "chars": len(text)})
+    state.setdefault("timeline", []).append(
+        {"step": step_id, "at": datetime.now().isoformat(timespec="seconds"), "chars": len(text)}
+    )
     if step_id == "portfolio_manager":
         finalize(state, memory_log)
     save_state(state)
@@ -452,38 +579,51 @@ def submit(state: dict, step_id: str, text: str, memory_log: DecisionLog | None 
 
 # --- reports (REQ-RPT, REQ-MEM-01) ------------------------------------------
 
-SECTION_TEAMS = {"1_analysts": "I. Analyst Team Reports", "2_research": "II. Research Team Decision",
-                 "3_trading": "III. Trading Team Plan", "4_risk": "IV. Risk Management Team Decision",
-                 "5_portfolio": "V. Portfolio Manager Decision"}
+SECTION_TEAMS = {
+    "1_analysts": "I. Analyst Team Reports",
+    "2_research": "II. Research Team Decision",
+    "3_trading": "III. Trading Team Plan",
+    "4_risk": "IV. Risk Management Team Decision",
+    "5_portfolio": "V. Portfolio Manager Decision",
+}
 
 
 def report_sections(state: dict) -> list[dict]:
     """Non-empty report sections in TradingAgents order; the report tree and the views share it."""
     inv, risk = state["investment_debate_state"], state["risk_debate_state"]
-    spec = (("1_analysts", "market", "Market Analyst", state.get("market_report")),
-            ("1_analysts", "sentiment", "Sentiment Analyst", state.get("sentiment_report")),
-            ("1_analysts", "news", "News Analyst", state.get("news_report")),
-            ("1_analysts", "fundamentals", "Fundamentals Analyst", state.get("fundamentals_report")),
-            ("2_research", "bull", "Bull Researcher", inv.get("bull_history")),
-            ("2_research", "bear", "Bear Researcher", inv.get("bear_history")),
-            ("2_research", "manager", "Research Manager", inv.get("judge_decision")),
-            ("3_trading", "trader", "Trader", state.get("trader_investment_plan")),
-            ("4_risk", "aggressive", "Aggressive Analyst", risk.get("aggressive_history")),
-            ("4_risk", "conservative", "Conservative Analyst", risk.get("conservative_history")),
-            ("4_risk", "neutral", "Neutral Analyst", risk.get("neutral_history")),
-            ("5_portfolio", "decision", "Portfolio Manager", risk.get("judge_decision")))
-    return [{"dir": d, "key": k, "team": SECTION_TEAMS[d], "agent": a, "text": t.strip()}
-            for d, k, a, t in spec if t and t.strip()]
+    spec = (
+        ("1_analysts", "market", "Market Analyst", state.get("market_report")),
+        ("1_analysts", "sentiment", "Sentiment Analyst", state.get("sentiment_report")),
+        ("1_analysts", "news", "News Analyst", state.get("news_report")),
+        ("1_analysts", "fundamentals", "Fundamentals Analyst", state.get("fundamentals_report")),
+        ("2_research", "bull", "Bull Researcher", inv.get("bull_history")),
+        ("2_research", "bear", "Bear Researcher", inv.get("bear_history")),
+        ("2_research", "manager", "Research Manager", inv.get("judge_decision")),
+        ("3_trading", "trader", "Trader", state.get("trader_investment_plan")),
+        ("4_risk", "aggressive", "Aggressive Analyst", risk.get("aggressive_history")),
+        ("4_risk", "conservative", "Conservative Analyst", risk.get("conservative_history")),
+        ("4_risk", "neutral", "Neutral Analyst", risk.get("neutral_history")),
+        ("5_portfolio", "decision", "Portfolio Manager", risk.get("judge_decision")),
+    )
+    return [
+        {"dir": d, "key": k, "team": SECTION_TEAMS[d], "agent": a, "text": t.strip()} for d, k, a, t in spec if t and t.strip()
+    ]
 
 
 def run_settings(state: dict) -> dict:
     """What produced this run, for the report header and the states log (REQ-RPT-03, TradingAgents #752).
     Models are the configured aliases: the engine never sees which model generation served them."""
     cfg = state["config"]
-    return {"version": __version__, "deep_think_llm": cfg["deep_think_llm"], "quick_think_llm": cfg["quick_think_llm"],
-            "analysts": list(state["analysts"]), "max_debate_rounds": cfg["max_debate_rounds"],
-            "max_risk_discuss_rounds": cfg["max_risk_discuss_rounds"], "output_language": cfg["output_language"],
-            "holding_period_days": cfg.get("holding_period_days", 5)}
+    return {
+        "version": __version__,
+        "deep_think_llm": cfg["deep_think_llm"],
+        "quick_think_llm": cfg["quick_think_llm"],
+        "analysts": list(state["analysts"]),
+        "max_debate_rounds": cfg["max_debate_rounds"],
+        "max_risk_discuss_rounds": cfg["max_risk_discuss_rounds"],
+        "output_language": cfg["output_language"],
+        "holding_period_days": cfg.get("holding_period_days", 5),
+    }
 
 
 def write_report_tree(state: dict, save_path: Path) -> Path:
@@ -497,32 +637,42 @@ def write_report_tree(state: dict, save_path: Path) -> Path:
             team = sec["team"]
             blocks.append(f"## {team}")
         blocks.append(f"### {sec['agent']}\n{sec['text']}")
-    header = (f"# Trading Analysis Report: {state['company_of_interest']}\n\nAnalysis date: {state['trade_date']} · "
-              f"Generated: {datetime.now():%Y-%m-%d %H:%M:%S} · Signal: **{state.get('signal')}**\n\n"
-              f"{_settings_line(run_settings(state))}\n\n{DISCLAIMER}\n\n")
+    header = (
+        f"# Trading Analysis Report: {state['company_of_interest']}\n\nAnalysis date: {state['trade_date']} · "
+        f"Generated: {datetime.now():%Y-%m-%d %H:%M:%S} · Signal: **{state.get('signal')}**\n\n"
+        f"{_settings_line(run_settings(state))}\n\n{DISCLAIMER}\n\n"
+    )
     (save_path / "complete_report.md").write_text(header + "\n\n".join(blocks), encoding="utf-8")
     return save_path / "complete_report.md"
 
 
 def _settings_line(r: dict) -> str:
-    return (f"Berkshire {r['version']} · deep model {r['deep_think_llm']}, quick model {r['quick_think_llm']} · "
-            f"analysts: {', '.join(r['analysts'])} · debate rounds {r['max_debate_rounds']}, risk rounds "
-            f"{r['max_risk_discuss_rounds']} · horizon {r['holding_period_days']} trading days · "
-            f"language {r['output_language']}")
+    return (
+        f"Berkshire {r['version']} · deep model {r['deep_think_llm']}, quick model {r['quick_think_llm']} · "
+        f"analysts: {', '.join(r['analysts'])} · debate rounds {r['max_debate_rounds']}, risk rounds "
+        f"{r['max_risk_discuss_rounds']} · horizon {r['holding_period_days']} trading days · "
+        f"language {r['output_language']}"
+    )
 
 
 def full_states_log(state: dict) -> dict:
     inv, risk = state["investment_debate_state"], state["risk_debate_state"]
     return {
-        "company_of_interest": state["company_of_interest"], "trade_date": state["trade_date"],
-        "market_report": state["market_report"], "sentiment_report": state["sentiment_report"],
-        "news_report": state["news_report"], "fundamentals_report": state["fundamentals_report"],
-        "investment_debate_state": {k: inv[k] for k in ("bull_history", "bear_history", "history",
-                                                        "current_response", "judge_decision")},
+        "company_of_interest": state["company_of_interest"],
+        "trade_date": state["trade_date"],
+        "market_report": state["market_report"],
+        "sentiment_report": state["sentiment_report"],
+        "news_report": state["news_report"],
+        "fundamentals_report": state["fundamentals_report"],
+        "investment_debate_state": {
+            k: inv[k] for k in ("bull_history", "bear_history", "history", "current_response", "judge_decision")
+        },
         "trader_investment_decision": state["trader_investment_plan"],
-        "risk_debate_state": {k: risk[k] for k in ("aggressive_history", "conservative_history",
-                                                   "neutral_history", "history", "judge_decision")},
-        "investment_plan": state["investment_plan"], "final_trade_decision": state["final_trade_decision"],
+        "risk_debate_state": {
+            k: risk[k] for k in ("aggressive_history", "conservative_history", "neutral_history", "history", "judge_decision")
+        },
+        "investment_plan": state["investment_plan"],
+        "final_trade_decision": state["final_trade_decision"],
         "run_settings": run_settings(state),
     }
 
@@ -530,19 +680,23 @@ def full_states_log(state: dict) -> dict:
 def finalize(state: dict, memory_log: DecisionLog | None) -> None:
     rdir = Path(state["run_dir"])
     state["report"] = str(write_report_tree(state, rdir / "reports"))
-    atomic_write(rdir / f"full_states_log_{state['trade_date']}.json",
-                 json.dumps(full_states_log(state), indent=4, ensure_ascii=False))
+    atomic_write(
+        rdir / f"full_states_log_{state['trade_date']}.json", json.dumps(full_states_log(state), indent=4, ensure_ascii=False)
+    )
     if memory_log is not None:
-        memory_log.store(state["company_of_interest"], state["trade_date"], state["final_trade_decision"],
-                         rating=state["signal"])
+        memory_log.store(state["company_of_interest"], state["trade_date"], state["final_trade_decision"], rating=state["signal"])
     state["complete"] = True
 
 
 # --- progress (REQ-IF-06) ---------------------------------------------------
 
-TEAMS = (("Analyst Team", None), ("Research Team", ("bull", "bear", "research_manager")),
-         ("Trading Team", ("trader",)), ("Risk Management", ("aggressive", "conservative", "neutral")),
-         ("Portfolio Management", ("portfolio_manager",)))
+TEAMS = (
+    ("Analyst Team", None),
+    ("Research Team", ("bull", "bear", "research_manager")),
+    ("Trading Team", ("trader",)),
+    ("Risk Management", ("aggressive", "conservative", "neutral")),
+    ("Portfolio Management", ("portfolio_manager",)),
+)
 
 
 def progress_rows(state: dict) -> list[dict]:
@@ -563,19 +717,22 @@ def progress_rows(state: dict) -> list[dict]:
         return "done" if ids else "pending"
 
     label = {"analyst_social": "Sentiment"}
-    return [{"team": team, "agent": label.get(m) or m.removeprefix("analyst_").replace("_", " ").title(),
-             "status": status(m)}
-            for team, members in TEAMS for m in members or [f"analyst_{a}" for a in state["analysts"]]]
+    return [
+        {"team": team, "agent": label.get(m) or m.removeprefix("analyst_").replace("_", " ").title(), "status": status(m)}
+        for team, members in TEAMS
+        for m in members or [f"analyst_{a}" for a in state["analysts"]]
+    ]
 
 
 def progress(state: dict) -> str:
     done = state["completed"]
     rows = [f"| {r['team']} | {r['agent']} | {r['status']} |" for r in progress_rows(state)]
     last = done[-1] if done else None
-    return (f"**{state['company_of_interest']} · {state['trade_date']}** — "
-            f"{len(done)} steps done{' · signal ' + state['signal'] if state.get('signal') else ''}\n\n"
-            "| Team | Agent | Status |\n|---|---|---|\n" + "\n".join(rows)
-            + (f"\n\nLatest: `{last}`" if last else ""))
+    return (
+        f"**{state['company_of_interest']} · {state['trade_date']}** — "
+        f"{len(done)} steps done{' · signal ' + state['signal'] if state.get('signal') else ''}\n\n"
+        "| Team | Agent | Status |\n|---|---|---|\n" + "\n".join(rows) + (f"\n\nLatest: `{last}`" if last else "")
+    )
 
 
 def stop_run(state: dict, reason: str = "stopped by the user") -> dict:
@@ -590,8 +747,15 @@ def stop_run(state: dict, reason: str = "stopped by the user") -> dict:
 def summary(state: dict) -> dict:
     """One run as the views list it: identity, signal, progress counts (REQ-UI-03)."""
     rows = progress_rows(state)
-    return {"ticker": state["company_of_interest"], "date": state["trade_date"], "asset_type": state["asset_type"],
-            "complete": state["complete"], "signal": state.get("signal"),
-            "status": "complete" if state["complete"] else ("stopped" if state.get("stopped") else "running"),
-            "done": sum(r["status"] == "done" for r in rows), "total": len(rows),
-            "current": [s["id"] for s in next_steps(state)], "warnings": len(state.get("warnings", []))}
+    return {
+        "ticker": state["company_of_interest"],
+        "date": state["trade_date"],
+        "asset_type": state["asset_type"],
+        "complete": state["complete"],
+        "signal": state.get("signal"),
+        "status": "complete" if state["complete"] else ("stopped" if state.get("stopped") else "running"),
+        "done": sum(r["status"] == "done" for r in rows),
+        "total": len(rows),
+        "current": [s["id"] for s in next_steps(state)],
+        "warnings": len(state.get("warnings", [])),
+    }

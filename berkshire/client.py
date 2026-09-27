@@ -47,8 +47,13 @@ def ensure_server(wait: float = 10.0) -> dict:
     log = config.home() / "server.log"
     log.parent.mkdir(parents=True, exist_ok=True)
     with open(log, "ab") as out:
-        subprocess.Popen([sys.executable, "-m", "berkshire", "serve"], stdout=out, stderr=subprocess.STDOUT,
-                         stdin=subprocess.DEVNULL, start_new_session=True)
+        subprocess.Popen(
+            [sys.executable, "-m", "berkshire", "serve"],
+            stdout=out,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
     deadline = time.monotonic() + wait
     while time.monotonic() < deadline:
         time.sleep(0.2)
@@ -102,6 +107,7 @@ class Client:
     def close(self):
         """Interrupt a blocking events() read in another thread."""
         import socket
+
         sock, self._stream_sock = self._stream_sock, None
         if sock is not None:
             try:

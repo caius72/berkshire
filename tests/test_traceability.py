@@ -21,8 +21,7 @@ def requirements() -> list[str]:
 def plan_rows() -> dict[str, dict]:
     rows = {}
     for m in re.finditer(r"^\| (TST-[A-Z]+-\d+) \| ([^|]+) \| ([^|]+) \| ([TID]) \|", PLAN_DOC.read_text(), re.MULTILINE):
-        rows[m.group(1)] = {"title": m.group(2).strip(), "reqs": {r.strip() for r in m.group(3).split(",")},
-                            "type": m.group(4)}
+        rows[m.group(1)] = {"title": m.group(2).strip(), "reqs": {r.strip() for r in m.group(3).split(",")}, "type": m.group(4)}
     return rows
 
 
@@ -73,7 +72,9 @@ def test_manual_procedures_resolve():
     """TST-SAFE-05: Every manual procedure id is defined once, and every manual test names one that exists [REQ-SAFE-04]"""
     text = PLAN_DOC.read_text()
     defined = re.findall(r"^\*\*(M\d+) —", text, re.MULTILINE)
-    assert len(defined) == len(set(defined)), f"procedure ids defined twice: {sorted({m for m in defined if defined.count(m) > 1})}"
+    assert len(defined) == len(set(defined)), (
+        f"procedure ids defined twice: {sorted({m for m in defined if defined.count(m) > 1})}"
+    )
     for tid, design in re.findall(r"^\| (TST-[A-Z]+-\d+) \|[^\n]*\| D \| ([^\n]*)\|$", text, re.MULTILINE):
         named = re.findall(r"procedures? (M\d+)", design)
         assert named and set(named) <= set(defined), f"{tid} names no existing manual procedure: {design.strip()}"

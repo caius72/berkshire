@@ -8,23 +8,46 @@ import pytest
 from berkshire import config, data, etoro
 from berkshire.cli import main
 
-SUMMARY = {"account": "demo", "accountCurrency": "USD",
-           "totals": {"totalValue": 100000.0, "availableCash": 90000.0},
-           "holdings": [{"symbol": "NVDA", "instrumentId": 1137, "units": 20, "currentValue": 4500.0,
-                         "averageOpenRate": 180.0, "positions": [{"positionId": 5, "units": 20}]},
-                        {"symbol": "BTC", "instrumentId": 100000, "assetTypeId": 10, "units": 0.1, "currentValue": 6000.0}],
-           "copiedTraders": [{"username": "someone"}]}
+SUMMARY = {
+    "account": "demo",
+    "accountCurrency": "USD",
+    "totals": {"totalValue": 100000.0, "availableCash": 90000.0},
+    "holdings": [
+        {
+            "symbol": "NVDA",
+            "instrumentId": 1137,
+            "units": 20,
+            "currentValue": 4500.0,
+            "averageOpenRate": 180.0,
+            "positions": [{"positionId": 5, "units": 20}],
+        },
+        {"symbol": "BTC", "instrumentId": 100000, "assetTypeId": 10, "units": 0.1, "currentValue": 6000.0},
+    ],
+    "copiedTraders": [{"username": "someone"}],
+}
 
-WATCHLISTS = {"watchlists": {"watchlists": [
-    {"name": "Recently Invested", "items": [{"itemId": 3000, "itemType": "Instrument", "market": {"symbolName": "SPY", "assetTypeId": 6}}]},
-    {"name": "My Watchlist", "items": [
-        {"itemId": 1137, "itemType": "Instrument", "market": {"symbolName": "NVDA", "assetTypeId": 5}},
-        {"itemId": 18, "itemType": "Instrument", "market": {"symbolName": "GOLD", "assetTypeId": 2}},
-        {"itemId": 22, "itemType": "Instrument", "market": {"symbolName": "NATGAS2", "assetTypeId": 2}},
-        {"itemId": 1, "itemType": "Instrument", "market": {"symbolName": "EURUSD", "assetTypeId": 1}},
-        {"itemId": 2587, "itemType": "Instrument", "market": {"symbolName": "RHM.DE", "assetTypeId": 5}},
-        {"itemId": 100063, "itemType": "Instrument", "market": {"symbolName": "SOL", "assetTypeId": 10}},
-        {"itemId": 918269, "itemType": "User"}]}]}}
+WATCHLISTS = {
+    "watchlists": {
+        "watchlists": [
+            {
+                "name": "Recently Invested",
+                "items": [{"itemId": 3000, "itemType": "Instrument", "market": {"symbolName": "SPY", "assetTypeId": 6}}],
+            },
+            {
+                "name": "My Watchlist",
+                "items": [
+                    {"itemId": 1137, "itemType": "Instrument", "market": {"symbolName": "NVDA", "assetTypeId": 5}},
+                    {"itemId": 18, "itemType": "Instrument", "market": {"symbolName": "GOLD", "assetTypeId": 2}},
+                    {"itemId": 22, "itemType": "Instrument", "market": {"symbolName": "NATGAS2", "assetTypeId": 2}},
+                    {"itemId": 1, "itemType": "Instrument", "market": {"symbolName": "EURUSD", "assetTypeId": 1}},
+                    {"itemId": 2587, "itemType": "Instrument", "market": {"symbolName": "RHM.DE", "assetTypeId": 5}},
+                    {"itemId": 100063, "itemType": "Instrument", "market": {"symbolName": "SOL", "assetTypeId": 10}},
+                    {"itemId": 918269, "itemType": "User"},
+                ],
+            },
+        ]
+    }
+}
 
 
 def test_portfolio_from_summary(tmp_path, capsys):
@@ -38,14 +61,28 @@ def test_portfolio_from_summary(tmp_path, capsys):
     f.write_text(json.dumps(SUMMARY))
     assert main(["etoro-portfolio", str(f), "--out", str(tmp_path / "p.json")]) == 0
     assert etoro.load_portfolio_file(tmp_path / "p.json")["equity"] == 100000.0
-    assert etoro.load_portfolio_file(f)["cash"] == 90000.0      # raw summary also accepted
+    assert etoro.load_portfolio_file(f)["cash"] == 90000.0  # raw summary also accepted
 
 
-@pytest.mark.parametrize("sym,atype,expected", [
-    ("NVDA", 5, "NVDA"), ("RHM.DE", 5, "RHM.DE"), ("EIMI.L", 6, "EIMI.L"), ("BRK.B", 5, "BRK-B"),
-    ("BTC", 10, "BTC-USD"), ("EURUSD", 1, "EURUSD=X"), ("GOLD", 2, "GC=F"), ("SPX500", 4, "^GSPC"),
-    ("NESN.ZU", 5, "NESN.SW"), ("ASML.NV", 5, "ASML.AS"), ("ASML.RTH", 5, "ASML"), ("VOLV-A.ST", 5, "VOLV-A.ST"),
-    ("NATGAS2", 2, None), ("MYSTERY", 4, None)])
+@pytest.mark.parametrize(
+    "sym,atype,expected",
+    [
+        ("NVDA", 5, "NVDA"),
+        ("RHM.DE", 5, "RHM.DE"),
+        ("EIMI.L", 6, "EIMI.L"),
+        ("BRK.B", 5, "BRK-B"),
+        ("BTC", 10, "BTC-USD"),
+        ("EURUSD", 1, "EURUSD=X"),
+        ("GOLD", 2, "GC=F"),
+        ("SPX500", 4, "^GSPC"),
+        ("NESN.ZU", 5, "NESN.SW"),
+        ("ASML.NV", 5, "ASML.AS"),
+        ("ASML.RTH", 5, "ASML"),
+        ("VOLV-A.ST", 5, "VOLV-A.ST"),
+        ("NATGAS2", 2, None),
+        ("MYSTERY", 4, None),
+    ],
+)
 def test_symbol_mapping(sym, atype, expected):
     """TST-EXE-07: eToro symbols map to Yahoo symbols; unmappable ones return None [REQ-EXE-07]"""
     assert etoro.yf_symbol(sym, atype, config.DEFAULTS["symbol_map"]) == expected
@@ -75,6 +112,7 @@ def test_universe_cap():
 def test_weekend_is_settle_only(tmp_path, capsys):
     """TST-SCHED-02: universe reports trading_day=false on weekends so the tick only settles [REQ-SCHED-02]"""
     from berkshire.cli import is_trading_day
+
     assert is_trading_day("2026-09-25") and not is_trading_day("2026-09-26") and not is_trading_day("2026-09-27")
     main(["universe", "--date", "2026-09-26"])
     assert json.loads(capsys.readouterr().out)["trading_day"] is False
@@ -95,9 +133,19 @@ def test_account_default_demo():
     """TST-EXE-03: Account defaults to demo; only demo/real accepted; the gate stamps it on intents [REQ-EXE-03]"""
     assert config.load()["account"] == "demo"
     from berkshire import orders
-    intent = orders.gate(ticker="AMD", etoro_symbol="AMD", instrument_id=None, rating="Buy",
-                         portfolio={"equity": 1e5, "cash": 5e4, "positions": []}, ask=100.0, trader=None, pm=None,
-                         atr=2.0, cfg={**config.DEFAULTS, "account": "real"})["intent"]
+
+    intent = orders.gate(
+        ticker="AMD",
+        etoro_symbol="AMD",
+        instrument_id=None,
+        rating="Buy",
+        portfolio={"equity": 1e5, "cash": 5e4, "positions": []},
+        ask=100.0,
+        trader=None,
+        pm=None,
+        atr=2.0,
+        cfg={**config.DEFAULTS, "account": "real"},
+    )["intent"]
     assert intent["account"] == "real"
 
 
@@ -105,23 +153,49 @@ def test_etoro_etf_type():
     """TST-EXE-10: eToro asset type 6 (ETF) becomes the etf asset mode without a network call [REQ-FLOW-10, REQ-EXE-07]"""
     assert etoro.asset_kind(etoro.ASSET_ETF, "SPY") == "etf"
     assert etoro.asset_kind(etoro.ASSET_STOCK, "NVDA") == "stock" and etoro.asset_kind(etoro.ASSET_CRYPTO, "BTC-USD") == "crypto"
-    wl = {"watchlists": {"watchlists": [{"name": "W", "items": [
-        {"itemId": 3000, "itemType": "Instrument", "market": {"symbolName": "SPY", "assetTypeId": 6}},
-        {"itemId": 15435, "itemType": "Instrument", "market": {"symbolName": "EIMI.L", "assetTypeId": 6}}]}]}}
+    wl = {
+        "watchlists": {
+            "watchlists": [
+                {
+                    "name": "W",
+                    "items": [
+                        {"itemId": 3000, "itemType": "Instrument", "market": {"symbolName": "SPY", "assetTypeId": 6}},
+                        {"itemId": 15435, "itemType": "Instrument", "market": {"symbolName": "EIMI.L", "assetTypeId": 6}},
+                    ],
+                }
+            ]
+        }
+    }
     items, _ = etoro.universe(None, wl, "W", config.DEFAULTS["symbol_map"], 10)
     assert [(i["ticker"], i["asset_type"]) for i in items] == [("SPY", "etf"), ("EIMI.L", "etf")]
 
 
 def test_etoro_macro_types():
     """TST-EXE-11: eToro forex, commodity and index types become the fx, commodity and index modes without a network call [REQ-FLOW-11, REQ-IF-04]"""
-    wl = {"watchlists": {"watchlists": [{"name": "W", "items": [
-        {"itemId": 18, "itemType": "Instrument", "market": {"symbolName": "GOLD", "assetTypeId": 2}},
-        {"itemId": 341, "itemType": "Instrument", "market": {"symbolName": "EuroOIL", "assetTypeId": 2}},
-        {"itemId": 1, "itemType": "Instrument", "market": {"symbolName": "EURUSD", "assetTypeId": 1}},
-        {"itemId": 27, "itemType": "Instrument", "market": {"symbolName": "SPX500", "assetTypeId": 4}},
-        {"itemId": 1137, "itemType": "Instrument", "market": {"symbolName": "NVDA", "assetTypeId": 5}}]}]}}
+    wl = {
+        "watchlists": {
+            "watchlists": [
+                {
+                    "name": "W",
+                    "items": [
+                        {"itemId": 18, "itemType": "Instrument", "market": {"symbolName": "GOLD", "assetTypeId": 2}},
+                        {"itemId": 341, "itemType": "Instrument", "market": {"symbolName": "EuroOIL", "assetTypeId": 2}},
+                        {"itemId": 1, "itemType": "Instrument", "market": {"symbolName": "EURUSD", "assetTypeId": 1}},
+                        {"itemId": 27, "itemType": "Instrument", "market": {"symbolName": "SPX500", "assetTypeId": 4}},
+                        {"itemId": 1137, "itemType": "Instrument", "market": {"symbolName": "NVDA", "assetTypeId": 5}},
+                    ],
+                }
+            ]
+        }
+    }
     items, _ = etoro.universe(None, wl, "W", config.DEFAULTS["symbol_map"], 10)
     assert [(i["ticker"], i["asset_type"]) for i in items] == [
-        ("GC=F", "commodity"), ("BZ=F", "commodity"), ("EURUSD=X", "fx"), ("^GSPC", "index"), ("NVDA", "stock")]
+        ("GC=F", "commodity"),
+        ("BZ=F", "commodity"),
+        ("EURUSD=X", "fx"),
+        ("^GSPC", "index"),
+        ("NVDA", "stock"),
+    ]
     from berkshire import pipeline
+
     assert set(etoro._KINDS.values()) | {"stock"} == set(pipeline.ASSET_TYPES)

@@ -21,8 +21,16 @@ def ledger():
 
 
 def pr_row(**kw):
-    row = {"PR": "#1404", "Title": "Jev debate gate", "Head": "abcdef123456", "Reviewed": "2026-09-25",
-           "Verdict": "watch", "Status": "watch", "Berkshire": "", "Rationale": "Early-stop idea; needs evidence."}
+    row = {
+        "PR": "#1404",
+        "Title": "Jev debate gate",
+        "Head": "abcdef123456",
+        "Reviewed": "2026-09-25",
+        "Verdict": "watch",
+        "Status": "watch",
+        "Berkshire": "",
+        "Rationale": "Early-stop idea; needs evidence.",
+    }
     return {**row, **kw}
 
 
@@ -36,19 +44,22 @@ def test_ledger_consistent(ledger):
     assert upstream.main(["check"]) == 0
 
 
-@pytest.mark.parametrize("mutate,problem", [
-    (lambda lg: lg["features"][0].update(Status="done"), "status 'done'"),
-    (lambda lg: lg["features"][0].update(Berkshire=""), "incorporated but names no Berkshire requirement"),
-    (lambda lg: lg["features"][0].update(Berkshire="REQ-NOPE-01"), "unknown requirement REQ-NOPE-01"),
-    (lambda lg: lg["features"].append(dict(lg["features"][0])), "duplicate id"),
-    (lambda lg: lg["features"][30].update(Notes=""), "needs a note"),
-    (lambda lg: lg["watermark"].pop("last_reviewed_commit"), "missing last_reviewed_commit"),
-    (lambda lg: lg["prs"].append(pr_row(Verdict="merge")), "verdict 'merge'"),
-    (lambda lg: lg["prs"].append(pr_row(Head="HEAD")), "is not a commit sha"),
-    (lambda lg: lg["prs"].append(pr_row(Reviewed="yesterday")), "not YYYY-MM-DD"),
-    (lambda lg: lg["prs"].append(pr_row(Rationale="")), "no rationale"),
-    (lambda lg: lg["prs"].extend([pr_row(), pr_row()]), "duplicate row"),
-])
+@pytest.mark.parametrize(
+    "mutate,problem",
+    [
+        (lambda lg: lg["features"][0].update(Status="done"), "status 'done'"),
+        (lambda lg: lg["features"][0].update(Berkshire=""), "incorporated but names no Berkshire requirement"),
+        (lambda lg: lg["features"][0].update(Berkshire="REQ-NOPE-01"), "unknown requirement REQ-NOPE-01"),
+        (lambda lg: lg["features"].append(dict(lg["features"][0])), "duplicate id"),
+        (lambda lg: lg["features"][30].update(Notes=""), "needs a note"),
+        (lambda lg: lg["watermark"].pop("last_reviewed_commit"), "missing last_reviewed_commit"),
+        (lambda lg: lg["prs"].append(pr_row(Verdict="merge")), "verdict 'merge'"),
+        (lambda lg: lg["prs"].append(pr_row(Head="HEAD")), "is not a commit sha"),
+        (lambda lg: lg["prs"].append(pr_row(Reviewed="yesterday")), "not YYYY-MM-DD"),
+        (lambda lg: lg["prs"].append(pr_row(Rationale="")), "no rationale"),
+        (lambda lg: lg["prs"].extend([pr_row(), pr_row()]), "duplicate row"),
+    ],
+)
 def test_check_catches(ledger, mutate, problem):
     """TST-UP-02: The ledger check rejects bad statuses, missing or unknown requirements, duplicates and bad PR rows [REQ-UP-01]"""
     bad = copy.deepcopy(ledger)
@@ -60,17 +71,22 @@ def test_check_catches(ledger, mutate, problem):
 def test_worklist(ledger):
     """TST-UP-03: The worklist splits open PRs into new, head-moved and unchanged, and flags PRs that left the open list [REQ-UP-02]"""
     lg = copy.deepcopy(ledger)
-    lg["prs"] = [pr_row(PR="#10", Head="aaaaaaaaaaaa"), pr_row(PR="#11", Head="bbbbbbbbbbbb"),
-                 pr_row(PR="#12", Head="cccccccccccc", Status="watch"),
-                 pr_row(PR="#13", Head="dddddddddddd", Status="declined")]
-    open_prs = [{"number": 10, "title": "same", "headRefOid": "aaaaaaaaaaaa" + "0" * 28, "updatedAt": "2026-09-20T00:00:00Z"},
-                {"number": 11, "title": "moved", "headRefOid": "eeeeeeeeeeee" + "0" * 28, "updatedAt": "2026-09-25T00:00:00Z"},
-                {"number": 14, "title": "brand new", "headRefOid": "ffffffffffff" + "0" * 28, "isDraft": True}]
+    lg["prs"] = [
+        pr_row(PR="#10", Head="aaaaaaaaaaaa"),
+        pr_row(PR="#11", Head="bbbbbbbbbbbb"),
+        pr_row(PR="#12", Head="cccccccccccc", Status="watch"),
+        pr_row(PR="#13", Head="dddddddddddd", Status="declined"),
+    ]
+    open_prs = [
+        {"number": 10, "title": "same", "headRefOid": "aaaaaaaaaaaa" + "0" * 28, "updatedAt": "2026-09-20T00:00:00Z"},
+        {"number": 11, "title": "moved", "headRefOid": "eeeeeeeeeeee" + "0" * 28, "updatedAt": "2026-09-25T00:00:00Z"},
+        {"number": 14, "title": "brand new", "headRefOid": "ffffffffffff" + "0" * 28, "isDraft": True},
+    ]
     w = upstream.worklist(lg, open_prs)
     assert [p["number"] for p in w["new"]] == [14] and w["new"][0]["draft"] is True
     assert [(p["number"], p["previous_head"]) for p in w["updated"]] == [(11, "bbbbbbbbbbbb")]
     assert w["unchanged"] == [10]
-    assert w["closed_since"] == [12]          # #13 was declined already; nothing left to decide
+    assert w["closed_since"] == [12]  # #13 was declined already; nothing left to decide
 
 
 def test_skill_workflow():

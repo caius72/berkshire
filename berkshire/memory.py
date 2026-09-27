@@ -41,15 +41,16 @@ class DecisionLog:
             stripped = block.strip()
             lines = stripped.splitlines()
             tag = lines[0].strip() if lines else ""
-            key = next((k for k in todo if tag.startswith(f"[{k[0]} | {k[1]} |")
-                        and tag.endswith("| pending]")), None)
+            key = next((k for k in todo if tag.startswith(f"[{k[0]} | {k[1]} |") and tag.endswith("| pending]")), None)
             if key is None:
                 blocks.append(block)
                 continue
             u = todo.pop(key)
             rating = [f.strip() for f in tag[1:-1].split("|")][2]
-            new_tag = (f"[{u['trade_date']} | {u['ticker']} | {rating} | {u['raw_return']:+.1%} | "
-                       f"{u['alpha_return']:+.1%} | {u['holding_days']}d")
+            new_tag = (
+                f"[{u['trade_date']} | {u['ticker']} | {rating} | {u['raw_return']:+.1%} | "
+                f"{u['alpha_return']:+.1%} | {u['holding_days']}d"
+            )
             if u.get("resolution_date"):
                 new_tag += f" | resolved:{u['resolution_date']}"
             rest = "\n".join(lines[1:]).lstrip()
@@ -92,7 +93,10 @@ class DecisionLog:
         body = "\n".join(lines[1:])
         d, r = _DECISION_RE.search(body), _REFLECTION_RE.search(body)
         return {
-            "date": f[0], "ticker": f[1], "rating": f[2], "pending": f[3] == "pending",
+            "date": f[0],
+            "ticker": f[1],
+            "rating": f[2],
+            "pending": f[3] == "pending",
             "raw": None if f[3] == "pending" else f[3],
             "alpha": f[4] if len(f) > 4 else None,
             "holding": f[5] if len(f) > 5 else None,
@@ -117,8 +121,13 @@ class DecisionLog:
             parts.append(f"Past analyses of {ticker} (most recent first):")
             for e in same:
                 tag = f"[{e['date']} | {e['ticker']} | {e['rating']} | {e['raw'] or 'n/a'} | {e['alpha'] or 'n/a'} | {e['holding'] or 'n/a'}]"
-                parts.append("\n\n".join(x for x in (tag, f"DECISION:\n{e['decision']}",
-                                                     e["reflection"] and f"REFLECTION:\n{e['reflection']}") if x))
+                parts.append(
+                    "\n\n".join(
+                        x
+                        for x in (tag, f"DECISION:\n{e['decision']}", e["reflection"] and f"REFLECTION:\n{e['reflection']}")
+                        if x
+                    )
+                )
         if cross:
             parts.append("Recent cross-ticker lessons:")
             for e in cross:
@@ -128,6 +137,7 @@ class DecisionLog:
 
 
 # --- settlement (REQ-MEM-03) -----------------------------------------------
+
 
 def resolve_benchmark(ticker: str, cfg: dict) -> str:
     if cfg.get("benchmark_ticker"):
@@ -188,13 +198,24 @@ def settle_candidates(log: DecisionLog, cfg: dict, tickers: list[str] | None, cl
         raw, alpha, resolved = res
         start_close = float(stock.iloc[0])
         target, horizon = decision_target(e["decision"])
-        out.append({"ticker": e["ticker"], "trade_date": e["date"], "raw_return": raw,
-                    "alpha_return": alpha, "holding_days": days, "resolution_date": resolved,
-                    "benchmark": bench, "decision": e["decision"],
-                    # What the PM expected, from the same close the return is measured from (REQ-MEM-08).
-                    "start_close": start_close, "start_date": stock.index[0].strftime("%Y-%m-%d"),
-                    "price_target": target, "time_horizon": horizon,
-                    "target_move": None if target is None or start_close <= 0 else target / start_close - 1})
+        out.append(
+            {
+                "ticker": e["ticker"],
+                "trade_date": e["date"],
+                "raw_return": raw,
+                "alpha_return": alpha,
+                "holding_days": days,
+                "resolution_date": resolved,
+                "benchmark": bench,
+                "decision": e["decision"],
+                # What the PM expected, from the same close the return is measured from (REQ-MEM-08).
+                "start_close": start_close,
+                "start_date": stock.index[0].strftime("%Y-%m-%d"),
+                "price_target": target,
+                "time_horizon": horizon,
+                "target_move": None if target is None or start_close <= 0 else target / start_close - 1,
+            }
+        )
     return out
 
 
@@ -202,11 +223,15 @@ def reflection_prompt(c: dict) -> str:
     """Input for the Reflector agent (TradingAgents reflection.py)."""
     expected = ""
     if c.get("target_move") is not None:  # TradingAgents #1087 adapted: a fact, not a ratio
-        expected = (f"Price target {c['price_target']:g} implied {c['target_move']:+.1%} from the "
-                    f"{c['start_date']} close of {c['start_close']:.2f}, over the stated horizon "
-                    f"({c.get('time_horizon') or 'not stated'}); this {c['holding_days']}-day window realised "
-                    f"{c['raw_return']:+.1%}.\n")
-    return (f"The outcome covers {c['holding_days']} trading days after the analysis date, which may be "
-            f"shorter than the horizon the decision was written for.\n\n"
-            f"Raw return over {c['holding_days']} trading days: {c['raw_return']:+.1%}\n"
-            f"Alpha vs {c['benchmark']}: {c['alpha_return']:+.1%}\n{expected}\nFinal Decision:\n{c['decision']}")
+        expected = (
+            f"Price target {c['price_target']:g} implied {c['target_move']:+.1%} from the "
+            f"{c['start_date']} close of {c['start_close']:.2f}, over the stated horizon "
+            f"({c.get('time_horizon') or 'not stated'}); this {c['holding_days']}-day window realised "
+            f"{c['raw_return']:+.1%}.\n"
+        )
+    return (
+        f"The outcome covers {c['holding_days']} trading days after the analysis date, which may be "
+        f"shorter than the horizon the decision was written for.\n\n"
+        f"Raw return over {c['holding_days']} trading days: {c['raw_return']:+.1%}\n"
+        f"Alpha vs {c['benchmark']}: {c['alpha_return']:+.1%}\n{expected}\nFinal Decision:\n{c['decision']}"
+    )

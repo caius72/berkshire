@@ -17,9 +17,11 @@ from .memory import DecisionLog
 
 DIRECTION = {"Buy": 1, "Overweight": 1, "Hold": 0, "Underweight": -1, "Sell": -1}
 # REQ-BT-05: the data guards cannot stop the models from knowing how a past date turned out (upstream #805).
-LOOKAHEAD = ("Point-in-time guards limit the data the agents see, not what the models learned in training: "
-             "cells dated before the models' training cutoff are historically grounded simulations, not causal "
-             "backtests. Only cells after the cutoff, or live runs, measure skill.")
+LOOKAHEAD = (
+    "Point-in-time guards limit the data the agents see, not what the models learned in training: "
+    "cells dated before the models' training cutoff are historically grounded simulations, not causal "
+    "backtests. Only cells after the cutoff, or live runs, measure skill."
+)
 
 
 def _canonical(date: str) -> datetime:
@@ -73,23 +75,34 @@ def summarize(log: DecisionLog) -> dict:
     for rating in dict.fromkeys(e["rating"] for e, _ in scored):
         alphas = [a for e, a in scored if e["rating"] == rating]
         d = DIRECTION.get(rating, 0)
-        by_rating[rating] = {"count": len(alphas),
-                             "hit_rate": sum(a * d > 0 for a in alphas) / len(alphas) if d else None,
-                             "mean_alpha": sum(alphas) / len(alphas)}
+        by_rating[rating] = {
+            "count": len(alphas),
+            "hit_rate": sum(a * d > 0 for a in alphas) / len(alphas) if d else None,
+            "mean_alpha": sum(alphas) / len(alphas),
+        }
     unscored = sum(1 for e in entries if e["rating"] == REVIEW)
-    return {"resolved": len(scored), "pending": len(entries) - len(scored) - unscored,
-            "unscored": unscored, "by_rating": by_rating, "caveat": LOOKAHEAD}
+    return {
+        "resolved": len(scored),
+        "pending": len(entries) - len(scored) - unscored,
+        "unscored": unscored,
+        "by_rating": by_rating,
+        "caveat": LOOKAHEAD,
+    }
 
 
 def render(summary: dict) -> str:
-    lines = [f"Resolved cells: {summary['resolved']} · pending: {summary['pending']}"
-             + (f" · unscored: {summary['unscored']}" if summary["unscored"] else "")]
+    lines = [
+        f"Resolved cells: {summary['resolved']} · pending: {summary['pending']}"
+        + (f" · unscored: {summary['unscored']}" if summary["unscored"] else "")
+    ]
     for rating, s in summary["by_rating"].items():
         called = f"called the direction {s['hit_rate']:.0%}" if s["hit_rate"] is not None else "no direction claimed"
         lines.append(f"- {rating}: n={s['count']}, {called}, mean alpha {s['mean_alpha']:+.2%} vs the benchmark")
     if summary["pending"]:
         lines.append("\nPending cells are not scored above; re-run the settle step to settle them.")
-    lines.append("One model sampling per cell and web/social sources are not archived, so these figures are "
-                 "indicative rather than repeatable.")
+    lines.append(
+        "One model sampling per cell and web/social sources are not archived, so these figures are "
+        "indicative rather than repeatable."
+    )
     lines.append(summary["caveat"])
     return "\n".join(lines)

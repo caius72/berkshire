@@ -38,6 +38,7 @@ def api(spawned, killed):
         spawned.append(argv)
         Path(log).write_text("analysis started\n")
         return FakeProc()
+
     return server.Api(config.home(), spawn=spawn, kill=lambda job: killed.append(job["id"]))
 
 
@@ -56,6 +57,7 @@ def live(api, tmp_path):
 
 def raw(info, path, headers=None, method="GET", body=None):
     import http.client
+
     conn = http.client.HTTPConnection("127.0.0.1", info["port"], timeout=5)
     conn.request(method, path, body=body, headers=headers or {})
     resp = conn.getresponse()
@@ -104,6 +106,7 @@ def test_run_routes(cfg, log, api):
     run_all(new_run(cfg, log), log)
     partial = new_run(cfg, log, ticker="AAPL", analysts=["market"])
     from berkshire import pipeline
+
     pipeline.submit(partial, "analyst_market", "Market report")
     status, runs = server.route("GET", "/api/runs", None, api)
     assert status == 200 and sorted(r["ticker"] for r in runs) == ["AAPL", "NVDA"]
@@ -124,35 +127,43 @@ def test_memory_queue_backtests(cfg, log, api):
     """TST-UI-06: Decision log, order queue and backtest summaries are exposed read-only [REQ-UI-03, REQ-UI-07]"""
     run_all(new_run(cfg, log), log)
     from berkshire.orders import Queue
+
     Queue(config.home() / "queue.json").enqueue([{"etoro_symbol": "NVDA", "kind": "open", "rating": "Buy"}], "t", 5)
     (config.home() / "backtest" / "bt1" / "memory").mkdir(parents=True)
     assert server.route("GET", "/api/memory", None, api)[1][0]["rating"] == "Buy"
     assert server.route("GET", "/api/queue", None, api)[1][0]["status"] == "pending"
     assert server.route("GET", "/api/backtests", None, api)[1][0]["run_id"] == "bt1"
-    for path in ("/api/queue", "/api/orders", "/api/queue/approve"):   # no write path to orders exists
+    for path in ("/api/queue", "/api/orders", "/api/queue/approve"):  # no write path to orders exists
         assert server.route("POST", path, {}, api)[0] == 404
 
 
 def test_start_job(api, spawned):
     """TST-UI-07: POST /api/jobs validates input and spawns a headless /berkshire:analyze [REQ-UI-06]"""
-    status, job = server.route("POST", "/api/jobs", {"ticker": "nvda", "date": "2026-09-18",
-                                                     "analysts": ["news", "market"], "depth": "Medium"}, api)
+    status, job = server.route(
+        "POST", "/api/jobs", {"ticker": "nvda", "date": "2026-09-18", "analysts": ["news", "market"], "depth": "Medium"}, api
+    )
     assert status == 201 and job["status"] == "running" and job["log_tail"] == "analysis started\n"
     argv = spawned[0]
-    assert argv[:2] == ["claude", "-p"] and argv[2].startswith("/berkshire:analyze NVDA 2026-09-18 --analysts market,news --depth medium")
+    assert argv[:2] == ["claude", "-p"] and argv[2].startswith(
+        "/berkshire:analyze NVDA 2026-09-18 --analysts market,news --depth medium"
+    )
     assert "place-trade" not in " ".join(argv) and "Bash(berkshire *)" in argv[-1]
     assert argv[argv.index("--permission-mode") + 1] == "dontAsk" and "--strict-mcp-config" in argv
     assert {"WebSearch", "WebFetch"} <= set(argv[-1].split()) and "mcp__" not in " ".join(argv)
     assert server.route("GET", f"/api/jobs/{job['id']}", None, api)[1]["ticker"] == "NVDA"
     assert server.route("GET", "/api/jobs", None, api)[1][0]["id"] == job["id"]
-    for bad, msg in (({"ticker": "../x"}, "unsafe"), ({"ticker": "NVDA", "date": "2099-01-01"}, "future"),
-                     ({"ticker": "NVDA", "analysts": ["astrology"]}, "unknown analyst"),
-                     ({"ticker": "NVDA", "depth": "extreme"}, "depth")):
+    for bad, msg in (
+        ({"ticker": "../x"}, "unsafe"),
+        ({"ticker": "NVDA", "date": "2099-01-01"}, "future"),
+        ({"ticker": "NVDA", "analysts": ["astrology"]}, "unknown analyst"),
+        ({"ticker": "NVDA", "depth": "extreme"}, "depth"),
+    ):
         status, err = server.route("POST", "/api/jobs", bad, api)
         assert status == 400 and msg in err["error"]
     assert len(spawned) == 1
     # No date given: the job uses the engine's clock (the one validation uses), not the system's.
     from conftest import TODAY
+
     assert server.route("POST", "/api/jobs", {"ticker": "AMD"}, api)[1]["date"] == TODAY
     api._procs[job["id"]] = FakeProc(code=1)
     assert api.job(job["id"])["status"] == "failed (1)"
@@ -161,11 +172,13 @@ def test_start_job(api, spawned):
 def test_change_detection(cfg, log, api):
     """TST-UI-08: Snapshots detect new runs, submitted steps, log and queue changes [REQ-UI-04]"""
     import os
+
     before = api.snapshot()
     state = new_run(cfg, log)
     after = api.snapshot()
     assert server.changed(before, after) == ["run:NVDA/2026-09-18"]
     from berkshire import pipeline
+
     pipeline.submit(state, "analyst_market", "x")
     sf = Path(state["run_dir"]) / "state.json"
     os.utime(sf, (sf.stat().st_atime, sf.stat().st_mtime + 5))
@@ -235,10 +248,11 @@ def test_stop_from_api(cfg, log, api, killed):
     assert api.job(mine["id"])["status"] == "stopped" and api.job(other["id"])["status"] == "running"
     assert json.loads(Path(mine["log"]).with_suffix(".json").read_text())["stopped"]
     assert server.route("GET", "/api/runs/NVDA/2026-09-18", None, api)[1]["stopped"]["reason"] == "wrong ticker"
-    assert server.route("POST", "/api/runs/NVDA/2026-09-18/stop", {}, api)[0] == 200   # idempotent
+    assert server.route("POST", "/api/runs/NVDA/2026-09-18/stop", {}, api)[0] == 200  # idempotent
     assert killed == [mine["id"]]
     assert server.route("POST", "/api/runs/ZZZ/2026-09-18/stop", {}, api)[0] == 404
     from berkshire import pipeline
+
     done = run_all(new_run(cfg, log, ticker="AAPL"), log)
     assert server.route("POST", f"/api/runs/AAPL/{done['trade_date']}/stop", {}, api)[0] == 400
     assert not state.get("stopped") and pipeline.load_state(Path(state["run_dir"]))["stopped"]
@@ -248,6 +262,7 @@ def test_start_job_resolves_and_refuses_unlisted(api, spawned):
     """TST-UI-22: The start form maps eToro names and refuses unlisted instruments before spawning [REQ-IF-10, REQ-UI-06]"""
     import pandas as pd
     from conftest import FakeTicker
+
     status, job = server.route("POST", "/api/jobs", {"ticker": "EuroOil", "date": "2026-09-18"}, api)
     assert status == 201 and job["ticker"] == "BZ=F" and "/berkshire:analyze BZ=F 2026-09-18" in spawned[0][2]
     FakeTicker.frames["NOPE"] = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"], index=pd.DatetimeIndex([]))
