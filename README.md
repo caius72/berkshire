@@ -110,7 +110,7 @@ uvx ruff@0.16.5 check . && uvx ruff@0.16.5 format --check .   # lint and layout,
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every push and pull request to `main`. It follows matlab-tui's pipeline:
+`.github/workflows/ci.yml` runs on every push and pull request to `main`, and `main` is protected: a change lands only through a pull request whose jobs below all pass, admins included. It follows matlab-tui's pipeline:
 
 | Job | What it proves |
 |---|---|

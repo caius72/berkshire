@@ -128,11 +128,10 @@ jobs:
       - name: scan the full history
         run: gitleaks git --redact --verbose --exit-code 1 .
 
-  # SAST for the Python engine/server and the React view (REQ-CI-05). Code scanning
-  # (the Security tab) needs GitHub Code Security on a private repository, so results
-  # are not uploaded: the SARIF is kept as an artifact and any finding fails the job,
-  # except rule+file pairs triaged in .github/codeql-reviewed.json, each with its reason.
-  # Once code scanning is enabled, set `upload: always` and drop the gate step.
+  # SAST for the Python engine/server and the React view (REQ-CI-05). Results go to code
+  # scanning (the Security tab; the repository is public), and the SARIF is also kept as an
+  # artifact. Code scanning alone does not fail a run, so the gate step still fails the job
+  # on any finding except rule+file pairs triaged in .github/codeql-reviewed.json, each with its reason.
   sast:
     runs-on: ubuntu-latest
     permissions:
@@ -152,7 +151,7 @@ jobs:
       - uses: github/codeql-action/analyze@v3
         with:
           category: /language:${{ matrix.language }}
-          upload: never
+          upload: always
           output: sarif-results
       - uses: actions/upload-artifact@v4
         if: always()

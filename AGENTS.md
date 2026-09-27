@@ -50,5 +50,6 @@ Tracked as [GitHub issues](https://github.com/caius72/berkshire/issues), not in 
 
 - Bump the version in `pyproject.toml`, `berkshire/__init__.py` and `.claude-plugin/plugin.json` (then `uv lock`)
   in a separate "Version x.y.z" commit on the branch.
-- Changes reach `main` through a pull request, merged with a merge commit once every CI job is green.
+- Changes reach `main` only through a pull request, merged with a merge commit once every CI job is green.
+  Branch protection enforces this for everyone, admins included (REQ-CI-09).
 - Upstream TradingAgents is reviewed with `/upstream-scout`, which records verdicts in `docs/upstream.md`.

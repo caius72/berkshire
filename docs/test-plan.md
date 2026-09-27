@@ -205,11 +205,12 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-CI-02 | ruff is pinned in CI, the rule set includes bandit security checks, and the format check runs | REQ-CI-02 | I | ci.yml env + ruff.toml + `ruff format --check .` in the lint job. |
 | TST-CI-03 | The test job runs every extra under branch coverage with a ratcheting floor and publishes the report | REQ-CI-03 | I | ci.yml + [tool.coverage]. Floor ≥ 89 and the step that fails when coverage is ≥ 2 points above it. |
 | TST-CI-04 | gitleaks scans the full history on every push to any branch and on every PR | REQ-CI-04 | I | fetch-depth 0, pinned gitleaks binary, `gitleaks git .` with no commit range. `secrets.yml` covers pushes to branches other than main with the same version and steps. |
-| TST-CI-05 | CodeQL analyses Python and JavaScript with security-extended queries | REQ-CI-05 | I | sast matrix, permissions, and a gate step that fails on any SARIF result. |
+| TST-CI-05 | CodeQL analyses Python and JavaScript with security-extended queries | REQ-CI-05 | I | sast matrix, permissions, `upload: always`, and a gate step that fails on any unreviewed SARIF result. |
 | TST-CI-06 | The core job installs no extras, asserts textual is absent and checks the tui hint | REQ-CI-06 | I | core job commands; textual only in the extra. |
 | TST-CI-07 | The webui job runs npm ci, the pinned linter, the node tests and the vite build | REQ-CI-07 | I | webui job + package.json (exact Biome version, `lint` script) + biome.json (recommended + hook rules as errors) + lockfile. |
 | TST-CI-08 | Read-only default permissions, versioned actions, locked installs | REQ-CI-08 | I | Every `uses:` ends in `@vN`. |
 | TST-CI-09 | First push to GitHub: every job green, coverage and CodeQL results published | REQ-CI-01, REQ-CI-03, REQ-CI-04, REQ-CI-05 | D | Manual procedure M5. |
+| TST-CI-10 | main is protected and secret scanning with push protection is on | REQ-CI-09 | D | Manual procedure M8. |
 | TST-FLOW-11 | A stopped run offers and accepts no steps; --checkpoint resumes it | REQ-UI-13 | T | Stop after one step; next/submit/CLI `next`; resume clears the flag; a complete run cannot be stopped. |
 | TST-IF-10 | eToro-only names map to Yahoo; an unlisted instrument is refused before any agent runs | REQ-IF-10 | T | EUROOIL → BZ=F with the alias kept; empty Yahoo frame refused with no run dir created; Yahoo unreachable → fail-open. |
 | TST-UI-21 | POST /api/runs/T/D/stop marks the run stopped and ends only its running job | REQ-UI-13 | T | Two jobs, one matching; fake killer records calls; idempotent; 404 unknown, 400 complete. |
@@ -301,6 +302,11 @@ Load the plugin: `claude --plugin-dir <path-to>/berkshire`, or
 once without and once with `--strict-mcp-config`. Without the flag it lists the eToro tools; with it,
 `NONE`. Checked on Claude Code 2.1.283, 2026-09-27.
 
+**M8 — merge protection (TST-CI-10).** Read the settings back:
+`gh api repos/caius72/berkshire/branches/main/protection` lists the seven required checks, a required pull
+request, `enforce_admins.enabled: true`, and force pushes and deletion disabled. `gh api repos/caius72/berkshire`
+shows `secret_scanning` and `secret_scanning_push_protection` enabled.
+
 | Procedure | Date | Result | Notes |
 |---|---|---|---|
 | M1 | | not yet run | #28 |
@@ -310,6 +316,7 @@ once without and once with `--strict-mcp-config`. Without the flag it lists the 
 | M6 | | not yet run | #32 |
 | M5 | 2026-09-25 | pass (run 36119571904) | The first three runs failed and were fixed: a clock mismatch, the Node 22 test glob, gitleaks-action on a first push, and CodeQL upload on a private repo. Coverage 87.7%. |
 | M7 | 2026-09-27 | pass | Claude Code 2.1.283: eToro tools listed without the flag, `NONE` with it. |
+| M8 | 2026-09-28 | pass | Settings applied and read back when the repository was made public (#14). |
 
 ## 5. Traceability matrix (REQ → TST)
 
@@ -445,6 +452,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-CI-06 | TST-CI-06 |
 | REQ-CI-07 | TST-CI-07 |
 | REQ-CI-08 | TST-CI-08 |
+| REQ-CI-09 | TST-CI-10 |
 | REQ-UP-01 | TST-UP-01, TST-UP-02 |
 | REQ-UP-02 | TST-UP-03, TST-UP-06 |
 | REQ-UP-03 | TST-UP-04, TST-UP-06 |

@@ -264,10 +264,11 @@ Modelled on matlab-tui's `.gitlab-ci.yml`, as GitHub Actions (D9).
 | REQ-CI-02 | M | Lint shall use a pinned ruff version and the explicit rule set in `ruff.toml`, including the bandit (`S`) security rules. The same pinned ruff shall check the layout of the Python sources (`ruff format --check`). | I |
 | REQ-CI-03 | M | The test job shall install every extra and measure branch coverage. It fails below the floor in `pyproject.toml`, and also when coverage is 2 or more points above it, so the floor is kept within 2 points of actual coverage (a ratchet). It publishes `coverage.xml` plus a summary. | I |
 | REQ-CI-04 | M | Secret-leak detection (gitleaks) shall scan the full git history on every push, to any branch, and on every pull request: `ci.yml` for `main` and pull requests, `secrets.yml` for pushes to other branches, with the same pinned version and scan. | I |
-| REQ-CI-05 | M | Static analysis (CodeQL) shall cover Python and JavaScript. | I |
+| REQ-CI-05 | M | Static analysis (CodeQL) shall cover Python and JavaScript. Results are uploaded to code scanning, and any finding not triaged in `.github/codeql-reviewed.json` fails the job. | I |
 | REQ-CI-06 | M | A job without the optional extras shall assert textual is absent and run the suite, proving REQ-UI-09 rather than assuming it. | I |
 | REQ-CI-07 | M | The web view shall be checked by `npm ci`, a pinned linter (Biome, exact version in `package.json`) with the explicit rule set in `webui/biome.json` including the React hook rules, the node unit tests and `vite build`. | I |
 | REQ-CI-08 | M | The workflow shall run with read-only default permissions, use versioned actions, and fail on the first broken job. | I |
+| REQ-CI-09 | M | `main` shall accept changes only through a pull request whose required checks (test, core, lint, webui, secrets, sast for Python and for JavaScript) pass, with the rule enforced for admins and force pushes and deletion blocked. GitHub secret scanning with push protection shall be on. | D |
 
 ## 17. Upstream tracking (REQ-UP)
 

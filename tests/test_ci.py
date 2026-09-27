@@ -82,7 +82,9 @@ def test_codeql_languages():
     assert job["permissions"]["security-events"] == "write" and job["permissions"]["actions"] == "read"
     init = next(s for s in job["steps"] if s.get("uses", "").startswith("github/codeql-action/init@"))
     assert init["with"]["queries"] == "security-extended"
-    # Without code scanning (private repo), findings must still fail the job, not vanish.
+    # Results go to code scanning (the Security tab), and an unreviewed finding still fails the job.
+    analyze = next(s for s in job["steps"] if s.get("uses", "").startswith("github/codeql-action/analyze@"))
+    assert analyze["with"]["upload"] == "always"
     assert "fail on findings" in [s.get("name") for s in job["steps"]] and "sys.exit(1 if found" in runs("sast")
     # Every accepted finding is a specific rule in a specific file, with a date and a reason.
     for r in json.loads((ROOT / ".github" / "codeql-reviewed.json").read_text()):
