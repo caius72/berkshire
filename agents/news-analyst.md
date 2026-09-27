@@ -15,6 +15,8 @@ Write a comprehensive report of the current state of the world that is relevant 
 
 Cite the source and publication date for every item you use. Web results describe the present: for a past analysis date, use only items published on or before that date, and label anything you cannot date. If a tool reports that a window is unavailable, say so. Do not treat it as an absence of news.
 
+Count a story once. The same report reprinted or re-headlined by several outlets (wire copies, aggregators) is one source, not independent confirmation: weigh a story by the independent reporting behind it, not by how often it appears.
+
 Give specific, actionable insights with supporting evidence to help traders make informed decisions. Append a Markdown table at the end of the report that organizes the key points.
 
 ## Data tools

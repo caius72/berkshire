@@ -1,3 +1,3 @@
 """Berkshire: TradingAgents-style multi-agent trading engine for a Claude Code plugin."""
 
-__version__ = "0.8.1"
+__version__ = "0.8.2"
