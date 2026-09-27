@@ -14,6 +14,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
+from . import __version__
 from . import data as data_mod
 from .config import atomic_write, safe_component
 from .decisions import parse_rating, structured
@@ -475,6 +476,16 @@ def report_sections(state: dict) -> list[dict]:
             for d, k, a, t in spec if t and t.strip()]
 
 
+def run_settings(state: dict) -> dict:
+    """What produced this run, for the report header and the states log (REQ-RPT-03, TradingAgents #752).
+    Models are the configured aliases: the engine never sees which model generation served them."""
+    cfg = state["config"]
+    return {"version": __version__, "deep_think_llm": cfg["deep_think_llm"], "quick_think_llm": cfg["quick_think_llm"],
+            "analysts": list(state["analysts"]), "max_debate_rounds": cfg["max_debate_rounds"],
+            "max_risk_discuss_rounds": cfg["max_risk_discuss_rounds"], "output_language": cfg["output_language"],
+            "holding_period_days": cfg.get("holding_period_days", 5)}
+
+
 def write_report_tree(state: dict, save_path: Path) -> Path:
     save_path.mkdir(parents=True, exist_ok=True)
     blocks, team = [], None
@@ -487,9 +498,17 @@ def write_report_tree(state: dict, save_path: Path) -> Path:
             blocks.append(f"## {team}")
         blocks.append(f"### {sec['agent']}\n{sec['text']}")
     header = (f"# Trading Analysis Report: {state['company_of_interest']}\n\nAnalysis date: {state['trade_date']} · "
-              f"Generated: {datetime.now():%Y-%m-%d %H:%M:%S} · Signal: **{state.get('signal')}**\n\n{DISCLAIMER}\n\n")
+              f"Generated: {datetime.now():%Y-%m-%d %H:%M:%S} · Signal: **{state.get('signal')}**\n\n"
+              f"{_settings_line(run_settings(state))}\n\n{DISCLAIMER}\n\n")
     (save_path / "complete_report.md").write_text(header + "\n\n".join(blocks), encoding="utf-8")
     return save_path / "complete_report.md"
+
+
+def _settings_line(r: dict) -> str:
+    return (f"Berkshire {r['version']} · deep model {r['deep_think_llm']}, quick model {r['quick_think_llm']} · "
+            f"analysts: {', '.join(r['analysts'])} · debate rounds {r['max_debate_rounds']}, risk rounds "
+            f"{r['max_risk_discuss_rounds']} · horizon {r['holding_period_days']} trading days · "
+            f"language {r['output_language']}")
 
 
 def full_states_log(state: dict) -> dict:
@@ -504,6 +523,7 @@ def full_states_log(state: dict) -> dict:
         "risk_debate_state": {k: risk[k] for k in ("aggressive_history", "conservative_history",
                                                    "neutral_history", "history", "judge_decision")},
         "investment_plan": state["investment_plan"], "final_trade_decision": state["final_trade_decision"],
+        "run_settings": run_settings(state),
     }
 
 
