@@ -137,7 +137,8 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | ID | Pri | Requirement | Ver |
 |---|---|---|---|
 | REQ-RPT-01 | M | A completed run shall write the TradingAgents report tree: `1_analysts/{market,sentiment,news,fundamentals}.md`, `2_research/{bull,bear,manager}.md`, `3_trading/trader.md`, `4_risk/{aggressive,conservative,neutral}.md`, `5_portfolio/decision.md`, and `complete_report.md` with sections I–V. | T |
-| REQ-RPT-02 | M | A completed run shall write `full_states_log_<date>.json` with the TradingAgents keys. | T |
+| REQ-RPT-02 | M | A completed run shall write `full_states_log_<date>.json` with the TradingAgents keys, plus `run_settings`. | T |
+| REQ-RPT-03 | S | The `complete_report.md` header and the states log shall record what produced the run: Berkshire version, deep and quick models, analysts, debate and risk rounds, horizon and output language. Keys, endpoints and paths are never recorded. | T |
 
 ## 10. Backtest (REQ-BT)
 

@@ -138,7 +138,8 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-CKPT-03 | No --checkpoint, or a completed run, starts fresh; --skip-if-complete returns the signal | REQ-CKPT-03, REQ-SCHED-03 | T | Three init variants on the same run. |
 | TST-CKPT-04 | clear-checkpoints removes incomplete runs and keeps completed ones | REQ-CKPT-04 | T | One complete + one incomplete run. |
 | TST-RPT-01 | A completed run writes the TradingAgents report tree and complete_report sections I-V | REQ-RPT-01, REQ-SAFE-03 | T | 12 files + 5 section headers + disclaimer. |
-| TST-RPT-02 | full_states_log_<date>.json has the TradingAgents keys | REQ-RPT-02 | T | Exact key set. |
+| TST-RPT-02 | full_states_log_<date>.json has the TradingAgents keys | REQ-RPT-02 | T | Exact key set incl. `run_settings`. |
+| TST-RPT-03 | The report header and the states log record what produced the run | REQ-RPT-03 | T | Two-analyst canned run: header line with version, models, analysts, rounds, horizon; states log `run_settings` equals the expected dict exactly. |
 | TST-BT-01 | Grid stops at today; plan uses an isolated home under backtest/ | REQ-BT-01 | T | Grid past today truncated; invalid grids; plan home; unsafe run id. |
 | TST-BT-02 | Cells already in the backtest log are skipped | REQ-BT-02 | T | One logged cell of four. |
 | TST-BT-03 | Summary counts resolved/pending/unscored and scores hit rate and mean alpha per rating | REQ-BT-03 | T | Hand-computed per-rating stats; Hold has no hit rate; render text. |
@@ -376,6 +377,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-CKPT-04 | TST-CKPT-04 |
 | REQ-RPT-01 | TST-RPT-01 |
 | REQ-RPT-02 | TST-RPT-02 |
+| REQ-RPT-03 | TST-RPT-03 |
 | REQ-BT-01 | TST-BT-01 |
 | REQ-BT-02 | TST-BT-02 |
 | REQ-BT-03 | TST-BT-03 |

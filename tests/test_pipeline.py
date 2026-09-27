@@ -328,8 +328,22 @@ def test_full_states_log(cfg, log):
     entry = json.loads((Path(state["run_dir"]) / "full_states_log_2026-09-18.json").read_text())
     assert set(entry) == {"company_of_interest", "trade_date", "market_report", "sentiment_report", "news_report",
                           "fundamentals_report", "investment_debate_state", "trader_investment_decision",
-                          "risk_debate_state", "investment_plan", "final_trade_decision"}
+                          "risk_debate_state", "investment_plan", "final_trade_decision", "run_settings"}
     assert entry["final_trade_decision"].startswith("**Rating**: Buy")
+
+
+def test_run_provenance(cfg, log):
+    """TST-RPT-03: The report header and the states log record what produced the run [REQ-RPT-03]"""
+    from berkshire import __version__
+    state = run_all(new_run(cfg, log, analysts=["market", "news"]), log)
+    head = (Path(state["run_dir"]) / "reports" / "complete_report.md").read_text().split("## I.")[0]
+    assert "Analysis date: 2026-09-18" in head
+    assert f"Berkshire {__version__} · deep model opus, quick model sonnet · analysts: market, news" in head
+    assert "debate rounds 1, risk rounds 1 · horizon 5 trading days" in head
+    settings = json.loads((Path(state["run_dir"]) / "full_states_log_2026-09-18.json").read_text())["run_settings"]
+    assert settings == {"version": __version__, "deep_think_llm": "opus", "quick_think_llm": "sonnet",
+                        "analysts": ["market", "news"], "max_debate_rounds": 1, "max_risk_discuss_rounds": 1,
+                        "output_language": "English", "holding_period_days": 5}
 
 
 def test_progress_table(cfg, log):
