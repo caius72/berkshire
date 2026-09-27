@@ -211,6 +211,7 @@ function Backtests({ tick }) {
   return (
     <section className="page-section"><h2>Backtests</h2>
       {!data?.length && <p className="muted">No backtests yet. Run <code>/berkshire:backtest NVDA,AAPL --start 2026-06-01 --end 2026-08-01</code> in Claude Code.</p>}
+      {data?.[0]?.caveat && <p className="lede">{data[0].caveat}</p>}
       {data?.map((b) => (
         <div key={b.run_id} className="bt">
           <h3>{b.run_id}</h3>

@@ -66,6 +66,18 @@ def test_deciders_have_no_external_tools():
         assert tools(name) <= {"Read", "Write"}, name
 
 
+def test_tool_using_agents_have_turn_bound():
+    """TST-ROLE-12: Every analyst with data or web tools declares a turn bound, and the pipeline loop treats a stop without output as a failed step [REQ-ROLE-07, REQ-SCHED-05]"""
+    bounded = [n for n in ROLES if tools(n) & {"Bash", "WebSearch", "WebFetch"}]
+    assert sorted(bounded) == ["fundamentals-analyst", "market-analyst", "news-analyst", "sentiment-analyst"]
+    for name in bounded:
+        assert int(agent(name)[0].get("maxTurns", "0")) > 0, name
+    for name in NO_WEB:
+        assert "maxTurns" not in agent(name)[0], name
+    loop = (ROOT / "skills" / "analyze" / "pipeline-loop.md").read_text()
+    assert "stopped at its turn limit (`maxTurns`)" in loop and "Re-run that\n     one step once" in loop
+
+
 PERSONA = {
     "bull-researcher": ["Growth Potential", "Competitive Advantages", "Bear Counterpoints", "open with your own case"],
     "bear-researcher": ["Risks and Challenges", "Competitive Weaknesses", "Bull Counterpoints"],

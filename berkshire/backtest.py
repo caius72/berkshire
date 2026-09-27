@@ -16,6 +16,10 @@ from .decisions import REVIEW
 from .memory import DecisionLog
 
 DIRECTION = {"Buy": 1, "Overweight": 1, "Hold": 0, "Underweight": -1, "Sell": -1}
+# REQ-BT-05: the data guards cannot stop the models from knowing how a past date turned out (upstream #805).
+LOOKAHEAD = ("Point-in-time guards limit the data the agents see, not what the models learned in training: "
+             "cells dated before the models' training cutoff are historically grounded simulations, not causal "
+             "backtests. Only cells after the cutoff, or live runs, measure skill.")
 
 
 def _canonical(date: str) -> datetime:
@@ -74,7 +78,7 @@ def summarize(log: DecisionLog) -> dict:
                              "mean_alpha": sum(alphas) / len(alphas)}
     unscored = sum(1 for e in entries if e["rating"] == REVIEW)
     return {"resolved": len(scored), "pending": len(entries) - len(scored) - unscored,
-            "unscored": unscored, "by_rating": by_rating}
+            "unscored": unscored, "by_rating": by_rating, "caveat": LOOKAHEAD}
 
 
 def render(summary: dict) -> str:
@@ -87,4 +91,5 @@ def render(summary: dict) -> str:
         lines.append("\nPending cells are not scored above; re-run the settle step to settle them.")
     lines.append("One model sampling per cell and web/social sources are not archived, so these figures are "
                  "indicative rather than repeatable.")
+    lines.append(summary["caveat"])
     return "\n".join(lines)

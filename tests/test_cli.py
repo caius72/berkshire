@@ -6,9 +6,11 @@ from pathlib import Path
 import pytest
 from conftest import canned
 
-from berkshire import backtest, config, pipeline
+from berkshire import backtest, config, pipeline, server
 from berkshire.cli import main
 from berkshire.memory import DecisionLog
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_config_precedence(monkeypatch):
@@ -119,6 +121,18 @@ def test_backtest_summary(tmp_path):
     assert s["by_rating"]["Sell"]["hit_rate"] == 1.0 and s["by_rating"]["Hold"]["hit_rate"] is None
     text = backtest.render(s)
     assert "Buy: n=2, called the direction 50%" in text and "no direction claimed" in text
+
+
+def test_backtest_lookahead_caveat(tmp_path):
+    """TST-BT-05: Backtest summaries carry the model look-ahead caveat, and the skill flags cells before the model's cutoff [REQ-BT-05]"""
+    s = backtest.summarize(DecisionLog(tmp_path / "log.md"))
+    assert "not what the models learned in training" in s["caveat"] and "not causal backtests" in s["caveat"]
+    assert backtest.render(s).endswith(s["caveat"])
+    (config.home() / "backtest" / "bt1" / "memory").mkdir(parents=True)
+    assert server.Api(config.home()).backtests()[0]["caveat"] == s["caveat"]
+    assert "data?.[0]?.caveat" in (ROOT / "webui" / "src" / "App.jsx").read_text()
+    text = (ROOT / "skills" / "backtest" / "SKILL.md").read_text()
+    assert "your own knowledge cutoff" in text and "every cell may be affected" in text and "look-ahead caveat" in text
 
 
 def test_backtest_never_enqueues(capsys, monkeypatch, tmp_path):
