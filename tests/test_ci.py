@@ -50,7 +50,8 @@ def test_coverage_floor():
     """TST-CI-03: The test job runs every extra under branch coverage with a ratcheting floor and publishes the report [REQ-CI-03]"""
     assert "--all-extras" in runs("test") and "--cov" in runs("test") and "--cov-report=xml" in runs("test")
     cov = PYPROJECT["tool"]["coverage"]
-    assert cov["run"]["branch"] is True and cov["report"]["fail_under"] >= 80
+    assert cov["run"]["branch"] is True and cov["report"]["fail_under"] >= 89
+    assert "coverage report --format=total" in runs("test") and "raise fail_under" in runs("test")  # the ratchet
     assert "actions/upload-artifact@v4" in uses("test") and "GITHUB_STEP_SUMMARY" in runs("test")
 
 

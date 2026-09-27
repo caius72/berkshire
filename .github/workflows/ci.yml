@@ -39,6 +39,14 @@ jobs:
       - run: bash -n bin/berkshire
       - name: pytest with branch coverage
         run: uv run pytest -q --cov --cov-report=term --cov-report=xml
+      # The floor only ratchets if someone raises it: fail when coverage has risen 2 or more points
+      # above it, so the headroom that lets untested code land stays small (REQ-CI-03).
+      - name: coverage floor keeps up
+        run: |
+          total=$(uv run coverage report --format=total --precision=2)
+          floor=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['tool']['coverage']['report']['fail_under'])")
+          echo "coverage ${total}% against a floor of ${floor}%"
+          uv run python -c "import sys; t, f = float('${total}'), float('${floor}'); sys.exit(f'coverage {t}% is {t - f:.2f} points above the floor: raise fail_under in pyproject.toml' if t - f >= 2 else 0)"
       - name: coverage summary
         if: always()
         run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY" || true
