@@ -25,7 +25,7 @@ Berkshire way), `watch`, `decline`.
 | upstream | TauricResearch/TradingAgents |
 | last_reviewed_commit | 35543d0 |
 | last_reviewed_release | v0.5.1 |
-| last_run | 2026-09-26 |
+| last_run | 2026-09-27 |
 
 ## Features
 
@@ -96,3 +96,14 @@ PR is re-analysed only when it changes. Reports: [upstream-reports/](upstream-re
 | #302 | ACE - Agentic Context Engineer | c510a8721ada | 2026-09-26 | decline | declined |  | Self-graded skillbook ignores outcomes, no as_of filter, breaks on ace-framework 0.12. Berkshire's settled PIT lessons are better. |
 | #1281 | Cache-friendly debate and analyst prompts | 5ed37446cffb | 2026-09-26 | decline | declined |  | Berkshire already splits static persona (agent file) from volatile context (prompt file); cross-debater prefix reuse can't work with subagents. Covers #878's idea. |
 | #401 | Multi-LLM routing (stage and role based) | e5690d038813 | 2026-09-26 | decline | declined |  | Berkshire already routes Claude models per step (REQ-ROLE-02); the rest is multi-provider plumbing, out by D1; PR puts judges on the quick model. |
+| #1421 | Stop an analyst that keeps calling tools before it ends the run | 503bca6c92fd | 2026-09-27 | adapt | planned | REQ-SCHED-05 | Next: add REQ-ROLE-07 + TST row, maxTurns: 40 on the 4 tool-using analysts, plugin test, pipeline-loop note; check what Agent returns at the limit. |
+| #940 | Note model cutoff in reproducibility | 361b9339a78b | 2026-09-27 | adapt | planned | REQ-BT-03 | Next: add REQ-BT-05 + TST row; caveat in backtest render() and summarize(), dashboard Backtests view, skills/backtest cutoff note; test. |
+| #1426 | akshare (Sina) market data vendor | 1613d56f4688 | 2026-09-27 | decline | declined |  | US (yfinance has it) plus A-shares (not on eToro); weaker PIT guards (bfill, no stale check). REQ-DATA-12 covers Yahoo 429s. Same for #1067, #1109. |
+| #1183 | A-share market support via Eastmoney data adapter | ca322b86a13b | 2026-09-27 | decline | declined |  | eToro lists no A-shares; adapter not PIT; config drops yfinance/FRED/Polymarket for all; capital flow is not sentiment. |
+| #702 | SearXNG as a self-hosted news vendor | 95b4dd68a8b8 | 2026-09-27 | decline | declined |  | time_range counts back from now and undated results are kept (searxng.py:124,166): future news leaks into past dates. WebSearch + Google News cover it. |
+| #1074 | Retry an undecodable JSON response body | 5101813cbfd6 | 2026-09-27 | decline | declined |  | OpenAI transport retry; Claude Code retries the API. Failed steps already re-run once, bad JSON falls back to REVIEW (REQ-OUT-05). |
+| #1265 | Env overrides for memory log, recursion limit, news parameters | eff1d94f779b | 2026-09-27 | decline | declined |  | Env aliases only; Berkshire config.json already sets these keys, max_recur_limit has no counterpart. |
+| #1259 | Env overrides for news parameters | c0f921644525 | 2026-09-27 | decline | declined |  | Strict subset of #1265; same verdict. |
+| #581 | Configurable metrics in report output | 9db0a0a04082 | 2026-09-27 | decline | declined |  | Toggles hide whole agent reports, not metrics (ignores #545); would weaken the REQ-RPT-01 audit trail; no tests. |
+| #1416 | Make Jev screening endpoint pluggable | 03239407f718 | 2026-09-27 | decline | declined |  | Plumbing for a vendor Berkshire doesn't call; UP-017 already judges with Claude. Judge exceptions escape screen() (post_screen.py:78,152). |
+| #813 | Per-model token attribution in StatsCallbackHandler | bc40785e1640 | 2026-09-27 | decline | declined |  | LangChain callback plumbing; the engine fixes each step's model and Claude Code logs usage per subagent. |
