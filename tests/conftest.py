@@ -18,8 +18,9 @@ TODAY = "2026-09-24"
 def bars(end="2026-09-18", n=400, start_price=100.0, step=0.5):
     idx = pd.bdate_range(end=end, periods=n)
     close = pd.Series([start_price + i * step for i in range(n)], index=idx)
-    return pd.DataFrame({"Open": close - 0.5, "High": close + 1.0, "Low": close - 1.0,
-                         "Close": close, "Volume": 1_000_000.0}, index=idx)
+    return pd.DataFrame(
+        {"Open": close - 0.5, "High": close + 1.0, "Low": close - 1.0, "Close": close, "Volume": 1_000_000.0}, index=idx
+    )
 
 
 class FakeTicker:
@@ -38,9 +39,16 @@ class FakeTicker:
 
     @property
     def info(self):
-        return self.info_by_symbol.get(self.symbol, {"longName": f"{self.symbol} Corp", "sector": "Technology",
-                                                     "industry": "Semiconductors", "exchange": "NMS",
-                                                     "trailingPE": 30.5})
+        return self.info_by_symbol.get(
+            self.symbol,
+            {
+                "longName": f"{self.symbol} Corp",
+                "sector": "Technology",
+                "industry": "Semiconductors",
+                "exchange": "NMS",
+                "trailingPE": 30.5,
+            },
+        )
 
     @property
     def news(self):
@@ -84,8 +92,15 @@ def log(tmp_path):
 
 
 def new_run(cfg, log, ticker="NVDA", date="2026-09-18", **kw):
-    res = pipeline.init_run(ticker, date, cfg, results_dir=config.home() / "runs", memory_log=log,
-                            identity=kw.pop("identity", {"company_name": "NVIDIA Corporation"}), **kw)
+    res = pipeline.init_run(
+        ticker,
+        date,
+        cfg,
+        results_dir=config.home() / "runs",
+        memory_log=log,
+        identity=kw.pop("identity", {"company_name": "NVIDIA Corporation"}),
+        **kw,
+    )
     return pipeline.load_state(Path(res["run_dir"]))
 
 
@@ -95,20 +110,38 @@ def js(obj) -> str:
 
 CANNED = {
     "analyst_market": "Market report: price 299.5, support 290, ATR 2.0.",
-    "analyst_social": js({"overall_band": "Mildly Bullish", "overall_score": 6.0, "confidence": "medium",
-                          "narrative": "StockTwits 70/30 bullish."}),
+    "analyst_social": js(
+        {"overall_band": "Mildly Bullish", "overall_score": 6.0, "confidence": "medium", "narrative": "StockTwits 70/30 bullish."}
+    ),
     "analyst_news": "News report: export rules eased.",
     "analyst_fundamentals": "Fundamentals report: margins expanding.",
     "bull": "Growth is strong.",
     "bear": "Valuation is stretched.",
-    "research_manager": js({"recommendation": "Overweight", "rationale": "Bull case stronger.",
-                            "strategic_actions": "Add gradually."}),
-    "trader": js({"action": "Buy", "reasoning": "Trend intact.", "entry_price": 299.5,
-                  "stop_loss": "$290.00", "position_sizing": "5% of portfolio"}),
-    "aggressive": "Go bigger.", "conservative": "Protect capital.", "neutral": "Balance it.",
-    "portfolio_manager": "**Rating**: Buy\n\n" + js({"rating": "Buy", "executive_summary": "Buy on dips.",
-                                                    "investment_thesis": "Earnings momentum.",
-                                                    "price_target": 340, "time_horizon": "3-6 months"}),
+    "research_manager": js(
+        {"recommendation": "Overweight", "rationale": "Bull case stronger.", "strategic_actions": "Add gradually."}
+    ),
+    "trader": js(
+        {
+            "action": "Buy",
+            "reasoning": "Trend intact.",
+            "entry_price": 299.5,
+            "stop_loss": "$290.00",
+            "position_sizing": "5% of portfolio",
+        }
+    ),
+    "aggressive": "Go bigger.",
+    "conservative": "Protect capital.",
+    "neutral": "Balance it.",
+    "portfolio_manager": "**Rating**: Buy\n\n"
+    + js(
+        {
+            "rating": "Buy",
+            "executive_summary": "Buy on dips.",
+            "investment_thesis": "Earnings momentum.",
+            "price_target": 340,
+            "time_horizon": "3-6 months",
+        }
+    ),
 }
 
 

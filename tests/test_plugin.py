@@ -7,11 +7,32 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-ROLES = ("market-analyst", "sentiment-analyst", "news-analyst", "fundamentals-analyst", "bull-researcher",
-         "bear-researcher", "research-manager", "trader", "aggressive-analyst", "conservative-analyst",
-         "neutral-analyst", "portfolio-manager", "reflector")
-NO_WEB = ("bull-researcher", "bear-researcher", "research-manager", "trader", "aggressive-analyst",
-          "conservative-analyst", "neutral-analyst", "portfolio-manager", "reflector")
+ROLES = (
+    "market-analyst",
+    "sentiment-analyst",
+    "news-analyst",
+    "fundamentals-analyst",
+    "bull-researcher",
+    "bear-researcher",
+    "research-manager",
+    "trader",
+    "aggressive-analyst",
+    "conservative-analyst",
+    "neutral-analyst",
+    "portfolio-manager",
+    "reflector",
+)
+NO_WEB = (
+    "bull-researcher",
+    "bear-researcher",
+    "research-manager",
+    "trader",
+    "aggressive-analyst",
+    "conservative-analyst",
+    "neutral-analyst",
+    "portfolio-manager",
+    "reflector",
+)
 
 
 def front(path: Path) -> tuple[dict, str]:
@@ -89,16 +110,33 @@ def test_syndicated_copies_count_once():
 PERSONA = {
     "bull-researcher": ["Growth Potential", "Competitive Advantages", "Bear Counterpoints", "open with your own case"],
     "bear-researcher": ["Risks and Challenges", "Competitive Weaknesses", "Bull Counterpoints"],
-    "research-manager": ["**Buy**", "**Underweight**", "conflict alone is not a reason to Hold",
-                         "regardless of which side spoke first or last", '"recommendation"'],
-    "trader": ["absolute price levels", "never as a percentage or a range", "Overweight is a Buy", '"stop_loss"',
-               '"target_price"', "do not state a ratio yourself"],
-    "aggressive-analyst": ["high-reward, high-risk"], "conservative-analyst": ["protect assets, minimize volatility"],
+    "research-manager": [
+        "**Buy**",
+        "**Underweight**",
+        "conflict alone is not a reason to Hold",
+        "regardless of which side spoke first or last",
+        '"recommendation"',
+    ],
+    "trader": [
+        "absolute price levels",
+        "never as a percentage or a range",
+        "Overweight is a Buy",
+        '"stop_loss"',
+        '"target_price"',
+        "do not state a ratio yourself",
+    ],
+    "aggressive-analyst": ["high-reward, high-risk"],
+    "conservative-analyst": ["protect assets, minimize volatility"],
     "neutral-analyst": ["balanced perspective"],
-    "portfolio-manager": ["**Rating Scale**", "conflict alone is not a reason to Hold", "lessons from prior decisions",
-                          '"price_target"'],
+    "portfolio-manager": [
+        "**Rating Scale**",
+        "conflict alone is not a reason to Hold",
+        "lessons from prior decisions",
+        '"price_target"',
+    ],
     "market-analyst": ["source of truth", "flag the discrepancy", "Markdown table"],
-    "fundamentals-analyst": ["red flags", "Markdown table"], "news-analyst": ["Markdown table"],
+    "fundamentals-analyst": ["red flags", "Markdown table"],
+    "news-analyst": ["Markdown table"],
     "sentiment-analyst": ["70/30", "Distinguish opinion from event", '"overall_score"'],
     "reflector": ["2-4 sentences", "too short to judge", "implied move", "not a failure"],
 }
@@ -115,6 +153,7 @@ def test_persona_directives(name):
 def test_market_indicator_catalogue():
     """TST-ROLE-06: Market Analyst picks up to 8 indicators from the full catalogue [REQ-ROLE-06]"""
     from berkshire.data import INDICATORS
+
     body = agent("market-analyst")[1]
     assert "up to **8 indicators**" in body
     for name in INDICATORS:
@@ -214,16 +253,23 @@ def test_fundamentals_macro_branch():
         assert driver in body, driver
     assert "use only items published on or before that date" in body
     from berkshire import pipeline
-    for mode in pipeline.MACRO_TYPES:     # the persona's trigger phrase matches the engine's context wording
-        assert "Treat it as a " + {"index": "stock market index", "commodity": "commodity", "fx": "currency pair"}[mode] \
+
+    for mode in pipeline.MACRO_TYPES:  # the persona's trigger phrase matches the engine's context wording
+        assert (
+            "Treat it as a " + {"index": "stock market index", "commodity": "commodity", "fx": "currency pair"}[mode]
             in pipeline.MACRO_CONTEXT[mode]
+        )
 
 
 def test_fundamentals_fund_branch():
     """TST-ROLE-09: For a fund, the Fundamentals Analyst uses etf_profile instead of company tools and never infers undisclosed concentration [REQ-ROLE-03, REQ-FLOW-10]"""
     body = agent("fundamentals-analyst")[1]
     assert "call `etf_profile` instead of the statement, insider and earnings tools" in body
-    assert "instead of inferring concentration" in body and "daily-reset decay" in body and "`valuation` does not apply to a fund" in body
+    assert (
+        "instead of inferring concentration" in body
+        and "daily-reset decay" in body
+        and "`valuation` does not apply to a fund" in body
+    )
 
 
 def test_agents_md_links_every_document():
@@ -242,4 +288,3 @@ def test_design_describes_every_module():
     for mod in sorted((ROOT / "berkshire").glob("*.py")):
         if mod.stem not in ("__init__", "__main__"):
             assert f"| `{mod.name}` |" in design, f"docs/design.md has no row for berkshire/{mod.name}"
-

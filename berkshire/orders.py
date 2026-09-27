@@ -19,13 +19,29 @@ TARGET_FRACTION = {"Buy": 1.0, "Overweight": 0.5}
 STRENGTH = {"Sell": 0, "Underweight": 1, "Buy": 2, "Overweight": 3}  # queue priority, lower first
 
 
-def gate(*, ticker: str, etoro_symbol: str | None, instrument_id, rating: str, portfolio: dict,
-         ask: float | None, trader: dict | None, pm: dict | None, atr: float | None, cfg: dict) -> dict:
+def gate(
+    *,
+    ticker: str,
+    etoro_symbol: str | None,
+    instrument_id,
+    rating: str,
+    portfolio: dict,
+    ask: float | None,
+    trader: dict | None,
+    pm: dict | None,
+    atr: float | None,
+    cfg: dict,
+) -> dict:
     """Return {"intent": dict|None, "reasons": [str]} for one completed run (REQ-RISK-01..05, 07)."""
     reasons: list[str] = []
     held = position_in(portfolio, etoro_symbol or ticker)
-    base = {"ticker": ticker, "etoro_symbol": etoro_symbol or ticker, "instrument_id": instrument_id,
-            "rating": rating, "account": cfg["account"]}
+    base = {
+        "ticker": ticker,
+        "etoro_symbol": etoro_symbol or ticker,
+        "instrument_id": instrument_id,
+        "rating": rating,
+        "account": cfg["account"],
+    }
 
     if rating in ("Hold", "REVIEW") or rating not in STRENGTH:
         reasons.append(f"{rating}: no order" + (" (flagged for human review)" if rating == "REVIEW" else ""))
@@ -37,8 +53,7 @@ def gate(*, ticker: str, etoro_symbol: str | None, instrument_id, rating: str, p
             reasons.append(f"{rating}: no directly held position to reduce")
             return {"intent": None, "reasons": reasons}
         frac = 1.0 if rating == "Sell" else float(cfg["underweight_close_fraction"])
-        closes = [{"position_id": p["id"], "units_to_deduct": None if frac >= 1 else round(p["units"] * frac, 6)}
-                  for p in ids]
+        closes = [{"position_id": p["id"], "units_to_deduct": None if frac >= 1 else round(p["units"] * frac, 6)} for p in ids]
         reasons.append(f"{rating}: close {frac:.0%} of {len(ids)} position(s)")
         return {"intent": {**base, "kind": "close", "closes": closes}, "reasons": reasons}
 
@@ -59,8 +74,7 @@ def gate(*, ticker: str, etoro_symbol: str | None, instrument_id, rating: str, p
     binding = min(caps, key=caps.get)
     amount = round(caps[binding], 2)
     if amount < float(cfg["min_order_amount"]):
-        return {"intent": None, "reasons": [f"{rating}: amount {amount:,.2f} below min_order_amount "
-                                            f"(binding limit: {binding})"]}
+        return {"intent": None, "reasons": [f"{rating}: amount {amount:,.2f} below min_order_amount (binding limit: {binding})"]}
     reasons.append(f"{rating}: amount {amount:,.2f} (binding limit: {binding})")
 
     stop = (trader or {}).get("stop_loss")
@@ -81,19 +95,33 @@ def gate(*, ticker: str, etoro_symbol: str | None, instrument_id, rating: str, p
     tp = (pm or {}).get("price_target")
     take_profit = tp if tp is not None and tp > ask else None
     if take_profit is not None:  # the order's own reward/risk, recorded with the reasons (REQ-RISK-09)
-        reasons.append(f"reward/risk {(take_profit - ask) / (ask - stop):.2f} "
-                       f"(ask {ask}, stop {stop}, take-profit {take_profit})")
-    return {"intent": {**base, "kind": "open", "direction": "buy", "leverage": 1, "amount": amount,
-                       "stop_loss_rate": stop, "take_profit_rate": take_profit, "ask": ask},
-            "reasons": reasons}
+        reasons.append(
+            f"reward/risk {(take_profit - ask) / (ask - stop):.2f} (ask {ask}, stop {stop}, take-profit {take_profit})"
+        )
+    return {
+        "intent": {
+            **base,
+            "kind": "open",
+            "direction": "buy",
+            "leverage": 1,
+            "amount": amount,
+            "stop_loss_rate": stop,
+            "take_profit_rate": take_profit,
+            "ask": ask,
+        },
+        "reasons": reasons,
+    }
 
 
 # --- queue -----------------------------------------------------------------
 
 OPEN_STATES = ("pending",)
-TRANSITIONS = {"pending": {"approved", "rejected", "expired", "superseded"},
-               "approved": {"placed", "failed", "pending_fill", "unknown"},
-               "pending_fill": {"placed", "failed"}, "unknown": {"placed", "failed", "pending_fill"}}
+TRANSITIONS = {
+    "pending": {"approved", "rejected", "expired", "superseded"},
+    "approved": {"placed", "failed", "pending_fill", "unknown"},
+    "pending_fill": {"placed", "failed"},
+    "unknown": {"placed", "failed", "pending_fill"},
+}
 
 
 class Queue:
@@ -118,9 +146,18 @@ class Queue:
             if it["status"] == "pending" and any(r["etoro_symbol"] == it["intent"]["etoro_symbol"] for r in ranked):
                 it["status"] = "superseded"
                 it["updated"] = now.isoformat(timespec="seconds")
-        added = [{"id": uuid.uuid4().hex[:8], "created": now.isoformat(timespec="seconds"),
-                  "updated": now.isoformat(timespec="seconds"), "run_tag": run_tag, "status": "pending",
-                  "intent": i, "result": None} for i in ranked]
+        added = [
+            {
+                "id": uuid.uuid4().hex[:8],
+                "created": now.isoformat(timespec="seconds"),
+                "updated": now.isoformat(timespec="seconds"),
+                "run_tag": run_tag,
+                "status": "pending",
+                "intent": i,
+                "result": None,
+            }
+            for i in ranked
+        ]
         self.save(items + added)
         return added
 

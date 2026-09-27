@@ -9,8 +9,15 @@ from berkshire.memory import DecisionLog, compute_returns, reflection_prompt, re
 
 
 def outcome(ticker, date, raw=0.05, alpha=0.02, resolved="2026-09-10", text="Lesson."):
-    return {"ticker": ticker, "trade_date": date, "raw_return": raw, "alpha_return": alpha,
-            "holding_days": 5, "resolution_date": resolved, "reflection": text}
+    return {
+        "ticker": ticker,
+        "trade_date": date,
+        "raw_return": raw,
+        "alpha_return": alpha,
+        "holding_days": 5,
+        "resolution_date": resolved,
+        "reflection": text,
+    }
 
 
 def test_store_pending_format(log):
@@ -40,9 +47,18 @@ def test_benchmark_and_returns():
     assert resolve_benchmark("BRK.B", cfg) == "SPY"
     assert resolve_benchmark("7203.T", {**cfg, "benchmark_ticker": "QQQ"}) == "QQQ"
     full = config.DEFAULTS
-    for ticker, bench in (("NESN.SW", "^SSMI"), ("ENEL.MI", "FTSEMIB.MI"), ("VOLV-A.ST", "^OMX"), ("GALP.LS", "PSI20.LS"),
-                          ("6488.TWO", "^TWII"), ("2330.TW", "^TWII"), ("RY.TO", "^GSPTSE"), ("ULVR.L", "^FTSE"),
-                          ("SAP.DE", "^GDAXI"), ("NVDA", "SPY")):
+    for ticker, bench in (
+        ("NESN.SW", "^SSMI"),
+        ("ENEL.MI", "FTSEMIB.MI"),
+        ("VOLV-A.ST", "^OMX"),
+        ("GALP.LS", "PSI20.LS"),
+        ("6488.TWO", "^TWII"),
+        ("2330.TW", "^TWII"),
+        ("RY.TO", "^GSPTSE"),
+        ("ULVR.L", "^FTSE"),
+        ("SAP.DE", "^GDAXI"),
+        ("NVDA", "SPY"),
+    ):
         assert resolve_benchmark(ticker, full) == bench, ticker  # no suffix shadows a longer one
     idx = pd.bdate_range("2026-09-01", periods=6)
     stock = pd.Series([100, 101, 102, 103, 104, 110.0], index=idx)
@@ -55,7 +71,7 @@ def test_benchmark_and_returns():
 def test_settle_candidates_and_apply(log, cfg):
     """TST-MEM-04: Due entries settle with a reflection and resolved tag; not-yet-traded stay pending [REQ-MEM-03, REQ-MEM-04]"""
     log.store("NVDA", "2026-08-03", "Rating: Buy")
-    log.store("NVDA", "2026-09-17", "Rating: Sell")   # window not traded by 2026-09-18
+    log.store("NVDA", "2026-09-17", "Rating: Sell")  # window not traded by 2026-09-18
     log.store("AMD", "2026-08-03", "Rating: Hold")
     closes = lambda sym, start, end: bars()["Close"].loc[start:end]
     cands = settle_candidates(log, cfg, ["NVDA"], closes)
@@ -85,8 +101,10 @@ def test_past_context_selection_and_pit(log):
         log.store("NVDA", f"2026-07-0{i + 1}", f"Rating: Buy {i}")
     for t in ("AMD", "INTC", "TSM", "META"):
         log.store(t, "2026-07-01", "Rating: Hold")
-    log.apply_outcomes([outcome("NVDA", f"2026-07-0{i + 1}", resolved=f"2026-07-1{i}", text=f"L{i}") for i in range(7)]
-                       + [outcome(t, "2026-07-01", resolved="2026-07-09", text=f"X-{t}") for t in ("AMD", "INTC", "TSM", "META")])
+    log.apply_outcomes(
+        [outcome("NVDA", f"2026-07-0{i + 1}", resolved=f"2026-07-1{i}", text=f"L{i}") for i in range(7)]
+        + [outcome(t, "2026-07-01", resolved="2026-07-09", text=f"X-{t}") for t in ("AMD", "INTC", "TSM", "META")]
+    )
     ctx = log.past_context("NVDA")
     assert ctx.count("DECISION:") == 5 and ctx.index("L6") < ctx.index("L2") and "L1" not in ctx
     assert ctx.count("X-") == 3 and "X-AMD" not in ctx  # AMD is the oldest cross-ticker lesson
@@ -100,7 +118,7 @@ def test_rotation_keeps_pending(tmp_path):
     log = DecisionLog(tmp_path / "log.md", max_entries=2)
     for day in ("01", "02", "03"):
         log.store("NVDA", f"2026-07-{day}", "Rating: Buy")
-    log.store("NVDA", "2026-07-04", "Rating: Buy")   # stays pending
+    log.store("NVDA", "2026-07-04", "Rating: Buy")  # stays pending
     log.apply_outcomes([outcome("NVDA", f"2026-07-{day}") for day in ("01", "02", "03")])
     kept = [(e["date"], e["pending"]) for e in log.entries()]
     assert kept == [("2026-07-02", False), ("2026-07-03", False), ("2026-07-04", True)]
@@ -110,19 +128,42 @@ def test_target_move_in_reflection(log, cfg):
     """TST-MEM-09: The Reflector is told the PM target's implied move from the same start close as the return; no target, no line [REQ-MEM-08]"""
     from berkshire.decisions import render_pm_decision
     from berkshire.memory import decision_target
-    buy = render_pm_decision({"rating": "Buy", "executive_summary": "Buy near 100; stop 90.", "investment_thesis": "T",
-                              "price_target": 120.0, "time_horizon": "3-6 months"})
-    sell = render_pm_decision({"rating": "Sell", "executive_summary": "E", "investment_thesis": "T",
-                               "price_target": 80.0, "time_horizon": None})
-    none = render_pm_decision({"rating": "Hold", "executive_summary": "Target 150 later.", "investment_thesis": "T",
-                               "price_target": None, "time_horizon": None})
+
+    buy = render_pm_decision(
+        {
+            "rating": "Buy",
+            "executive_summary": "Buy near 100; stop 90.",
+            "investment_thesis": "T",
+            "price_target": 120.0,
+            "time_horizon": "3-6 months",
+        }
+    )
+    sell = render_pm_decision(
+        {"rating": "Sell", "executive_summary": "E", "investment_thesis": "T", "price_target": 80.0, "time_horizon": None}
+    )
+    none = render_pm_decision(
+        {
+            "rating": "Hold",
+            "executive_summary": "Target 150 later.",
+            "investment_thesis": "T",
+            "price_target": None,
+            "time_horizon": None,
+        }
+    )
     assert decision_target(buy) == (120.0, "3-6 months")
     assert decision_target(sell) == (80.0, None)
-    assert decision_target(none) == (None, None)                    # "150" in the prose is not a target
+    assert decision_target(none) == (None, None)  # "150" in the prose is not a target
     assert decision_target("Rating: Buy, target 130") == (None, None)
-    quoted = render_pm_decision({"rating": "Buy", "executive_summary": "E", "price_target": 120.0, "time_horizon": None,
-                                 "investment_thesis": "The old note said **Price Target**: 150"})
-    assert decision_target(quoted) == (120.0, None)                 # only the engine's own line counts
+    quoted = render_pm_decision(
+        {
+            "rating": "Buy",
+            "executive_summary": "E",
+            "price_target": 120.0,
+            "time_horizon": None,
+            "investment_thesis": "The old note said **Price Target**: 150",
+        }
+    )
+    assert decision_target(quoted) == (120.0, None)  # only the engine's own line counts
     for t, dec in (("AAA", buy), ("BBB", sell), ("CCC", none)):
         log.store(t, "2026-09-01", dec)
     idx = pd.bdate_range("2026-09-01", periods=8)
@@ -131,7 +172,11 @@ def test_target_move_in_reflection(log, cfg):
     assert cands["AAA"]["target_move"] == pytest.approx(0.20) and cands["AAA"]["start_close"] == 100.0
     assert cands["BBB"]["target_move"] == pytest.approx(-0.20) and cands["CCC"]["target_move"] is None
     prompt = reflection_prompt(cands["AAA"])
-    assert "Price target 120 implied +20.0% from the 2026-09-01 close of 100.00, over the stated horizon (3-6 months); " \
-           "this 5-day window realised +5.0%." in prompt
-    assert "implied -20.0%" in reflection_prompt(cands["BBB"]) and "over the stated horizon (not stated)" in reflection_prompt(cands["BBB"])
+    assert (
+        "Price target 120 implied +20.0% from the 2026-09-01 close of 100.00, over the stated horizon (3-6 months); "
+        "this 5-day window realised +5.0%." in prompt
+    )
+    assert "implied -20.0%" in reflection_prompt(cands["BBB"]) and "over the stated horizon (not stated)" in reflection_prompt(
+        cands["BBB"]
+    )
     assert "Price target" not in reflection_prompt(cands["CCC"])

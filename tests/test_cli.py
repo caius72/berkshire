@@ -30,12 +30,26 @@ def test_config_precedence(monkeypatch):
 
 def test_cli_end_to_end(capsys, monkeypatch):
     """TST-IF-02: init/next/submit/status drive a whole run from the CLI with TradingAgents flags [REQ-IF-02, REQ-IF-08]"""
+
     def call(*argv):
         assert main(list(argv)) == 0, capsys.readouterr().err
         out = capsys.readouterr().out
         return json.loads(out) if out.lstrip().startswith("{") else out
-    res = call("init", "NVDA", "2026-09-18", "--analysts", "market,news", "--depth", "shallow",
-               "--language", "German", "--deep-model", "fable", "--checkpoint")
+
+    res = call(
+        "init",
+        "NVDA",
+        "2026-09-18",
+        "--analysts",
+        "market,news",
+        "--depth",
+        "shallow",
+        "--language",
+        "German",
+        "--deep-model",
+        "fable",
+        "--checkpoint",
+    )
     run = res["run_dir"]
     while not (nxt := call("next", run))["done"]:
         for s in nxt["steps"]:
@@ -52,8 +66,9 @@ def test_cli_end_to_end(capsys, monkeypatch):
     assert "not due" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("date,msg", [("2026-9-1", "YYYY-MM-DD"), ("2026-02-30", "YYYY-MM-DD"),
-                                      ("2026-09-25", "future"), ("yesterday", "YYYY-MM-DD")])
+@pytest.mark.parametrize(
+    "date,msg", [("2026-9-1", "YYYY-MM-DD"), ("2026-02-30", "YYYY-MM-DD"), ("2026-09-25", "future"), ("yesterday", "YYYY-MM-DD")]
+)
 def test_trade_date_validation(date, msg):
     """TST-IF-03: Trade dates must be canonical and not in the future [REQ-IF-03]"""
     with pytest.raises(ValueError, match=msg):
@@ -61,14 +76,27 @@ def test_trade_date_validation(date, msg):
     assert pipeline.validate_date("2026-09-24") == "2026-09-24"
 
 
-@pytest.mark.parametrize("ticker,ok", [("RHM.DE", True), ("7203.T", True), ("BTC-USD", True), ("^GSPC", True),
-                                       ("GC=F", True), ("../etc", False), ("a/b", False), ("..", False), ("", False)])
+@pytest.mark.parametrize(
+    "ticker,ok",
+    [
+        ("RHM.DE", True),
+        ("7203.T", True),
+        ("BTC-USD", True),
+        ("^GSPC", True),
+        ("GC=F", True),
+        ("../etc", False),
+        ("a/b", False),
+        ("..", False),
+        ("", False),
+    ],
+)
 def test_ticker_safety(ticker, ok):
     """TST-SAFE-01: Suffixes survive; path-escaping tickers and run ids are rejected [REQ-SAFE-01, REQ-IF-04]"""
     if ok:
         assert config.safe_component(ticker) == ticker
-        assert pipeline.detect_asset_type(ticker) == {"BTC-USD": "crypto", "^GSPC": "index",
-                                                      "GC=F": "commodity"}.get(ticker, "stock")
+        assert pipeline.detect_asset_type(ticker) == {"BTC-USD": "crypto", "^GSPC": "index", "GC=F": "commodity"}.get(
+            ticker, "stock"
+        )
     else:
         with pytest.raises(ValueError):
             config.safe_component(ticker)
@@ -89,8 +117,10 @@ def test_backtest_grid_and_isolation(capsys):
         backtest.iter_grid("2026-09-10", "2026-09-01")
     with pytest.raises(ValueError):
         backtest.iter_grid("2026-9-1", "2026-09-10")
-    assert main(["backtest", "plan", "NVDA,AAPL", "--start", "2026-09-01", "--end", "2026-09-10", "--every", "7",
-                 "--run-id", "bt1"]) == 0
+    assert (
+        main(["backtest", "plan", "NVDA,AAPL", "--start", "2026-09-01", "--end", "2026-09-10", "--every", "7", "--run-id", "bt1"])
+        == 0
+    )
     res = json.loads(capsys.readouterr().out)
     assert res["home"] == str(config.home() / "backtest" / "bt1") and len(res["cells"]) == 4
     with pytest.raises(ValueError):
@@ -113,8 +143,12 @@ def test_backtest_summary(tmp_path):
         log.store(t, "2026-08-03", f"Rating: {r}")
     log.store("E", "2026-08-03", "no idea")
     log.store("F", "2026-09-17", "Rating: Buy")
-    log.apply_outcomes([{"ticker": t, "trade_date": "2026-08-03", "raw_return": a, "alpha_return": a,
-                         "holding_days": 5, "reflection": "x"} for t, _, a in rows])
+    log.apply_outcomes(
+        [
+            {"ticker": t, "trade_date": "2026-08-03", "raw_return": a, "alpha_return": a, "holding_days": 5, "reflection": "x"}
+            for t, _, a in rows
+        ]
+    )
     s = backtest.summarize(log)
     assert (s["resolved"], s["pending"], s["unscored"]) == (4, 1, 1)
     assert s["by_rating"]["Buy"]["hit_rate"] == 0.5 and s["by_rating"]["Buy"]["mean_alpha"] == pytest.approx(0.005)
@@ -151,12 +185,14 @@ def test_tui_optional(monkeypatch, capsys):
     import sys
 
     from berkshire.cli import main
+
     real_import = builtins.__import__
 
     def no_textual(name, *a, **kw):
         if name.startswith("textual") or name == "berkshire.tui" or (name == "tui" and a and a[2]):
             raise ImportError("No module named 'textual'")
         return real_import(name, *a, **kw)
+
     monkeypatch.delitem(sys.modules, "berkshire.tui", raising=False)
     monkeypatch.setattr(builtins, "__import__", no_textual)
     with pytest.raises(SystemExit) as exc:

@@ -31,13 +31,20 @@ Expected values come from the requirement, not from the code. Write the failing 
 
 ```bash
 uv run --all-extras pytest -q --cov    # tests, traceability, coverage floor in pyproject.toml
-uvx ruff@0.16.5 check .                # the version pinned in .github/workflows/ci.yml
+uvx ruff@0.16.5 check . && uvx ruff@0.16.5 format --check .   # pinned as in .github/workflows/ci.yml
 cd webui && npm run lint && npm test && npm run build  # web view
 uv run python tools/upstream.py check  # the upstream ledger, when docs/upstream.md changes
 ```
 
 gitleaks and CodeQL run only in CI. Never weaken a gate to get green: no lower coverage floor, new ruff ignore,
 or skipped test.
+
+## Open work
+
+Tracked as [GitHub issues](https://github.com/caius72/berkshire/issues), not in a TODO file. Labels:
+`bug` (with a repro), `enhancement`, `question`, `compliance` (a gap against the development standard),
+`manual-run` (a manual procedure or live check still to run; the test plan's results table links it) and
+`needs-decision` (waiting for the maintainer; the issue states the options and a recommendation).
 
 ## Releases and merges
 

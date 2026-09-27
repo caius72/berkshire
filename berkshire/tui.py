@@ -32,8 +32,14 @@ from textual.widgets import (
 from . import data
 
 STATUS_STYLE = {"done": "[green]✔ done[/]", "in progress": "[yellow]◐ in progress[/]", "pending": "[dim]○ pending[/]"}
-SIGNAL_STYLE = {"Buy": "bold green", "Overweight": "green", "Hold": "yellow", "Underweight": "red",
-                "Sell": "bold red", "REVIEW": "bold magenta"}
+SIGNAL_STYLE = {
+    "Buy": "bold green",
+    "Overweight": "green",
+    "Hold": "yellow",
+    "Underweight": "red",
+    "Sell": "bold red",
+    "REVIEW": "bold magenta",
+}
 
 
 def signal_markup(signal: str | None) -> str:
@@ -55,8 +61,12 @@ class NewAnalysis(ModalScreen):
             yield Input(placeholder="Ticker, e.g. NVDA, RHM.DE, BTC-USD", id="ticker")
             yield Input(value=data.today(), placeholder="YYYY-MM-DD", id="date")
             yield Input(value="market,social,news,fundamentals", id="analysts")
-            yield Select([("Shallow (1 round)", "shallow"), ("Medium (3)", "medium"), ("Deep (5)", "deep")],
-                         value="shallow", allow_blank=False, id="depth")
+            yield Select(
+                [("Shallow (1 round)", "shallow"), ("Medium (3)", "medium"), ("Deep (5)", "deep")],
+                value="shallow",
+                allow_blank=False,
+                id="depth",
+            )
             with Horizontal(id="form-buttons"):
                 yield Button("Start", variant="primary", id="start")
                 yield Button("Cancel", id="cancel")
@@ -68,10 +78,14 @@ class NewAnalysis(ModalScreen):
     @on(Button.Pressed, "#start")
     @on(Input.Submitted)
     def start(self):
-        self.dismiss({"ticker": self.query_one("#ticker", Input).value.strip(),
-                      "date": self.query_one("#date", Input).value.strip(),
-                      "analysts": [a.strip() for a in self.query_one("#analysts", Input).value.split(",") if a.strip()],
-                      "depth": self.query_one("#depth", Select).value})
+        self.dismiss(
+            {
+                "ticker": self.query_one("#ticker", Input).value.strip(),
+                "date": self.query_one("#date", Input).value.strip(),
+                "analysts": [a.strip() for a in self.query_one("#analysts", Input).value.split(",") if a.strip()],
+                "depth": self.query_one("#depth", Select).value,
+            }
+        )
 
 
 class ConfirmStop(ModalScreen):
@@ -115,8 +129,12 @@ class BerkshireApp(App):
     #form-buttons { height: auto; }
     NewAnalysis, ConfirmStop { align: center middle; }
     """
-    BINDINGS = [Binding("n", "new", "New analysis"), Binding("s", "stop", "Stop analysis"),
-                Binding("r", "refresh", "Refresh"), Binding("q", "quit", "Quit")]
+    BINDINGS = [
+        Binding("n", "new", "New analysis"),
+        Binding("s", "stop", "Stop analysis"),
+        Binding("r", "refresh", "Refresh"),
+        Binding("q", "quit", "Quit"),
+    ]
 
     def __init__(self, client, url: str = ""):
         super().__init__()
@@ -155,8 +173,9 @@ class BerkshireApp(App):
         self.query_one("#progress", DataTable).add_columns("Team", "Agent", "Status")
         self.query_one("#timeline", DataTable).add_columns("Time", "Step", "Chars")
         self.query_one("#decisions", DataTable).add_columns("Date", "Ticker", "Rating", "Raw", "Alpha", "Holding", "Status")
-        self.query_one("#orders", DataTable).add_columns("Id", "Created", "Ticker", "Kind", "Rating", "Amount",
-                                                         "Stop", "Account", "Status")
+        self.query_one("#orders", DataTable).add_columns(
+            "Id", "Created", "Ticker", "Kind", "Rating", "Amount", "Stop", "Account", "Status"
+        )
         self.query_one("#jobs", DataTable).add_columns("Id", "Ticker", "Date", "Status", "Started")
         self.refresh_all()
         self.watch_events()
@@ -194,12 +213,16 @@ class BerkshireApp(App):
         s = d["summary"]
         orders = d.get("orders") or {}
         intent = orders.get("intent")
-        gate = (f"Order proposal: {intent['kind']} {intent.get('amount') or ''} stop {intent.get('stop_loss_rate')}"
-                if intent else (f"Gate: {'; '.join(orders.get('reasons', []))}" if orders else "Gate: not run"))
+        gate = (
+            f"Order proposal: {intent['kind']} {intent.get('amount') or ''} stop {intent.get('stop_loss_rate')}"
+            if intent
+            else (f"Gate: {'; '.join(orders.get('reasons', []))}" if orders else "Gate: not run")
+        )
         self.query_one("#summary", Static).update(
             f"[b]{s['ticker']}[/b] · {s['date']} · {s['asset_type']} · "
             f"{'[dim]stopped[/] · ' if s['status'] == 'stopped' else ''}signal {signal_markup(s['signal'])} · "
-            f"{s['done']}/{s['total']} agents · {len(d['warnings'])} warnings\n{gate}")
+            f"{s['done']}/{s['total']} agents · {len(d['warnings'])} warnings\n{gate}"
+        )
         prog = self.query_one("#progress", DataTable)
         prog.clear()
         team = None
@@ -225,16 +248,32 @@ class BerkshireApp(App):
         t = self.query_one("#decisions", DataTable)
         t.clear()
         for e in self.client.get("/api/memory"):
-            t.add_row(e["date"], e["ticker"], signal_markup(e["rating"]), e["raw"] or "", e["alpha"] or "",
-                      e["holding"] or "", "pending" if e["pending"] else f"resolved {e['resolved'] or ''}")
+            t.add_row(
+                e["date"],
+                e["ticker"],
+                signal_markup(e["rating"]),
+                e["raw"] or "",
+                e["alpha"] or "",
+                e["holding"] or "",
+                "pending" if e["pending"] else f"resolved {e['resolved'] or ''}",
+            )
 
     def load_orders(self):
         t = self.query_one("#orders", DataTable)
         t.clear()
         for q in self.client.get("/api/queue"):
             i = q["intent"]
-            t.add_row(q["id"], q["created"][:16], i.get("etoro_symbol", ""), i.get("kind", ""), i.get("rating", ""),
-                      str(i.get("amount", "")), str(i.get("stop_loss_rate", "")), i.get("account", ""), q["status"])
+            t.add_row(
+                q["id"],
+                q["created"][:16],
+                i.get("etoro_symbol", ""),
+                i.get("kind", ""),
+                i.get("rating", ""),
+                str(i.get("amount", "")),
+                str(i.get("stop_loss_rate", "")),
+                i.get("account", ""),
+                q["status"],
+            )
 
     def load_jobs(self):
         t = self.query_one("#jobs", DataTable)
@@ -268,6 +307,7 @@ class BerkshireApp(App):
                 self.load_jobs()
             except Exception as exc:  # noqa: BLE001 - shown to the user
                 self.notify(str(exc), severity="error")
+
         self.push_screen(NewAnalysis(), started)
 
     def action_stop(self):
@@ -280,12 +320,15 @@ class BerkshireApp(App):
             if not yes:
                 return
             try:
-                res = self.client.post(f"/api/runs/{run['ticker']}/{run['date']}/stop", {"reason": "stopped from the terminal view"})
+                res = self.client.post(
+                    f"/api/runs/{run['ticker']}/{run['date']}/stop", {"reason": "stopped from the terminal view"}
+                )
                 jobs = f", job {', '.join(res['jobs_stopped'])} ended" if res["jobs_stopped"] else ""
                 self.notify(f"Stopped {run['ticker']} {run['date']}{jobs}")
                 self.refresh_all()
             except Exception as exc:  # noqa: BLE001 - shown to the user
                 self.notify(str(exc), severity="error")
+
         self.push_screen(ConfirmStop(f"{run['ticker']} {run['date']}"), confirmed)
 
     @work(thread=True, exclusive=True)
@@ -305,6 +348,7 @@ class BerkshireApp(App):
 
 def main() -> int:
     from .client import Client, ensure_server
+
     info = ensure_server()
     BerkshireApp(Client(info), url=info["url"].split("?")[0]).run()
     return 0

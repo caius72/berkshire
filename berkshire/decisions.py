@@ -94,24 +94,31 @@ def _text(data, field, required=True):
 
 # --- schemas: validate(dict) -> dict, render(dict) -> markdown --------------
 
+
 def validate_research_plan(d: dict) -> dict:
-    return {"recommendation": _enum(d.get("recommendation"), RATINGS, "recommendation"),
-            "rationale": _text(d, "rationale"),
-            "strategic_actions": _text(d, "strategic_actions")}
+    return {
+        "recommendation": _enum(d.get("recommendation"), RATINGS, "recommendation"),
+        "rationale": _text(d, "rationale"),
+        "strategic_actions": _text(d, "strategic_actions"),
+    }
 
 
 def render_research_plan(p: dict) -> str:
-    return (f"**Recommendation**: {p['recommendation']}\n\n**Rationale**: {p['rationale']}\n\n"
-            f"**Strategic Actions**: {p['strategic_actions']}")
+    return (
+        f"**Recommendation**: {p['recommendation']}\n\n**Rationale**: {p['rationale']}\n\n"
+        f"**Strategic Actions**: {p['strategic_actions']}"
+    )
 
 
 def validate_trader_proposal(d: dict) -> dict:
-    return {"action": _enum(d.get("action"), TRADER_ACTIONS, "action"),
-            "reasoning": _text(d, "reasoning"),
-            "entry_price": optional_float(d.get("entry_price")),
-            "stop_loss": optional_float(d.get("stop_loss")),
-            "target_price": optional_float(d.get("target_price")),
-            "position_sizing": _text(d, "position_sizing", required=False)}
+    return {
+        "action": _enum(d.get("action"), TRADER_ACTIONS, "action"),
+        "reasoning": _text(d, "reasoning"),
+        "entry_price": optional_float(d.get("entry_price")),
+        "stop_loss": optional_float(d.get("stop_loss")),
+        "target_price": optional_float(d.get("target_price")),
+        "position_sizing": _text(d, "position_sizing", required=False),
+    }
 
 
 def risk_reward(action: str, entry, stop, target) -> tuple[float | None, str]:
@@ -134,8 +141,12 @@ def risk_reward(action: str, entry, stop, target) -> tuple[float | None, str]:
 
 def render_trader_proposal(p: dict) -> str:
     parts = [f"**Action**: {p['action']}", "", f"**Reasoning**: {p['reasoning']}"]
-    for label, key in (("Entry Price", "entry_price"), ("Stop Loss", "stop_loss"),
-                       ("Target Price", "target_price"), ("Position Sizing", "position_sizing")):
+    for label, key in (
+        ("Entry Price", "entry_price"),
+        ("Stop Loss", "stop_loss"),
+        ("Target Price", "target_price"),
+        ("Position Sizing", "position_sizing"),
+    ):
         v = p.get(key)
         parts += ["", f"**{label}**: {v if v not in (None, '') else 'not provided'}"]
     rr, why = risk_reward(p["action"], p.get("entry_price"), p.get("stop_loss"), p.get("target_price"))
@@ -145,33 +156,41 @@ def render_trader_proposal(p: dict) -> str:
 
 
 def validate_pm_decision(d: dict) -> dict:
-    return {"rating": _enum(d.get("rating"), RATINGS, "rating"),
-            "executive_summary": _text(d, "executive_summary"),
-            "investment_thesis": _text(d, "investment_thesis"),
-            "price_target": optional_float(d.get("price_target")),
-            "time_horizon": _text(d, "time_horizon", required=False)}
+    return {
+        "rating": _enum(d.get("rating"), RATINGS, "rating"),
+        "executive_summary": _text(d, "executive_summary"),
+        "investment_thesis": _text(d, "investment_thesis"),
+        "price_target": optional_float(d.get("price_target")),
+        "time_horizon": _text(d, "time_horizon", required=False),
+    }
 
 
 def render_pm_decision(p: dict) -> str:
     target = p["price_target"] if p.get("price_target") is not None else "not provided"
-    return (f"**Rating**: {p['rating']}\n\n**Executive Summary**: {p['executive_summary']}\n\n"
-            f"**Investment Thesis**: {p['investment_thesis']}\n\n**Price Target**: {target}\n\n"
-            f"**Time Horizon**: {p.get('time_horizon') or 'not provided'}")
+    return (
+        f"**Rating**: {p['rating']}\n\n**Executive Summary**: {p['executive_summary']}\n\n"
+        f"**Investment Thesis**: {p['investment_thesis']}\n\n**Price Target**: {target}\n\n"
+        f"**Time Horizon**: {p.get('time_horizon') or 'not provided'}"
+    )
 
 
 def validate_sentiment(d: dict) -> dict:
     score = optional_float(d.get("overall_score"))
     if score is None or not 0 <= score <= 10:
         raise ValueError(f"overall_score must be a number in 0..10, got {d.get('overall_score')!r}")
-    return {"overall_band": _enum(d.get("overall_band"), SENTIMENT_BANDS, "overall_band"),
-            "overall_score": score,
-            "confidence": _enum(d.get("confidence"), ("low", "medium", "high"), "confidence"),
-            "narrative": _text(d, "narrative")}
+    return {
+        "overall_band": _enum(d.get("overall_band"), SENTIMENT_BANDS, "overall_band"),
+        "overall_score": score,
+        "confidence": _enum(d.get("confidence"), ("low", "medium", "high"), "confidence"),
+        "narrative": _text(d, "narrative"),
+    }
 
 
 def render_sentiment(r: dict) -> str:
-    return (f"**Overall Sentiment:** **{r['overall_band']}** (Score: {r['overall_score']:.1f}/10)\n"
-            f"**Confidence:** {r['confidence'].capitalize()}\n\n{r['narrative']}")
+    return (
+        f"**Overall Sentiment:** **{r['overall_band']}** (Score: {r['overall_score']:.1f}/10)\n"
+        f"**Confidence:** {r['confidence'].capitalize()}\n\n{r['narrative']}"
+    )
 
 
 SCHEMAS = {

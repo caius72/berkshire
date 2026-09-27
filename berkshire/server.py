@@ -41,12 +41,21 @@ GUARD_HEADER, TOKEN_HEADER = "X-WebUI", "X-WebUI-Token"
 _LOOPBACK = {"127.0.0.1", "localhost", "::1", "[::1]"}
 DIST = Path(__file__).resolve().parents[1] / "webui" / "dist"
 MAX_BODY = 64 * 1024
-_CTYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml",
-           ".png": "image/png", ".ico": "image/x-icon", ".json": "application/json", ".map": "application/json"}
+_CTYPES = {
+    ".html": "text/html",
+    ".js": "text/javascript",
+    ".css": "text/css",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/x-icon",
+    ".json": "application/json",
+    ".map": "application/json",
+}
 DEFAULT_PORT = 8787
 
 
 # --- guard (REQ-UI-02) ------------------------------------------------------
+
 
 def host_ok(host: str | None) -> bool:
     if not host:
@@ -56,8 +65,7 @@ def host_ok(host: str | None) -> bool:
 
 
 def authorized(headers, token: str) -> bool:
-    return (headers.get(GUARD_HEADER) == "1" and bool(token)
-            and hmac.compare_digest(headers.get(TOKEN_HEADER, ""), token))
+    return headers.get(GUARD_HEADER) == "1" and bool(token) and hmac.compare_digest(headers.get(TOKEN_HEADER, ""), token)
 
 
 def static_path(dist: Path, urlpath: str) -> Path:
@@ -69,6 +77,7 @@ def static_path(dist: Path, urlpath: str) -> Path:
 
 
 # --- state access -------------------------------------------------------------
+
 
 def inside(base: Path, *parts: str) -> Path:
     """base/parts, refusing anything that resolves outside base. Defense in depth behind
@@ -117,8 +126,12 @@ class Api:
         for f in self._state_files():
             state = _read_json(f)
             if state:
-                out.append({**pipeline.summary(state), "updated": datetime.fromtimestamp(f.stat().st_mtime)
-                            .isoformat(timespec="seconds")})
+                out.append(
+                    {
+                        **pipeline.summary(state),
+                        "updated": datetime.fromtimestamp(f.stat().st_mtime).isoformat(timespec="seconds"),
+                    }
+                )
         return sorted(out, key=lambda r: (r["date"], r["updated"]), reverse=True)
 
     def run(self, ticker: str, date: str) -> dict | None:
@@ -126,13 +139,20 @@ class Api:
         state = _read_json(rdir / "state.json")
         if not state:
             return None
-        return {"summary": pipeline.summary(state), "progress": pipeline.progress_rows(state),
-                "sections": pipeline.report_sections(state), "timeline": state.get("timeline") or [{"step": c, "at": ""} for c in state["completed"]],
-                "warnings": state.get("warnings", []), "structured": state.get("structured", {}),
-                "instrument_context": state.get("instrument_context", ""), "config": state.get("config", {}),
-                "analysts": state.get("analysts", []), "orders": _read_json(rdir / "orders.json"),
-                "stopped": state.get("stopped"),
-                "report": state.get("report")}
+        return {
+            "summary": pipeline.summary(state),
+            "progress": pipeline.progress_rows(state),
+            "sections": pipeline.report_sections(state),
+            "timeline": state.get("timeline") or [{"step": c, "at": ""} for c in state["completed"]],
+            "warnings": state.get("warnings", []),
+            "structured": state.get("structured", {}),
+            "instrument_context": state.get("instrument_context", ""),
+            "config": state.get("config", {}),
+            "analysts": state.get("analysts", []),
+            "orders": _read_json(rdir / "orders.json"),
+            "stopped": state.get("stopped"),
+            "report": state.get("report"),
+        }
 
     def memory(self) -> list[dict]:
         return list(reversed(DecisionLog(self.home / "memory" / "trading_memory.md").entries()))
@@ -159,8 +179,7 @@ class Api:
         date = pipeline.validate_date(str(body.get("date") or data.today()))
         pipeline.require_listed(ticker, date)
         # Two orchestrators on one run directory would race on state.json.
-        running = next((j for j in self.jobs() if j["ticker"] == ticker and j["date"] == date
-                        and j["status"] == "running"), None)
+        running = next((j for j in self.jobs() if j["ticker"] == ticker and j["date"] == date and j["status"] == "running"), None)
         if running:
             raise ValueError(f"an analysis of {ticker} for {date} is already running (job {running['id']})")
         args = [ticker, date]
@@ -179,11 +198,26 @@ class Api:
         prompt = "/berkshire:analyze " + " ".join(args) + " (headless: do not ask questions; skip step 5)"
         # REQ-UI-06: the allowlist is the whole boundary, whatever the user's permission mode, and no MCP
         # server is loaded, so the job cannot reach eToro's order tools (D2). Analysts need the web tools.
-        argv = ["claude", "-p", prompt, "--permission-mode", "dontAsk", "--strict-mcp-config", "--allowedTools",
-                "Bash(berkshire *) Bash(date *) Read Write Agent WebSearch WebFetch"]
+        argv = [
+            "claude",
+            "-p",
+            prompt,
+            "--permission-mode",
+            "dontAsk",
+            "--strict-mcp-config",
+            "--allowedTools",
+            "Bash(berkshire *) Bash(date *) Read Write Agent WebSearch WebFetch",
+        ]
         proc = self.spawn(argv, log)
-        job = {"id": job_id, "ticker": ticker, "date": date, "args": args, "log": str(log),
-               "started": datetime.now().isoformat(timespec="seconds"), "pid": getattr(proc, "pid", None)}
+        job = {
+            "id": job_id,
+            "ticker": ticker,
+            "date": date,
+            "args": args,
+            "log": str(log),
+            "started": datetime.now().isoformat(timespec="seconds"),
+            "pid": getattr(proc, "pid", None),
+        }
         self._jobs[job_id], self._procs[job_id] = job, proc
         config.atomic_write(log.with_suffix(".json"), json.dumps(job, indent=2))
         return self.job(job_id)
@@ -241,8 +275,11 @@ class Api:
             state = pipeline.stop_run(state, reason)
         killed = []
         for job in self.jobs():
-            if job["ticker"] == state["company_of_interest"] and job["date"] == state["trade_date"] \
-                    and job["status"] == "running":
+            if (
+                job["ticker"] == state["company_of_interest"]
+                and job["date"] == state["trade_date"]
+                and job["status"] == "running"
+            ):
                 self.kill(job)
                 record = {k: v for k, v in job.items() if k not in ("status", "log_tail")}
                 record["stopped"] = datetime.now().isoformat(timespec="seconds")
@@ -272,8 +309,9 @@ def changed(prev: dict, cur: dict) -> list[str]:
 def _job_process_alive(job: dict) -> bool:
     """The job's pid is alive AND still runs this job's analyze command (pids get reused)."""
     try:
-        cmd = subprocess.run(["ps", "-o", "command=", "-p", str(int(job["pid"]))], capture_output=True,
-                             text=True, timeout=5).stdout
+        cmd = subprocess.run(
+            ["ps", "-o", "command=", "-p", str(int(job["pid"]))], capture_output=True, text=True, timeout=5
+        ).stdout
     except (KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError):
         return False
     return f"/berkshire:analyze {job['ticker']} {job['date']}" in cmd
@@ -289,11 +327,13 @@ def _kill_job(job: dict) -> None:
 
 def _spawn_detached(argv, log_path: Path):
     log = open(log_path, "ab")  # noqa: SIM115 - the child owns it
-    return subprocess.Popen(argv, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                            start_new_session=True, cwd=str(Path.home()))
+    return subprocess.Popen(
+        argv, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True, cwd=str(Path.home())
+    )
 
 
 # --- routing (pure) -----------------------------------------------------------
+
 
 def route(method: str, path: str, body: dict | None, api: Api) -> tuple[int, object]:
     parts = [unquote(p) for p in urlparse(path).path.strip("/").split("/")][1:]  # drop "api"
@@ -331,6 +371,7 @@ def route(method: str, path: str, body: dict | None, api: Api) -> tuple[int, obj
 
 
 # --- HTTP -------------------------------------------------------------------
+
 
 def _make_handler(api: Api, token: str, dist: Path, poll: float):
     class Handler(BaseHTTPRequestHandler):
@@ -409,9 +450,14 @@ def _make_handler(api: Api, token: str, dist: Path, poll: float):
             target = static_path(dist, self.path)
             if not target.is_file():
                 if not (dist / "index.html").is_file():
-                    return self._write(200, "text/html", (
-                        b"<h1>Berkshire</h1><p>The web UI is not built. Run <code>npm ci && npm run build</code> "
-                        b"in <code>webui/</code>, or use <code>berkshire tui</code>.</p>"))
+                    return self._write(
+                        200,
+                        "text/html",
+                        (
+                            b"<h1>Berkshire</h1><p>The web UI is not built. Run <code>npm ci && npm run build</code> "
+                            b"in <code>webui/</code>, or use <code>berkshire tui</code>.</p>"
+                        ),
+                    )
                 target = dist / "index.html"
             self._write(200, _CTYPES.get(target.suffix, "application/octet-stream"), target.read_bytes())
 
@@ -425,8 +471,9 @@ def registry_path() -> Path:
     return config.home() / "server.json"
 
 
-def serve(port: int = DEFAULT_PORT, api: Api | None = None, tries: int = 20, poll: float = 1.0,
-          dist: Path = DIST, register: bool = True):
+def serve(
+    port: int = DEFAULT_PORT, api: Api | None = None, tries: int = 20, poll: float = 1.0, dist: Path = DIST, register: bool = True
+):
     """Bind the first free port from `port`, write the registry, return (httpd, info)."""
     api = api or Api()
     token = secrets.token_urlsafe(24)
@@ -441,8 +488,14 @@ def serve(port: int = DEFAULT_PORT, api: Api | None = None, tries: int = 20, pol
         raise OSError(f"no free port in {port}..{port + tries - 1}: {last}")
     httpd.daemon_threads = True
     bound = httpd.server_address[1]
-    info = {"pid": os.getpid(), "port": bound, "token": token, "url": f"http://127.0.0.1:{bound}/?t={token}",
-            "started": datetime.now().isoformat(timespec="seconds"), "home": str(api.home)}
+    info = {
+        "pid": os.getpid(),
+        "port": bound,
+        "token": token,
+        "url": f"http://127.0.0.1:{bound}/?t={token}",
+        "started": datetime.now().isoformat(timespec="seconds"),
+        "home": str(api.home),
+    }
     if register:
         reg = registry_path()
         config.atomic_write(reg, json.dumps(info, indent=2))
@@ -456,6 +509,7 @@ def run_forever(port: int = DEFAULT_PORT) -> None:
 
     def stop(*_):
         threading.Thread(target=httpd.shutdown, daemon=True).start()
+
     signal.signal(signal.SIGTERM, stop)
     try:
         httpd.serve_forever()

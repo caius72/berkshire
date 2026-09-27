@@ -110,8 +110,13 @@ def worklist(ledger: dict, open_prs: list[dict]) -> dict:
     new, updated, unchanged = [], [], []
     for pr in sorted(open_prs, key=lambda p: p["number"]):
         row = known.get(pr["number"])
-        item = {"number": pr["number"], "title": pr.get("title", ""), "head": pr.get("headRefOid", "")[:12],
-                "draft": pr.get("isDraft", False), "updated": pr.get("updatedAt", "")[:10]}
+        item = {
+            "number": pr["number"],
+            "title": pr.get("title", ""),
+            "head": pr.get("headRefOid", "")[:12],
+            "draft": pr.get("isDraft", False),
+            "updated": pr.get("updatedAt", "")[:10],
+        }
         if row is None:
             new.append(item)
         elif not pr.get("headRefOid", "").startswith(row["Head"]):
