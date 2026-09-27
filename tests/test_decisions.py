@@ -47,13 +47,18 @@ def test_optional_float(raw, expected):
     ("Rating：Underweight", "Underweight"),                       # fullwidth colon (NFKC)
     ("Rating Scale: Buy, Overweight, Hold\nRating: Hold", "Hold"),  # legend ignored
     ("**Rating**: Sell\n(Rating scale: Buy / Overweight / Hold)", "Sell"),  # trailing legend ignored
-    ("Rating: Buy\n...on reflection...\nRating: Hold", "Hold"),     # last label wins
+    ("Rating: Buy\n...on reflection...\nRating: Hold", None),       # two rating lines disagree: no call
+    ("Buy was argued. Final rating — Underweight. Trim.", "Underweight"),  # label inside prose
+    ("**Rating**: Hold\n\nStreet consensus rating: Buy (28 of 35).", "Hold"),     # quoted in a sentence
+    ("**Rating**: Hold\n\nOperating margin: Sell-side estimates sit low.", "Hold"),  # not a word-start label
+    ("Our rating: Hold\n- Rating: Buy (Goldman)\n| Rating: Buy | MS |\n> Rating: Buy", "Hold"),  # list, table, quote
+    ("## Final Rating - Sell\n\nExit.", "Sell"),                  # heading with one qualifier word
     ("We recommend a Sell here.", "Sell"),                        # single bare word
     ("Buyers are holding back.", None),                           # no word-boundary match
     ("Not a Buy; we conclude Underweight.", None),                # two ratings, no label
     ("", None)])
 def test_rating_parser(text, expected):
-    """TST-OUT-05: Rating parser: last label, legend skipped, bare word only if unique [REQ-OUT-04, REQ-OUT-05]"""
+    """TST-OUT-05: Rating parser: the decision's own rating line, not a quoted one; legend skipped; bare word only if unique [REQ-OUT-04, REQ-OUT-05]"""
     assert d.extract_rating(text) == expected
     assert d.parse_rating(text) == (expected or "REVIEW")
 

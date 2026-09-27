@@ -20,13 +20,14 @@ class DecisionLog:
         self.max_entries = max_entries
 
     # -- write ---------------------------------------------------------------
-    def store(self, ticker: str, trade_date: str, decision: str) -> bool:
-        """Append a pending entry; a second one for ticker+date is a no-op (REQ-MEM-02)."""
+    def store(self, ticker: str, trade_date: str, decision: str, rating: str | None = None) -> bool:
+        """Append a pending entry; a second one for ticker+date is a no-op (REQ-MEM-02).
+        `rating` is the run's signal; the decision text is parsed only when it is not given."""
         text = self.path.read_text(encoding="utf-8") if self.path.exists() else ""
         prefix = f"[{trade_date} | {ticker} |"
         if any(line.startswith(prefix) and line.endswith("]") for line in text.splitlines()):
             return False
-        entry = f"[{trade_date} | {ticker} | {parse_rating(decision)} | pending]\n\nDECISION:\n{decision}{SEPARATOR}"
+        entry = f"[{trade_date} | {ticker} | {rating or parse_rating(decision)} | pending]\n\nDECISION:\n{decision}{SEPARATOR}"
         atomic_write(self.path, text + entry)
         return True
 

@@ -91,7 +91,8 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-OUT-02 | With several JSON blocks the last one is used | REQ-OUT-01 | T | Draft + final block. |
 | TST-OUT-03 | Missing, malformed or invalid JSON falls back to free text with an error | REQ-OUT-02 | T | Three negative inputs (none, broken JSON, enum violation). |
 | TST-OUT-04 | Prices coerce; placeholders, percentages, ranges and hedges become null | REQ-OUT-03 | T | 12-row equivalence-class table. |
-| TST-OUT-05 | Rating parser: last label, legend skipped, bare word only if unique | REQ-OUT-04, REQ-OUT-05 | T | 9-row table incl. fullwidth colon, legend, two labels, two bare ratings, "Buyers/holding". |
+| TST-OUT-05 | Rating parser: the decision's own rating line, not a quoted one; legend skipped; bare word only if unique | REQ-OUT-04, REQ-OUT-05 | T | 15-row table incl. fullwidth colon, legend, two disagreeing rating lines → none, a label in prose, ratings quoted in a sentence, list, table and quote (TradingAgents #1383), "Operating margin: Sell-side", "Buyers/holding". |
+| TST-OUT-11 | The Portfolio Manager's typed rating is the run signal and the logged rating; a rating its text quotes never replaces it | REQ-OUT-04 | T | Canned run: PM JSON Hold with "Street consensus rating: Buy" in the thesis → signal Hold, memory log Hold. |
 | TST-OUT-06 | Sentiment score bounded 0-10; band and confidence restricted | REQ-OUT-06 | T | Out-of-range score, unknown band/confidence, N/A score; case-normalised valid payload. |
 | TST-OUT-07 | Structured outputs render to TradingAgents markdown and the signal is parsed | REQ-OUT-01, REQ-OUT-04 | T | Full canned run: signal Buy, rendered headers, "$290.00" stop coerced, no warnings. |
 | TST-OUT-08 | A final decision without a rating yields REVIEW and is logged as REVIEW | REQ-OUT-05, REQ-OUT-02 | T | PM emits prose without rating/JSON; signal and log tag REVIEW; warning recorded. |
@@ -328,7 +329,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-OUT-01 | TST-OUT-01, TST-OUT-02, TST-OUT-07, TST-OUT-10 |
 | REQ-OUT-02 | TST-OUT-03, TST-OUT-08 |
 | REQ-OUT-03 | TST-OUT-04, TST-OUT-10 |
-| REQ-OUT-04 | TST-OUT-05, TST-OUT-07 |
+| REQ-OUT-04 | TST-OUT-05, TST-OUT-07, TST-OUT-11 |
 | REQ-OUT-05 | TST-OUT-05, TST-OUT-08 |
 | REQ-OUT-06 | TST-OUT-06 |
 | REQ-OUT-07 | TST-OUT-09, TST-OUT-10 |

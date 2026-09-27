@@ -18,7 +18,12 @@ REVIEW = "REVIEW"
 
 # --- rating parser (REQ-OUT-04/05) -----------------------------------------
 
-_LABEL_RE = re.compile(r"rating\b[^:\-‐-―]*[:\-‐-―][\s*]*(\w+)", re.IGNORECASE)
+# "rating" must start a word, so "Operating margin: Sell-side" is not a label (TradingAgents #1383).
+_LABEL_RE = re.compile(r"(?<![a-z])rating\b[^:\-‐-―]*[:\-‐-―][\s*]*(\w+)", re.IGNORECASE)
+# The label opening its own line ("**Rating**: X", "## Final Rating - X", "Our rating: X"): the shape a
+# decision states its call in. Only emphasis or heading marks and one word may precede it, so a list item,
+# table row, quote or sentence citing someone else's rating is not one.
+_LINE_RE = re.compile(r"[\s*_#]*(?:\w+\s+)?rating[^\w:\-‐-―]*[:\-‐-―][\s*]*(\w+)", re.IGNORECASE)
 _SCALE_RE = re.compile(r"rating\s*(scale|options|legend)", re.IGNORECASE)
 _WORD_RE = re.compile(r"\b(" + "|".join(RATINGS) + r")\b", re.IGNORECASE)
 _RATING_SET = {r.lower() for r in RATINGS}
@@ -28,13 +33,20 @@ def extract_rating(text: str) -> str | None:
     if not text:
         return None
     norm = unicodedata.normalize("NFKC", text)
-    labelled = None
+    own_lines, labelled = set(), None
     for line in norm.splitlines():
         if _SCALE_RE.search(line):
             continue
+        m = _LINE_RE.match(line)
+        if m and m.group(1).lower() in _RATING_SET:
+            own_lines.add(m.group(1).capitalize())
         m = _LABEL_RE.search(line)
         if m and m.group(1).lower() in _RATING_SET:
             labelled = m.group(1).capitalize()
+    # A rating line is the call; two that disagree are no call (REVIEW), since a wrong direction is
+    # worse than none. Without one, the last label anywhere: prose states its rating after the alternatives.
+    if own_lines:
+        return own_lines.pop() if len(own_lines) == 1 else None
     if labelled:
         return labelled
     named = {m.group(1).capitalize() for m in _WORD_RE.finditer(norm)}
