@@ -1,6 +1,6 @@
 {
   "name": "berkshire",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "TradingAgents-style multi-agent trading firm for Claude Code: analyst team, bull/bear debate, trader, risk debate and portfolio manager, with a decision log that learns, a risk gate, and human-approved execution on eToro.",
   "author": {"name": "Kai Tuschner"},
   "keywords": ["trading", "multi-agent", "etoro", "tradingagents"]

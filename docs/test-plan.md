@@ -62,6 +62,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-ROLE-09 | For a fund, the Fundamentals Analyst uses etf_profile instead of company tools and never infers undisclosed concentration | REQ-ROLE-03, REQ-FLOW-10 | I | Persona text for the fund branch. |
 | TST-ROLE-10 | The Sentiment Analyst drops off-topic social posts and reports on-topic and stance counts per source | REQ-ROLE-03 | I | Persona text: off-topic cases (list, spam, shared symbol), four stance classes incl. untagged posts, the count line, ratios and confidence on on-topic posts, StockTwits tag split kept separate. |
 | TST-ROLE-11 | For an index, commodity or currency pair, the Fundamentals Analyst researches macro drivers on the web instead of calling company tools | REQ-ROLE-03, REQ-FLOW-11 | I | Persona: WebSearch/WebFetch tools, the no-company-tools rule, per-mode drivers, point-in-time rule; the trigger phrase matches the engine's context. |
+| TST-ROLE-12 | Every analyst with data or web tools declares a turn bound, and the pipeline loop treats a stop without output as a failed step | REQ-ROLE-07, REQ-SCHED-05 | I | Agents whose tools include Bash, WebSearch or WebFetch have a positive integer `maxTurns`; decision roles have none; `pipeline-loop.md` names the turn limit in its failure rule. |
 | TST-FLOW-01 | A full run visits the teams in TradingAgents order | REQ-FLOW-01 | T | Canned run, default config; flattened step trace equals the expected 12-step sequence. |
 | TST-FLOW-02 | Selected analysts are offered as one parallel batch; debate waits for all | REQ-FLOW-02 | T | First `next_steps` = 4 analysts; after 3 submits only the 4th is due. |
 | TST-FLOW-03 | Bull opens and the debate alternates for 2 x rounds turns | REQ-FLOW-03 | T | Parametrised rounds 1/2/3; debate trace = bull_1, bear_2, … (2R entries). |
@@ -141,6 +142,7 @@ Type: T = automated test, I = automated inspection, D = manual demonstration.
 | TST-BT-02 | Cells already in the backtest log are skipped | REQ-BT-02 | T | One logged cell of four. |
 | TST-BT-03 | Summary counts resolved/pending/unscored and scores hit rate and mean alpha per rating | REQ-BT-03 | T | Hand-computed per-rating stats; Hold has no hit rate; render text. |
 | TST-BT-04 | Runs under a backtest home are refused by enqueue | REQ-BT-04 | T | Intent file under backtest home → skipped. |
+| TST-BT-05 | Backtest summaries carry the model look-ahead caveat, and the skill flags cells before the model's cutoff | REQ-BT-05 | T | `summarize()` has `caveat`; `render()` ends with it; `/api/backtests` passes it; the dashboard shows it; skill text names the knowledge cutoff. |
 | TST-RISK-01 | Buy -> full target, Overweight -> half, Underweight -> close half, Sell -> close all, Hold/REVIEW -> none | REQ-RISK-01 | T | Decision table rating × held/flat. |
 | TST-RISK-02 | Amount is the smallest of target gap, order cap, instrument cap and cash floor | REQ-RISK-02 | T | Each cap made binding in turn (4 parametrised cases). |
 | TST-RISK-03 | Tiny amounts, unknown equity or no ask produce no order | REQ-RISK-02 | T | Negative inputs. |
@@ -303,6 +305,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-ROLE-04 | TST-ROLE-04 |
 | REQ-ROLE-05 | TST-ROLE-05, TST-ROLE-07 |
 | REQ-ROLE-06 | TST-ROLE-06 |
+| REQ-ROLE-07 | TST-ROLE-12 |
 | REQ-FLOW-01 | TST-FLOW-01 |
 | REQ-FLOW-02 | TST-FLOW-02, TST-FLOW-10 |
 | REQ-FLOW-03 | TST-FLOW-03 |
@@ -368,6 +371,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-BT-02 | TST-BT-02 |
 | REQ-BT-03 | TST-BT-03 |
 | REQ-BT-04 | TST-BT-04 |
+| REQ-BT-05 | TST-BT-05 |
 | REQ-RISK-01 | TST-RISK-01 |
 | REQ-RISK-02 | TST-RISK-02, TST-RISK-03 |
 | REQ-RISK-03 | TST-RISK-04 |
@@ -388,7 +392,7 @@ Derived from §2. `test_traceability.py` fails if this section drifts from the t
 | REQ-SCHED-02 | TST-SCHED-02 |
 | REQ-SCHED-03 | TST-CKPT-03, TST-SCHED-03 |
 | REQ-SCHED-04 | TST-SCHED-04 |
-| REQ-SCHED-05 | TST-SCHED-05 |
+| REQ-SCHED-05 | TST-ROLE-12, TST-SCHED-05 |
 | REQ-SAFE-01 | TST-SAFE-01 |
 | REQ-SAFE-02 | TST-CKPT-01, TST-SAFE-02 |
 | REQ-SAFE-03 | TST-RPT-01 |

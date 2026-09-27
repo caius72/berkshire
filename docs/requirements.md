@@ -36,6 +36,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-ROLE-04 | M | Researchers, debaters, managers and the Trader shall decide only on the evidence in their prompt. They are not given web or data tools. | I |
 | REQ-ROLE-05 | M | Each role's persona shall keep the substantive directives of the TradingAgents prompt: the bull/bear focus points, the risk stances, the Trader's absolute price levels, the judges' rating scales and anti-Hold guidance, and the end-of-report markdown table for analysts. | I |
 | REQ-ROLE-06 | S | The Market Analyst shall pick up to 8 complementary indicators from the TradingAgents indicator catalogue. | I |
+| REQ-ROLE-07 | M | Every analyst with data or web tools shall declare a turn bound (`maxTurns`). An analyst that reaches it without writing its output file fails the step through the normal no-output path: one retry, then the run stops, and a tick records the instrument as failed and moves on. A looping analyst cannot stall a run or a tick. | I |
 
 ## 2. Pipeline and routing (REQ-FLOW)
 
@@ -146,6 +147,7 @@ verified by at least one test in [test-plan.md](test-plan.md). The traceability 
 | REQ-BT-02 | M | Re-running with the same run id shall skip cells that are already in its log. | T |
 | REQ-BT-03 | M | The summary shall report resolved/pending/unscored counts, and per rating: n, directional hit rate (none for Hold), and mean alpha. | T |
 | REQ-BT-04 | M | Backtest cells shall never create orders. | T |
+| REQ-BT-05 | M | Every backtest summary (CLI text, `--json`, dashboard) shall state that the point-in-time guards limit the data the agents see, not what the models learned in training: cells dated before the models' training cutoff are historically grounded simulations, not causal backtests. The backtest skill shall tell the user which cells fall before the session model's knowledge cutoff. | T |
 
 ## 11. Risk gate and order mapping (REQ-RISK)
 

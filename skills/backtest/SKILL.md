@@ -19,6 +19,10 @@ Arguments: `$ARGUMENTS`
 1. `berkshire backtest plan TICKERS --start S --end E --every N [--run-id ID]` returns `run_id`, `home`,
    the `cells` still to run, and the `skipped` count (cells already done under this run id). Tell the user
    how many cells will run. Every cell is a full multi-agent run, so warn if there are more than 20.
+   Compare the grid with your own knowledge cutoff (from your system prompt). Tell the user how many cells
+   fall before it: there the models may already know how the date turned out, so those cells are
+   historically grounded simulations, not a test of skill. Suggest dates after the cutoff for that. If you
+   do not know your cutoff, say that every cell may be affected.
 2. For every cell, prefix **every** engine call with `ENV = "BERKSHIRE_HOME=<home> "`, so the live decision
    log and order queue are never touched:
    - `ENV berkshire init <ticker> <date> [--analysts …] [--depth …] [--asset-type …]`
@@ -27,6 +31,6 @@ Arguments: `$ARGUMENTS`
 3. Settle: `ENV berkshire settle --all`. Launch a `berkshire:reflector` agent for each item, then
    `ENV berkshire settle --apply`. Cells whose holding window has not traded yet stay pending.
 4. `berkshire backtest summary <run_id>` prints resolved, pending and unscored counts, and per rating:
-   n, hit rate and mean alpha. Show it with the failures.
+   n, hit rate and mean alpha, and ends with the look-ahead caveat. Show it, caveat included, with the failures.
 
 Never run `gate`, `enqueue`, or any eToro tool in a backtest. Re-running with the same `--run-id` resumes.

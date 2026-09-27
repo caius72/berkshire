@@ -25,7 +25,8 @@ Given `RUN` (the `run_dir` from `berkshire init`) and an optional env prefix `EN
      ```
 4. After each agent returns, run `ENV berkshire submit RUN <id>`.
    - An error saying the run was stopped means the user stopped it mid-step. Stop dispatching and report it.
-   - An `{"error": …}` saying there is no output file means the agent failed. Re-run that
+   - An `{"error": …}` saying there is no output file means the agent failed, including an analyst
+     that stopped at its turn limit (`maxTurns`) before writing its file. Re-run that
      one step once. If it fails again, stop and report it. The state is kept, so
      `--checkpoint` resumes from here.
    - Any `warnings` (e.g. structured JSON fell back to free text) are shown in the final summary.
