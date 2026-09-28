@@ -2,7 +2,7 @@
   {
     "rule": "py/command-line-injection",
     "file": "berkshire/server.py",
-    "reviewed": "2026-09-25",
-    "reason": "POST /api/jobs starting `claude -p /berkshire:analyze` is the feature (REQ-UI-06). argv is a list (no shell); the ticker must match config.safe_component's [A-Za-z0-9^=._-] pattern, the date must round-trip strptime/strftime and not be in the future, analysts and depth are constants chosen by the request, and the endpoint needs the loopback-only per-process token (REQ-UI-02). Covered by TST-UI-07."
+    "reviewed": "2026-09-28",
+    "reason": "POST /api/jobs starting `claude -p /berkshire:analyze` is the feature (REQ-UI-06). argv is a list passed to Popen (no shell). The prompt is fully determined by validated values: the ticker must match config.safe_component's pattern (first character alphanumeric, ^ or =; no spaces; no '..'), so it cannot add words or become a flag; the date must round-trip strptime/strftime and not be in the future; analysts and depth are the built-in constants, never the request's strings. The endpoint needs the loopback-only per-process token (REQ-UI-02), and the job runs with --permission-mode dontAsk and --strict-mcp-config, so no order tool is reachable. Pinned by TST-UI-07, including a leading-dash and a spaced ticker. Code scanning alert #1 is dismissed as won't fix with this reason."
   }
 ]
