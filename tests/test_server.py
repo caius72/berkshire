@@ -154,6 +154,12 @@ def test_start_job(api, spawned):
     assert server.route("GET", "/api/jobs", None, api)[1][0]["id"] == job["id"]
     for bad, msg in (
         ({"ticker": "../x"}, "unsafe"),
+        # The ticker lands in the job's command line (CodeQL py/command-line-injection, triaged in
+        # .github/codeql-reviewed.json): it may not become a flag of /berkshire:analyze or add words to it.
+        ({"ticker": "--clear-checkpoints"}, "unsafe"),
+        ({"ticker": "-X"}, "unsafe"),
+        ({"ticker": "NVDA --depth deep"}, "unsafe"),
+        ({"ticker": "NVDA;rm"}, "unsafe"),
         ({"ticker": "NVDA", "date": "2099-01-01"}, "future"),
         ({"ticker": "NVDA", "analysts": ["astrology"]}, "unknown analyst"),
         ({"ticker": "NVDA", "depth": "extreme"}, "depth"),
